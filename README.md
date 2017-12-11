@@ -1,19 +1,12 @@
 xiSPEC_ms_parser
 
-mkdir dbs
-
-mkdir dbs/tmp
-
-mkdir dbs/saved
-
 mkdir ../uploads
 
 virtualenv python_env
 
 source python_env/bin/activate
 
-pip install -r requirements.txt
-
+pip install -r requirements.txt //pyteomics module has some changes so for the time being you need to checkout HEAD again afterwards
 
 sqlite3 dbs/xiSPEC.db
 
