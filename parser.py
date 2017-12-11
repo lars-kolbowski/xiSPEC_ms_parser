@@ -11,55 +11,57 @@ import shutil
 import logging
 import ntpath
 
-abspath = os.path.abspath(__file__)
-dname = os.path.dirname(abspath)
-os.chdir(dname)
-
-
-dev = False
-unimodPath = dname+'/obo/unimod.obo'
 try:
-    mzidFile = sys.argv[1]
-    peakList_file = sys.argv[2]
-    upload_folder = "../uploads/" + sys.argv[3]
-    # unimodPath = 'obo/unimod.obo'
+    abspath = os.path.abspath(__file__)
+    dname = os.path.dirname(abspath)
+    os.chdir(dname)
 
-except IndexError:
-    dev = True
-    # unimodPath = 'unimod.obo'
-    baseDir = "/home/lars/work/xiSPEC/"
-    mzidFile = baseDir + "DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
-    # mzidFile = baseDir + 'OpenxQuest_example_added_annotations.mzid'
 
-    peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
-    # peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf"
+    dev = False
+    unimodPath = dname+'/obo/unimod.obo'
+    try:
+        mzidFile = sys.argv[1]
+        peakList_file = sys.argv[2]
+        upload_folder = "../uploads/" + sys.argv[3]
+        # unimodPath = 'obo/unimod.obo'
 
-if dev:
-    logFile = "/home/lars/Xi/xiSPEC/log/parser.log"
-else:
-    logFile = dname+"/log/" + sys.argv[3] + ".log"
-    if not os.path.exists(logFile):
-        open(logFile, 'w').close()
+    except IndexError:
+        dev = True
+        # unimodPath = 'unimod.obo'
+        baseDir = "/home/lars/work/xiSPEC/"
+        mzidFile = baseDir + "DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
+        # mzidFile = baseDir + 'OpenxQuest_example_added_annotations.mzid'
 
-if not os.path.isfile(logFile):
-    os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
-    # open(logFile, 'a').close()
+        peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
+        # peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf"
 
-logging.basicConfig(filename=logFile, level=logging.DEBUG,
-                    format='%(asctime)s %(levelname)s %(name)s %(message)s')
-logger = logging.getLogger(__name__)
+    if dev:
+        logFile = "/home/lars/Xi/xiSPEC/log/parser.log"
+    else:
+        logFile = dname+"/log/" + sys.argv[3] + ".log"
+        if not os.path.exists(logFile):
+            open(logFile, 'w').close()
 
-unimod_masses = {}
+    if not os.path.isfile(logFile):
+        os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
+        # open(logFile, 'a').close()
 
-with open(unimodPath) as f:
-    for line in f:
-        if line.startswith('id: '):
-            id = ''.join(line.replace('id: ', '').split())
+    logging.basicConfig(filename=logFile, level=logging.DEBUG,
+                        format='%(asctime)s %(levelname)s %(name)s %(message)s')
+    logger = logging.getLogger(__name__)
 
-        elif line.startswith('xref: delta_mono_mass '):
-            mass = float(line.replace('xref: delta_mono_mass ', '').replace('"', ''))
-            unimod_masses[id] = mass
+    unimod_masses = {}
 
+    with open(unimodPath) as f:
+        for line in f:
+            if line.startswith('id: '):
+                id = ''.join(line.replace('id: ', '').split())
+
+            elif line.startswith('xref: delta_mono_mass '):
+                mass = float(line.replace('xref: delta_mono_mass ', '').replace('"', ''))
+                unimod_masses[id] = mass
+except Exception as e:
+    print e
 
 def path_leaf(path):
     head, tail = ntpath.split(path)
