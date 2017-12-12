@@ -10,24 +10,30 @@ import os
 import shutil
 import logging
 import ntpath
+import pandas as pd
+
+
 
 try:
     abspath = os.path.abspath(__file__)
     dname = os.path.dirname(abspath)
     os.chdir(dname)
+except NameError:
+    dname = ''
 
+try:
+    import xiSPEC_sqlite as db
 
     dev = False
-    unimodPath = dname+'/obo/unimod.obo'
+    unimodPath = 'obo/unimod.obo'
     try:
         mzidFile = sys.argv[1]
         peakList_file = sys.argv[2]
         upload_folder = "../uploads/" + sys.argv[3]
-        # unimodPath = 'obo/unimod.obo'
 
     except IndexError:
         dev = True
-        # unimodPath = 'unimod.obo'
+
         baseDir = "/home/lars/work/xiSPEC/"
         mzidFile = baseDir + "DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
         # mzidFile = baseDir + 'OpenxQuest_example_added_annotations.mzid'
@@ -36,7 +42,7 @@ try:
         # peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf"
 
     if dev:
-        logFile = "/home/lars/Xi/xiSPEC/log/parser.log"
+        logFile = "log/parser.log"
     else:
         logFile = dname+"/log/" + sys.argv[3] + ".log"
         if not os.path.exists(logFile):
@@ -63,38 +69,10 @@ try:
 except Exception as e:
     print e
 
+
 def path_leaf(path):
     head, tail = ntpath.split(path)
     return tail or ntpath.basename(head)
-
-
-def write_to_db(inj_list, cur):
-    try:
-        cur.executemany("""
-INSERT INTO identifications (
-    'id',
-    'mzid',
-    'pep1',
-    'pep2',
-    'linkpos1',
-    'linkpos2',
-    'charge',
-    'passThreshold',
-    'fragTolerance',
-    'ionTypes',
-    'crosslinker_modMass',
-    'rank',
-    'scores',
-    'isDecoy',
-    'protein',
-    'file',
-    'scanID',
-    'peakList_id'
-)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", inj_list)
-    except sqlite3.Error as err:
-        return err
-    return True
 
 
 def add_to_modlist(mod, modlist):
@@ -370,7 +348,7 @@ def get_ion_types_mzml(mzml_scan):
 def get_cross_link_identifier(sid_item):
     # For reporting the evidence associated with the identification, within a given <SpectrumIdentificationResult>,
     # a pair of cross-linked peptides MUST be reported as two instances of <SpectrumIdentificationItem> through having
-    # a shared local unique identifier as the value for the CV term "cross-link spectrum identification item" (MS:1002511).
+    # a shared local unique identifier as the value for the CV term "cross-link spectrum identification item" MS:1002511
     # The two instances of <SpectrumIdentificationItem> MUST also share the same value for the rank attribute.
     #
     # If a cross-linked pair of peptides has been identified, there MUST be two
@@ -394,54 +372,28 @@ if not dev:
     except:
         os.mkdir(dbfolder)
 
+# connect to DB
 try:
     if dev:
-        con = sqlite3.connect('test.db')
+        dbName = 'test.db'
     else:
-        con = sqlite3.connect(dbfolder + sys.argv[3] + '.db')
+        dbName = dbfolder + sys.argv[3] + '.db'
+
+    con = db.connect(dbName)
     cur = con.cursor()
-    cur.execute("DROP TABLE IF EXISTS identifications")
-    cur.execute(
-        "CREATE TABLE identifications("
-        "id INT PRIMARY KEY, "
-        "mzid TEXT, "
-        "pep1 TEXT, "
-        "pep2 TEXT, "
-        "linkpos1 INT, "
-        "linkpos2 INT, "
-        "charge INT, "
-        "passThreshold INT, "
-        "fragTolerance TEXT, "
-        "ionTypes TEXT, "
-        "crosslinker_modMass FLOAT, "
-        "rank INT, "
-        "scores TEXT, "
-        "isDecoy INT, "
-        "protein TEXT, "
-        "file TEXT, "
-        "scanID INT, "
-        "peakList_id INT)"
-    )
-    cur.execute("DROP TABLE IF EXISTS modifications")
-    cur.execute(
-        "CREATE TABLE modifications("
-        "id INT PRIMARY KEY, "
-        "name TEXT, "
-        "mass FLOAT, "
-        "residues TEXT)"
-    )
-    cur.execute("DROP TABLE IF EXISTS peakLists")
-    cur.execute(
-        "CREATE TABLE peakLists("
-        "id INT PRIMARY KEY, "
-        "peakList TEXT)"
-    )
-
-
-except sqlite3.Error as e:
+except db.DBException:
     logger.error(e)
-    print(json.dumps({"error": e.args[0]}))
+    print(e)
     sys.exit(1)
+
+# create Database tables
+try:
+    db.create_tables(cur, con)
+except db.DBException as e:
+    logger.error(e)
+    print(e)
+    sys.exit(1)
+
 
 returnJSON = {
     "response": "",
@@ -673,24 +625,26 @@ try:
 
         if specIdItem_index % 500 == 0:
             logger.info('writing 500 entries to DB')
-            write_to_db(multipleInjList_identifications, cur)
-            multipleInjList_identifications = []
+            try:
+                multipleInjList_identifications = db.write_identifications(multipleInjList_identifications, cur, con)
+                multipleInjList_peakLists = db.write_peaklists(multipleInjList_peakLists, cur, con)
 
-            cur.executemany("""INSERT INTO peakLists ('id', 'peaklist') VALUES (?, ?)""", multipleInjList_peakLists)
-            multipleInjList_peakLists = []
+            except db.DBException as e:
+                returnJSON['errors'].append(
+                    {"type": "dbError",
+                     "message": e.args[0],
+                     'id': specIdItem_index
+                     })
+                sys.exit(1)
 
+            # commit changes
             con.commit()
-            # if dev:
-            #     break
 
     # once its done submit the last reqs to DB
     logger.info('writing remaining entries to DB')
-    if len(multipleInjList_identifications) > 0:
-        write_to_db(multipleInjList_identifications, cur)
-        multipleInjList_identifications = []
-
-        cur.executemany("""INSERT INTO peakLists ('id', 'peaklist') VALUES (?, ?)""", multipleInjList_peakLists)
-        multipleInjList_peakLists = []
+    try:
+        multipleInjList_identifications = db.write_identifications(multipleInjList_identifications, cur, con)
+        multipleInjList_peakLists = db.write_peaklists(multipleInjList_peakLists, cur, con)
 
         # modifications
         mod_index = 0
@@ -698,9 +652,18 @@ try:
         for mod in modifications:
             multipleInjList_modifications.append([mod_index, mod['id'], mod['mass'], ''.join(mod['aminoAcids'])])
             mod_index += 1
-        cur.executemany("""INSERT INTO modifications ('id', 'name', 'mass', 'residues') VALUES (?, ?, ?, ?)""", multipleInjList_modifications)
+        multipleInjList_modifications = db.write_modifications(multipleInjList_modifications, cur, con)
 
-        con.commit()
+    except db.DBException as e:
+        returnJSON['errors'].append(
+            {"type": "dbError",
+             "message": e.args[0],
+             'id': specIdItem_index
+             })
+        sys.exit(1)
+
+    # #commit changes
+    # con.commit()
 
     # delete uploaded files after they have been parsed
     if not dev:
