@@ -19,3 +19,5 @@ parser\.py3
 
 \.directory
 credentials.py
+
+*.pyc
