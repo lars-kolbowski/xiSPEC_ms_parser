@@ -10,12 +10,14 @@ import os
 import shutil
 import logging
 import ntpath
+import psycopg2
 
 try:
     abspath = os.path.abspath(__file__)
     dname = os.path.dirname(abspath)
     os.chdir(dname)
 
+    import credentials
 
     dev = False
     unimodPath = dname+'/obo/unimod.obo'
@@ -39,8 +41,8 @@ try:
         logFile = "/home/lars/Xi/xiSPEC/log/parser.log"
     else:
         logFile = dname+"/log/" + sys.argv[3] + ".log"
-        if not os.path.exists(logFile):
-            open(logFile, 'w').close()
+        #if not os.path.exists(logFile): #col was here
+        open(logFile, 'w').close()
 
     if not os.path.isfile(logFile):
         os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
@@ -62,6 +64,7 @@ try:
                 unimod_masses[id] = mass
 except Exception as e:
     print e
+    sys.exit()
 
 def path_leaf(path):
     head, tail = ntpath.split(path)
@@ -72,28 +75,27 @@ def write_to_db(inj_list, cur):
     try:
         cur.executemany("""
 INSERT INTO identifications (
-    'id',
-    'mzid',
-    'pep1',
-    'pep2',
-    'linkpos1',
-    'linkpos2',
-    'charge',
-    'passThreshold',
-    'fragTolerance',
-    'ionTypes',
-    'crosslinker_modMass',
-    'rank',
-    'scores',
-    'isDecoy',
-    'protein',
-    'file',
-    'scanID',
-    'peakList_id'
+    mzid,
+    pep1,
+    pep2,
+    linkpos1,
+    linkpos2,
+    charge,
+    "passThreshold",
+    "fragTolerance",
+    "ionTypes",
+    "crosslinker_modMass",
+    "rank",
+    scores,
+    "isDecoy",
+    protein,
+    file,
+    "scanID",
+    "peakList_id"
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", inj_list)
-    except sqlite3.Error as err:
-        return err
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", inj_list)
+    except Exception, e:
+        logger.error(e)
     return True
 
 
@@ -395,50 +397,52 @@ if not dev:
         os.mkdir(dbfolder)
 
 try:
-    if dev:
-        con = sqlite3.connect('test.db')
-    else:
-        con = sqlite3.connect(dbfolder + sys.argv[3] + '.db')
+    #~ if dev:
+        #~ con = sqlite3.connect('../test.db')
+    #~ else:
+        #~ con = sqlite3.connect(dbfolder + sys.argv[3] + '.db')
+    con = psycopg2.connect( host=credentials.hostname, user=credentials.username, password=credentials.password, dbname=credentials.database )
     cur = con.cursor()
-    cur.execute("DROP TABLE IF EXISTS identifications")
-    cur.execute(
-        "CREATE TABLE identifications("
-        "id INT PRIMARY KEY, "
-        "mzid TEXT, "
-        "pep1 TEXT, "
-        "pep2 TEXT, "
-        "linkpos1 INT, "
-        "linkpos2 INT, "
-        "charge INT, "
-        "passThreshold INT, "
-        "fragTolerance TEXT, "
-        "ionTypes TEXT, "
-        "crosslinker_modMass FLOAT, "
-        "rank INT, "
-        "scores TEXT, "
-        "isDecoy INT, "
-        "protein TEXT, "
-        "file TEXT, "
-        "scanID INT, "
-        "peakList_id INT)"
-    )
-    cur.execute("DROP TABLE IF EXISTS modifications")
-    cur.execute(
-        "CREATE TABLE modifications("
-        "id INT PRIMARY KEY, "
-        "name TEXT, "
-        "mass FLOAT, "
-        "residues TEXT)"
-    )
-    cur.execute("DROP TABLE IF EXISTS peakLists")
-    cur.execute(
-        "CREATE TABLE peakLists("
-        "id INT PRIMARY KEY, "
-        "peakList TEXT)"
-    )
+
+    #~ cur.execute("DROP TABLE IF EXISTS identifications")
+    #~ cur.execute(
+        #~ "CREATE TABLE identifications("
+        #~ "id INT PRIMARY KEY, "
+        #~ "mzid TEXT, "
+        #~ "pep1 TEXT, "
+        #~ "pep2 TEXT, "
+        #~ "linkpos1 INT, "
+        #~ "linkpos2 INT, "
+        #~ "charge INT, "
+        #~ "passThreshold INT, "
+        #~ "fragTolerance TEXT, "
+        #~ "ionTypes TEXT, "
+        #~ "crosslinker_modMass FLOAT, "
+        #~ "rank INT, "
+        #~ "scores TEXT, "
+        #~ "isDecoy INT, "
+        #~ "protein TEXT, "
+        #~ "file TEXT, "
+        #~ "scanID INT, "
+        #~ "peakList_id INT)"
+    #~ )
+    #~ cur.execute("DROP TABLE IF EXISTS modifications")
+    #~ cur.execute(
+        #~ "CREATE TABLE modifications("
+        #~ "id INT PRIMARY KEY, "
+        #~ "name TEXT, "
+        #~ "mass FLOAT, "
+        #~ "residues TEXT)"
+    #~ )
+    #~ cur.execute("DROP TABLE IF EXISTS peakLists")
+    #~ cur.execute(
+        #~ "CREATE TABLE peakLists("
+        #~ "id INT PRIMARY KEY, "
+        #~ "peakList TEXT)"
+    #~ )
 
 
-except sqlite3.Error as e:
+except Exception as e:
     logger.error(e)
     print(json.dumps({"error": e.args[0]}))
     sys.exit(1)
@@ -636,7 +640,7 @@ try:
                 linkpos2 = -1
 
             multipleInjList_identifications.append(
-                [specIdItem_index,
+                [#specIdItem_index,
                  mzidItem['id'],
                  pep1,
                  pep2,
@@ -675,21 +679,23 @@ try:
             logger.info('writing 500 entries to DB')
             write_to_db(multipleInjList_identifications, cur)
             multipleInjList_identifications = []
+            try:
+                cur.executemany("""INSERT INTO "peakLists" (id, peaklist) VALUES ( %s, %s )""", multipleInjList_peakLists)
+                multipleInjList_peakLists = []
 
-            cur.executemany("""INSERT INTO peakLists ('id', 'peaklist') VALUES (?, ?)""", multipleInjList_peakLists)
-            multipleInjList_peakLists = []
-
-            con.commit()
+                con.commit()
+            except Exception, e:
+                logger.error(e.pgerror)
             # if dev:
             #     break
 
-    # once its done submit the last reqs to DB
+    #~ # once its done submit the last reqs to DB
     logger.info('writing remaining entries to DB')
     if len(multipleInjList_identifications) > 0:
         write_to_db(multipleInjList_identifications, cur)
         multipleInjList_identifications = []
 
-        cur.executemany("""INSERT INTO peakLists ('id', 'peaklist') VALUES (?, ?)""", multipleInjList_peakLists)
+        cur.executemany("""INSERT INTO "peakLists" (id, peaklist) VALUES ( %s, %s )""", multipleInjList_peakLists)
         multipleInjList_peakLists = []
 
         # modifications
@@ -698,7 +704,7 @@ try:
         for mod in modifications:
             multipleInjList_modifications.append([mod_index, mod['id'], mod['mass'], ''.join(mod['aminoAcids'])])
             mod_index += 1
-        cur.executemany("""INSERT INTO modifications ('id', 'name', 'mass', 'residues') VALUES (?, ?, ?, ?)""", multipleInjList_modifications)
+        cur.executemany("""INSERT INTO modifications (id, name, mass, residues) VALUES (%s, %s, %s, %s)""", multipleInjList_modifications)
 
         con.commit()
 
