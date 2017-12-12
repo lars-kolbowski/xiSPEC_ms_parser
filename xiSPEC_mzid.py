@@ -375,14 +375,14 @@ def parse(mzidReader, peak_list_file, unimod_path, cur, con, logger):
 
     # peakList file
     logger.info('reading peakList file - start')
-    peakList_fileName = ntpath.basename(peak_list_file).lower()
-    if peakList_fileName.endswith('.mzml'):
+    peak_list_file_name = ntpath.basename(peak_list_file).lower()
+    if peak_list_file_name.endswith('.mzml'):
         peakList_fileType = 'mzml'
         # premzml = mzml.PreIndexedMzML(mzml_file)
         # mzmlReader = py_mzml.read(peakList_file)
         pymzmlReader = pymzml.run.Reader(peak_list_file)
 
-    elif peakList_fileName.endswith('.mgf'):
+    elif peak_list_file_name.endswith('.mgf'):
         peakList_fileType = 'mgf'
         mgfReader = py_mgf.read(peak_list_file)
         peakListArr = [pl for pl in mgfReader]
