@@ -358,6 +358,8 @@ def parse(mzid_file, peak_list_file, unimod_path, cur, con, logger):
     unimod_masses = get_unimod_masses(unimod_path)
 
     return_json = {
+        "response": "",
+        "modifications": [],
         "errors": []
     }
 
@@ -391,13 +393,13 @@ def parse(mzid_file, peak_list_file, unimod_path, cur, con, logger):
     # main loop
     logger.info('entering main loop')
 
-    for mzidItem in mzid_reader:  # mzidItem = mzid_reader.next()
+    for mzid_item in mzid_reader:  # mzid_item = mzid_reader.next()
 
         # make_spec_id_pairs(mzid_item['SpectrumIdentificationItem'])
         spec_id_set = set()
         linear_index = -1  # negative index values for linear peptides
 
-        for specIdItem in mzidItem['SpectrumIdentificationItem']:
+        for specIdItem in mzid_item['SpectrumIdentificationItem']:
             if 'cross-link spectrum identification item' in specIdItem.keys():
                 spec_id_set.add(get_cross_link_identifier(specIdItem))
             else:  # assuming linear
@@ -408,10 +410,10 @@ def parse(mzid_file, peak_list_file, unimod_path, cur, con, logger):
 
         # extract scanID
         try:
-            scan_id = int(mzidItem['peak list scans'])
+            scan_id = int(mzid_item['peak list scans'])
         except KeyError:
             # ToDo: this might not work for all mzids. ProteomeDiscoverer 2.2 format 'scan=xx file=xx'
-            matches = re.findall("scan=([0-9]+)", mzidItem["spectrumID"])
+            matches = re.findall("scan=([0-9]+)", mzid_item["spectrumID"])
             if len(matches) > 0:
 
                 # ToDo: handle multiple scans? Is this standard compliant?
@@ -420,8 +422,8 @@ def parse(mzid_file, peak_list_file, unimod_path, cur, con, logger):
                 if len(scan_ids) > 1:
                     return_json['errors'].append(
                         {"type": "mzidParseError",
-                         "message": "More than one scan found for SpectrumIdentificationItem: %s" % mzidItem["spectrumID"],
-                         'id': mzidItem['id']
+                         "message": "More than one scan found for SpectrumIdentificationItem: %s" % mzid_item["spectrumID"],
+                         'id': mzid_item['id']
                         })
                     continue
                 else:
@@ -440,14 +442,14 @@ def parse(mzid_file, peak_list_file, unimod_path, cur, con, logger):
                 return_json['errors'].append({
                     "type": "mzmlParseError",
                     "message": "requested scanID %i not found in peakList file" % scan_id,
-                    'id': mzidItem['id']
+                    'id': mzid_item['id']
                 })
                 continue
             if scan['ms level'] == 1:
                 return_json['errors'].append({
                     "type": "mzmlParseError",
                     "message": "requested scanID %i is not a MSn scan" % scan_id,
-                    'id': mzidItem['id']
+                    'id': mzid_item['id']
                 })
                 continue
 
@@ -461,7 +463,7 @@ def parse(mzid_file, peak_list_file, unimod_path, cur, con, logger):
                 return_json['errors'].append({
                     "type": "mzmlParseError",
                     "message": "requested scanID %i not found in peakList file" % scan_id,
-                    'id': mzidItem['id']
+                    'id': mzid_item['id']
                 })
                 continue
             peaks = zip(scan['m/z array'], scan['intensity array'])
@@ -469,11 +471,11 @@ def parse(mzid_file, peak_list_file, unimod_path, cur, con, logger):
 
         multiple_inj_list_peak_lists.append([mzid_item_index, peak_list])
 
-        ms2_tol = spectra_data_protocol_map[mzidItem['spectraData_ref']]['fragmentTolerance']
+        ms2_tol = spectra_data_protocol_map[mzid_item['spectraData_ref']]['fragmentTolerance']
 
         # alternatives = []
         for SpecId in spec_id_set:
-            paired_spec_id_items = [sid_item for sid_item in mzidItem['SpectrumIdentificationItem'] if
+            paired_spec_id_items = [sid_item for sid_item in mzid_item['SpectrumIdentificationItem'] if
                                     sid_item['cross-link spectrum identification item'] == SpecId]
 
             # if len(paired_specIdItems) > 2:
@@ -497,7 +499,7 @@ def parse(mzid_file, peak_list_file, unimod_path, cur, con, logger):
             if len(pep_info['ions']) == 0:
                 pep_info['ions'] = ['peptide', 'b', 'y']
                 return_json['errors'].append(
-                    {"type": "IonParsing", "message": "could not parse fragment ions assuming precursor-, b- and y-ion", 'id': mzidItem['id']})
+                    {"type": "IonParsing", "message": "could not parse fragment ions assuming precursor-, b- and y-ion", 'id': mzid_item['id']})
 
             pep_info['ions'] = ';'.join(pep_info['ions'])
 
@@ -510,10 +512,10 @@ def parse(mzid_file, peak_list_file, unimod_path, cur, con, logger):
 
             # raw file name
             try:
-                raw_file_name = mzidItem['spectraData_ref']
+                raw_file_name = mzid_item['spectraData_ref']
             except KeyError:
                 return_json['errors'].append(
-                    {"type": "mzidParseError", "message": "no spectraData_ref specified", 'id': mzidItem['id']})
+                    {"type": "mzidParseError", "message": "no spectraData_ref specified", 'id': mzid_item['id']})
                 raw_file_name = ""
 
             try:
@@ -542,7 +544,7 @@ def parse(mzid_file, peak_list_file, unimod_path, cur, con, logger):
 
             multiple_inj_list_identifications.append(
                 [spec_id_item_index,
-                 mzidItem['id'],
+                 mzid_item['id'],
                  pep1,
                  pep2,
                  linkpos1,

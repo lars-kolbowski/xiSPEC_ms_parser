@@ -1,11 +1,8 @@
-import pyteomics.mzid as py_mzid
-# import pyteomics.mzml as py_mzml
 import json
 import sys
 import os
 import shutil
 import logging
-import xiSPEC_mzid as mzidParser
 import ntpath
 
 
@@ -17,6 +14,10 @@ try:
         os.chdir(dname)
     except NameError:
         dname = ''
+
+    # import local files
+    import xiSPEC_mzid as mzidParser
+    import xiSPEC_csv as csvParser
 
     # logging
     try:
@@ -91,37 +92,44 @@ except db.DBException as e:
 
 returnJSON = {
     "response": "",
+    "modifications": [],
     "errors": []
 }
 
 # parsing
 try:
-    logger.info('reading mzid - start')
-    # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
-    mzidReader = py_mzid.MzIdentML(identifications_file)
-    logger.info('reading mzid - done')
+    # Identification File
+    identifications_fileName = ntpath.basename(identifications_file)
+    if identifications_fileName.lower().endswith('.mzid'):
+        identifications_fileType = 'mzid'
 
-    mzidParser.parse(mzidReader, peakList_file, unimodPath, cur,  con, logger)
+        returnJSON = mzidParser.parse(identifications_file, peakList_file, unimodPath, cur,  con, logger)
+
+    elif identifications_fileName.endswith('.csv'):
+        identifications_fileType = 'csv'
+        returnJSON = csvParser.parse(identifications_file, peakList_file, cur, con, logger)
+        # mgfReader = py_mgf.read(peak_list_file)
+        # peakListArr = [pl for pl in mgfReader]
 
     # delete uploaded files after they have been parsed
     if not dev:
         logger.info('deleting uploaded files')
         shutil.rmtree(upload_folder)
 
-    if len(returnJSON["errors"]) > 0:
-        returnJSON['response'] = "Warning: %i error(s) occured!" % len(
-            returnJSON['errors'])
-        for e in returnJSON['errors']:
-            logger.error(e)
-    else:
-        returnJSON['response'] = "No errors, smooth sailing!"
-
-    print(json.dumps(returnJSON))
-    if con:
-        con.close()
-        logger.info('all done!')
-
 except Exception as e:
     logger.exception(e)
     returnJSON['errors'].append(
         {"type": "Error", "message": e})
+
+
+if len(returnJSON["errors"]) > 0:
+    returnJSON['response'] = "Warning: %i error(s) occured!" % len(
+        returnJSON['errors'])
+    for e in returnJSON['errors']:
+        logger.error(e)
+else:
+    returnJSON['response'] = "No errors, smooth sailing!"
+print(json.dumps(returnJSON))
+if con:
+    con.close()
+    logger.info('all done!')
