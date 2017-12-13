@@ -11,6 +11,8 @@ def parse(csv_file, peak_list_file, cur, con, logger):
     logger.info('reading csv - start')
     # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
     id_df = pd.read_csv(csv_file)
+    id_df.columns = [x.lower() for x in id_df.columns]
+
     logger.info('reading csv - done')
 
     # unimod_masses = get_unimod_masses(unimod_path)
@@ -47,7 +49,7 @@ def parse(csv_file, peak_list_file, cur, con, logger):
 
         # extract scan_id
         # try:
-        scan_id = int(id_item['scan_number'])
+        scan_id = int(id_item['scannumber'])
 
         # except KeyError:
         #     return_json['errors'].append(
@@ -102,12 +104,12 @@ def parse(csv_file, peak_list_file, cur, con, logger):
             rank = 1
 
         # peptides and link positions
-        pep1 = id_item['peptide1']
+        pep1 = id_item['peptide 1']
         try:
-            pep2 = id_item['peptide2']
-            linkpos1 = id_item['linkpos1']
-            linkpos2 = id_item['linkpos1']
-            cl_mod_mass = id_item['crosslinker_mod_mass']
+            pep2 = id_item['peptide 2']
+            linkpos1 = id_item['linkpos 1']
+            linkpos2 = id_item['linkpos 1']
+            cl_mod_mass = id_item['crosslinkermodmass']
         except KeyError:
             # linear
             pep2 = ""
@@ -120,12 +122,12 @@ def parse(csv_file, peak_list_file, cur, con, logger):
 
         # passThreshold
         try:
-            pass_threshold = 1 if id_item['passThreshold'] else 0
+            pass_threshold = 1 if id_item['passthreshold'] else 0
         except KeyError:
             pass_threshold = 1
 
         # fragment tolerance
-        frag_tol = id_item['fragment_tolerance'].split(' ', 1)
+        frag_tol = id_item['fragmenttolerance'].split(' ', 1)
         if frag_tol[1].lower() == 'parts per million':
             frag_tol[1] = 'ppm'
         elif frag_tol[1].lower() == 'dalton':
@@ -133,14 +135,14 @@ def parse(csv_file, peak_list_file, cur, con, logger):
         if frag_tol[1] not in ['ppm', 'Da']:
             return_json['errors'].append({
                 "type": "fragTolParseError",
-                "message": "unknown frament tolerance unit: %s\nSupported values are: ppm, Da" % frag_tol[1],
+                "message": "unknown fragment tolerance unit: %s\nSupported values are: ppm, Da" % frag_tol[1],
                 'id': id_item['id']
             })
             continue
         ms2_tol = ' '.join(frag_tol)
 
         # ion types
-        ion_types = id_item['ion_types'].lower()
+        ion_types = id_item['iontypes'].lower()
         unknown_ions = [ion for ion in ion_types.split(';') if ion not in ['peptide', 'a', 'b', 'c', 'x', 'y', 'z']]
         if len(unknown_ions) > 0:
             return_json['errors'].append({
@@ -155,16 +157,17 @@ def parse(csv_file, peak_list_file, cur, con, logger):
 
         # isDecoy
         try:
-            is_decoy = 0 if id_item['is_decoy'] else 1
+            is_decoy = 0 if id_item['isdecoy'] else 1
         except KeyError:
             is_decoy = 0
 
         # protein
-        protein = id_item['protein']
+        protein1 = id_item['protein 1']
+        protein2 = id_item['protein 2']
 
         # raw file name
         try:
-            raw_file_name = id_item['raw_file']
+            raw_file_name = id_item['runname']
         except KeyError:
             raw_file_name = ''
 
@@ -184,7 +187,8 @@ def parse(csv_file, peak_list_file, cur, con, logger):
              rank,
              score,
              is_decoy,
-             protein,
+             protein1,
+             protein2,
              raw_file_name,
              scan_id,
              id_item_index]

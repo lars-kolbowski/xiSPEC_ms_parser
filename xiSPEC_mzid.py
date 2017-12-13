@@ -227,6 +227,8 @@ def get_peptide_info(sid_items, mzid_reader, unimod_masses, logger):
         "oxidation": "ox"
     }
 
+    proteins = []
+
     pep_index = 0
     target_decoy = []
     for sid_item in sid_items:  # len = 1 for linear
@@ -241,8 +243,7 @@ def get_peptide_info(sid_items, mzid_reader, unimod_masses, logger):
         target_decoy.append({"peptideId": pep_index, 'isDecoy': decoy})  # TODO: multiple PeptideEvidenceRefs TD?
 
         # proteins
-        proteins = [mzid_reader.get_by_id(p['dBSequence_ref']) for p in peptide_evidences]
-        protein_accessions = [p['accession'] for p in proteins]
+        proteins.append([mzid_reader.get_by_id(p['dBSequence_ref']) for p in peptide_evidences][0])
 
         # convert pepsequence to dict
         pepId = sid_item['peptide_ref']
@@ -317,10 +318,17 @@ def get_peptide_info(sid_items, mzid_reader, unimod_masses, logger):
         peptide_seq_with_mods = ''.join([''.join([x['aminoAcid'], x['Modification']]) for x in pep_seq_dict])
         return_dict['peptides'].append(peptide_seq_with_mods)
 
+        # ToDo: use searchDatabase_ref
+        protein_accessions = [p['accession'] for p in proteins]
+
         # other parameters - should be the same for each paired sid
         return_dict['precursorCharge'] = sid_item['chargeState']
         return_dict['isDecoy'] = target_decoy
-        return_dict['proteins'] = protein_accessions
+        return_dict['protein1'] = protein_accessions[0]
+        try:
+            return_dict['protein2'] = protein_accessions[1]
+        except IndexError:
+            return_dict['protein2'] = ''
         return_dict['passThreshold'] = sid_item['passThreshold']
         return_dict['scores'] = {k: v for k, v in sid_item.iteritems()
                    if 'score' in k.lower() or 'pvalue' in k.lower() or 'evalue' in k.lower()}
@@ -503,13 +511,14 @@ def parse(mzid_file, peak_list_file, unimod_path, cur, con, logger):
 
             pep_info['ions'] = ';'.join(pep_info['ions'])
 
-                # extract other useful info to display
+            # extract other useful info to display
             rank = paired_spec_id_items[0]['rank']
 
             # ToDo: handling for mzid that don't include isDecoy
             isDecoy = any([pep['isDecoy'] for pep in pep_info['isDecoy']])
-            accessions = ";".join(pep_info['proteins'])
-
+            # accessions = ";".join(pep_info['proteins'])
+            protein1 = pep_info['protein1']
+            protein2 = pep_info['protein2']
             # raw file name
             try:
                 raw_file_name = mzid_item['spectraData_ref']
@@ -557,7 +566,8 @@ def parse(mzid_file, peak_list_file, unimod_path, cur, con, logger):
                  rank,
                  json.dumps(pep_info['scores']),
                  isDecoy,
-                 accessions,
+                 protein1,
+                 protein2,
                  raw_file_name,
                  scan_id,
                  mzid_item_index]
