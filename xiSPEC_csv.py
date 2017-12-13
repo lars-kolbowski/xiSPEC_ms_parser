@@ -8,14 +8,6 @@ import xiSPEC_sqlite as db
 
 
 def parse(csv_file, peak_list_file, cur, con, logger):
-    logger.info('reading csv - start')
-    # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
-    id_df = pd.read_csv(csv_file)
-    id_df.columns = [x.lower() for x in id_df.columns]
-
-    logger.info('reading csv - done')
-
-    # unimod_masses = get_unimod_masses(unimod_path)
 
     return_json = {
         "response": "",
@@ -23,9 +15,28 @@ def parse(csv_file, peak_list_file, cur, con, logger):
         "errors": []
     }
 
+    logger.info('reading csv - start')
+    # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
+    id_df = pd.read_csv(csv_file)
+    id_df.columns = [x.lower() for x in id_df.columns]
+
+    required_cols = ['id', 'scannumber', 'charge', 'pepseq 1', 'protein 1']
+
+    for header in required_cols:
+        if header not in id_df.columns:
+            return_json['errors'].append({
+                "type": "csvParseError",
+                "message": "Required csv column %s missing" % header,
+            })
+            return return_json
+
+    logger.info('reading csv - done')
+
+    # unimod_masses = get_unimod_masses(unimod_path)
+
     multiple_inj_list_identifications = []
     multiple_inj_list_peak_lists = []
-    modifications = []
+    # modifications = []
 
     # peakList file
     logger.info('reading peakList file - start')
@@ -104,9 +115,10 @@ def parse(csv_file, peak_list_file, cur, con, logger):
             rank = 1
 
         # peptides and link positions
-        pep1 = id_item['peptide 1']
+        pep1 = id_item['pepseq 1']
         try:
-            pep2 = id_item['peptide 2']
+            # ToDo: improve error handling for cl peptides
+            pep2 = id_item['pepseq 2']
             linkpos1 = id_item['linkpos 1']
             linkpos2 = id_item['linkpos 1']
             cl_mod_mass = id_item['crosslinkermodmass']
@@ -163,8 +175,10 @@ def parse(csv_file, peak_list_file, cur, con, logger):
 
         # protein
         protein1 = id_item['protein 1']
-        protein2 = id_item['protein 2']
-
+        try:
+            protein2 = id_item['protein 2']
+        except KeyError:
+            protein2 = ''
         # raw file name
         try:
             raw_file_name = id_item['runname']
