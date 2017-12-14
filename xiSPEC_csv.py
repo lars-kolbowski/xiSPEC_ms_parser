@@ -119,8 +119,8 @@ def parse(csv_file, peak_list_file, cur, con, logger):
         try:
             # ToDo: improve error handling for cl peptides
             pep2 = id_item['pepseq 2']
-            linkpos1 = id_item['linkpos 1']
-            linkpos2 = id_item['linkpos 1']
+            linkpos1 = id_item['linkpos 1'] - 1
+            linkpos2 = id_item['linkpos 2'] - 1
             cl_mod_mass = id_item['crosslinkermodmass']
         except KeyError:
             # linear
@@ -165,7 +165,7 @@ def parse(csv_file, peak_list_file, cur, con, logger):
         # ToDo: could check against mzml fragmentation type and display warning if ions don't match
 
         # score
-        score = id_item['score']
+        score = {'score': id_item['score']}
 
         # isDecoy
         try:
