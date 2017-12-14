@@ -44,13 +44,16 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
         peak_list_file_name = ntpath.basename(peak_list_file)
         if peak_list_file_name.lower().endswith('.mzml'):
             peak_list_file_type = 'mzml'
-            peak_list_readers[peak_list_file_name] = pymzml.run.Reader(peak_list_file)
+            peak_list_reader_index = re.sub("\.mzml", "", peak_list_file_name, flags=re.I)
+            peak_list_readers[peak_list_reader_index] = pymzml.run.Reader(peak_list_file)
 
         elif peak_list_file_name.lower().endswith('.mgf'):
             peak_list_file_type = 'mgf'
             mgf_reader = py_mgf.read(peak_list_file)
-            scans = [s for s in mgf_reader]
-            peak_list_readers[peak_list_file_name] = scans
+            peak_list_reader_index = re.sub("\.mgf", "", peak_list_file_name, flags=re.I)
+            peak_list_readers[peak_list_reader_index] = [pl for pl in mgf_reader]
+        logger.info('reading peakList file - done')
+
 
         logger.info('reading peakList file - done')
 
@@ -80,8 +83,9 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
                     pl_reader = peak_list_readers[peak_list_readers.keys()[0]]
                 else:
                     return_json['errors'].append({
-                        "type": "mzidParseError",
-                        "message": "peak list filename %s from csv does not match any of your peaklist files" % raw_file_name,
+                        "type": "ParseError",
+                        "message": "%s from csv does not match any of your peaklist files: %s" %
+                                   (raw_file_name, ';'.join(peak_list_readers.keys())),
                         'id': id_item['id']
                     })
                     continue
@@ -113,8 +117,9 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
                     pl_reader = peak_list_readers[peak_list_readers.keys()[0]]
                 else:
                     return_json['errors'].append({
-                        "type": "mzidParseError",
-                        "message": "peak list filename %s from csv does not match any of your peaklist files" % raw_file_name,
+                        "type": "idParseError",
+                        "message": "%s from csv does not match any of your peaklist files: %s" %
+                                   (raw_file_name, ';'.join(peak_list_readers.keys())),
                         'id': id_item['id']
                     })
                     continue

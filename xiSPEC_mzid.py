@@ -390,12 +390,14 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         peak_list_file_name = ntpath.basename(peak_list_file)
         if peak_list_file_name.lower().endswith('.mzml'):
             peak_list_file_type = 'mzml'
-            peak_list_readers[peak_list_file_name] = pymzml.run.Reader(peak_list_file)
+            peak_list_reader_index = re.sub("\.mzml", "", peak_list_file_name, flags=re.I)
+            peak_list_readers[peak_list_reader_index] = pymzml.run.Reader(peak_list_file)
 
         elif peak_list_file_name.lower().endswith('.mgf'):
             peak_list_file_type = 'mgf'
             mgf_reader = py_mgf.read(peak_list_file)
-            peak_list_readers[peak_list_file_name] = [pl for pl in mgf_reader]
+            peak_list_reader_index = re.sub("\.mgf", "", peak_list_file_name, flags=re.I)
+            peak_list_readers[peak_list_reader_index] = [pl for pl in mgf_reader]
         logger.info('reading peakList file - done')
 
     # main loop
@@ -460,7 +462,8 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
                 else:
                     return_json['errors'].append({
                         "type": "mzidParseError",
-                        "message": "spectraData_ref %s from mzid does not match any of your peaklist files" % raw_file_name,
+                        "message": "%s from mzid does not match any of your peaklist files: %s" %
+                                   (raw_file_name, ';'.join(peak_list_readers.keys())),
                         'id': id_item['id']
                     })
                     continue
@@ -493,7 +496,9 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
                 else:
                     return_json['errors'].append({
                         "type": "mzidParseError",
-                        "message": "spectraData_ref %s from mzid does not match any of your peaklist files" % raw_file_name,
+                        "message": "%s from mzid does not match any of your peaklist files: %s" %
+                                   (raw_file_name, ';'.join(peak_list_readers.keys())),
+
                         'id': id_item['id']
                     })
                     continue
