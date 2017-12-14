@@ -75,12 +75,12 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
             try:
                 pl_reader = peak_list_readers[raw_file_name]
             except KeyError:
-                if len(peak_list_readers.keys()) == 0:
+                if len(peak_list_readers.keys()) == 1:
                     pl_reader = peak_list_readers[peak_list_readers.keys()[0]]
                 else:
                     return_json['errors'].append({
                         "type": "mzidParseError",
-                        "message": "spectraData_ref %s from mzid does not match any of your peaklist files" % raw_file_name,
+                        "message": "peak list filename %s from csv does not match any of your peaklist files" % raw_file_name,
                         'id': id_item['id']
                     })
                     continue

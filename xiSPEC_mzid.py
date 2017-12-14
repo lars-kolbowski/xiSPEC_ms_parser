@@ -455,7 +455,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             try:
                 pl_reader = peak_list_readers[raw_file_name]
             except KeyError:
-                if len(peak_list_readers.keys()) == 0:
+                if len(peak_list_readers.keys()) == 1:
                     pl_reader = peak_list_readers[peak_list_readers.keys()[0]]
                 else:
                     return_json['errors'].append({
