@@ -2,10 +2,9 @@ import pyteomics.mgf as py_mgf
 import pymzml
 import pandas as pd
 import ntpath
-import sys
 import re
 import xiSPEC_sqlite as db
-
+import json
 
 def parse(csv_file, peak_list_file_list, cur, con, logger):
 
@@ -88,7 +87,7 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
                     continue
             try:
                 scan = pl_reader[scan_id]
-            except KeyError:
+            except IndexError:
                 return_json['errors'].append({
                     "type": "mzmlParseError",
                     "message": "requested scanID %i not found in peakList file" % scan_id,
@@ -121,7 +120,7 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
                     continue
             try:
                 scan = pl_reader[scan_id]
-            except KeyError:
+            except IndexError:
                 return_json['errors'].append({
                     "type": "mzmlParseError",
                     "message": "requested scanID %i not found in peakList file" % scan_id,
@@ -194,7 +193,7 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
         # ToDo: could check against mzml fragmentation type and display warning if ions don't match
 
         # score
-        score = {'score': id_item['score']}
+        score = json.dumps({'score': id_item['score']})
 
         # isDecoy
         try:
@@ -250,7 +249,7 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
                      "message": e.args[0],
                      'id': id_item_index
                      })
-                sys.exit(1)
+                return return_json
 
             # commit changes
             con.commit()
@@ -267,6 +266,6 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
              "message": e.args[0],
              'id': id_item_index
              })
-        sys.exit(1)
+        return return_json
 
     return return_json

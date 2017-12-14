@@ -466,7 +466,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
                     continue
             try:
                 scan = pl_reader[scan_id]
-            except KeyError:
+            except IndexError:
                 return_json['errors'].append({
                     "type": "mzmlParseError",
                     "message": "requested scanID %i not found in peakList file" % scan_id,
@@ -499,7 +499,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
                     continue
             try:
                 scan = pl_reader[scan_id]
-            except KeyError:
+            except IndexError:
                 return_json['errors'].append({
                     "type": "mzmlParseError",
                     "message": "requested scanID %i not found in peakList file" % scan_id,
@@ -623,7 +623,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
                      "message": e.args[0],
                      'id': spec_id_item_index
                      })
-                sys.exit(1)
+                return return_json
 
             # commit changes
             con.commit()
@@ -648,6 +648,6 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
              "message": e.args[0],
              'id': spec_id_item_index
              })
-        sys.exit(1)
+        return return_json
 
     return return_json
