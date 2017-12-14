@@ -387,12 +387,12 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     peak_list_readers = {}
     for peak_list_file in peak_list_file_list:
         logger.info('reading peakList file - start')
-        peak_list_file_name = ntpath.basename(peak_list_file).lower()
-        if peak_list_file_name.endswith('.mzml'):
+        peak_list_file_name = ntpath.basename(peak_list_file)
+        if peak_list_file_name.lower().endswith('.mzml'):
             peak_list_file_type = 'mzml'
             peak_list_readers[peak_list_file_name] = pymzml.run.Reader(peak_list_file)
 
-        elif peak_list_file_name.endswith('.mgf'):
+        elif peak_list_file_name.lower().endswith('.mgf'):
             peak_list_file_type = 'mgf'
             mgf_reader = py_mgf.read(peak_list_file)
             peak_list_readers[peak_list_file_name] = [pl for pl in mgf_reader]
@@ -444,7 +444,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
         # raw file name
         try:
-            raw_file_name = id_item['spectraData_ref']
+            raw_file_name = mzid_reader.get_by_id(id_item['spectraData_ref'])['location']
         except KeyError:
             return_json['errors'].append(
                 {"type": "mzidParseError", "message": "no spectraData_ref specified", 'id': id_item['id']})
@@ -554,11 +554,6 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             # accessions = ";".join(pep_info['proteins'])
             protein1 = pep_info['protein1']
             protein2 = pep_info['protein2']
-
-            try:
-                raw_file_name = path_leaf(mzid_reader.get_by_id(raw_file_name)['location'])
-            except KeyError:
-                pass
 
             # passThreshold
             if pep_info['passThreshold']:
