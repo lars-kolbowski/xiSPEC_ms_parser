@@ -12,6 +12,7 @@ logging==0.4.9.6
 lxml==4.1.1
 nbformat==4.4.0
 numpy==1.13.3
+pandas==0.21.1
 pkg-resources==0.0.0
 plotly==2.0.16
 psycopg2==2.7.3.2
