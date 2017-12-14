@@ -7,7 +7,7 @@ import re
 import xiSPEC_sqlite as db
 
 
-def parse(csv_file, peak_list_file, cur, con, logger):
+def parse(csv_file, peak_list_file_list, cur, con, logger):
 
     return_json = {
         "response": "",
@@ -39,17 +39,19 @@ def parse(csv_file, peak_list_file, cur, con, logger):
     # modifications = []
 
     # peakList file
-    logger.info('reading peakList file - start')
-    peak_list_file_name = ntpath.basename(peak_list_file).lower()
-    if peak_list_file_name.endswith('.mzml'):
-        peak_list_file_type = 'mzml'
-        pymzml_reader = pymzml.run.Reader(peak_list_file)
+    peak_list_readers = {}
+    for peak_list_file in peak_list_file_list:
+        logger.info('reading peakList file - start')
+        peak_list_file_name = ntpath.basename(peak_list_file).lower()
+        if peak_list_file_name.endswith('.mzml'):
+            peak_list_file_type = 'mzml'
+            peak_list_readers[peak_list_file_name] = pymzml.run.Reader(peak_list_file)
 
-    elif peak_list_file_name.endswith('.mgf'):
-        peak_list_file_type = 'mgf'
-        mgf_reader = py_mgf.read(peak_list_file)
-        peak_list_arr = [pl for pl in mgf_reader]
-    logger.info('reading peakList file - done')
+        elif peak_list_file_name.endswith('.mgf'):
+            peak_list_file_type = 'mgf'
+            mgf_reader = py_mgf.read(peak_list_file)
+            peak_list_readers[peak_list_file_name] = [pl for pl in mgf_reader]
+        logger.info('reading peakList file - done')
 
     # main loop
     logger.info('entering main loop')
@@ -62,16 +64,28 @@ def parse(csv_file, peak_list_file, cur, con, logger):
         # try:
         scan_id = int(id_item['scannumber'])
 
-        # except KeyError:
-        #     return_json['errors'].append(
-        #         {"type": "mzidParseError", "message": "Error parsing scanID from mzidentml!"}
-        #     )
-            # continue
+        # raw file name
+        try:
+            raw_file_name = id_item['runname']
+        except KeyError:
+            raw_file_name = ''
 
-        # peakList
+        # peakList ToDo: duplicate code blocks - needs refactoring
         if peak_list_file_type == 'mzml':
             try:
-                scan = pymzml_reader[scan_id]
+                pl_reader = peak_list_readers[raw_file_name]
+            except KeyError:
+                if len(peak_list_readers.keys()) == 0:
+                    pl_reader = peak_list_readers[peak_list_readers.keys()[0]]
+                else:
+                    return_json['errors'].append({
+                        "type": "mzidParseError",
+                        "message": "spectraData_ref %s from mzid does not match any of your peaklist files" % raw_file_name,
+                        'id': id_item['id']
+                    })
+                    continue
+            try:
+                scan = pl_reader[scan_id]
             except KeyError:
                 return_json['errors'].append({
                     "type": "mzmlParseError",
@@ -92,14 +106,27 @@ def parse(csv_file, peak_list_file, cur, con, logger):
 
         elif peak_list_file_type == 'mgf':
             try:
-                scan = peak_list_arr[scan_id]
-            except IndexError:
+                pl_reader = peak_list_readers[raw_file_name]
+            except KeyError:
+                if len(peak_list_readers.keys()) == 0:
+                    pl_reader = peak_list_readers[peak_list_readers.keys()[0]]
+                else:
+                    return_json['errors'].append({
+                        "type": "mzidParseError",
+                        "message": "spectraData_ref %s from mzid does not match any of your peaklist files" % raw_file_name,
+                        'id': id_item['id']
+                    })
+                    continue
+            try:
+                scan = pl_reader[scan_id]
+            except KeyError:
                 return_json['errors'].append({
                     "type": "mzmlParseError",
                     "message": "requested scanID %i not found in peakList file" % scan_id,
                     'id': id_item['id']
                 })
                 continue
+
             peaks = zip(scan['m/z array'], scan['intensity array'])
             peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in peaks if i > 0])
 
@@ -179,11 +206,6 @@ def parse(csv_file, peak_list_file, cur, con, logger):
             protein2 = id_item['protein 2']
         except KeyError:
             protein2 = ''
-        # raw file name
-        try:
-            raw_file_name = id_item['runname']
-        except KeyError:
-            raw_file_name = ''
 
         # create entry
         multiple_inj_list_identifications.append(

@@ -18,6 +18,7 @@ try:
     # import local files
     import xiSPEC_mzid as mzidParser
     import xiSPEC_csv as csvParser
+    from xiSPEC_peakList import unzip_peak_lists
 
     # logging
     try:
@@ -50,10 +51,12 @@ try:
     # development testfiles
     if dev:
         baseDir = "/home/lars/work/xiSPEC/"
-        identifications_file = baseDir + "DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
-        # mzidFile = baseDir + 'OpenxQuest_example_added_annotations.mzid'
-        peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
+        identifications_file = "/home/lars/Xi/xiSPEC/example/example.csv"
+        # identifications_file = baseDir + 'OpenxQuest_example_added_annotations.mzid'
+        # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
         # peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf"
+        peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf.zip"
+
         dbName = 'test.db'
 
     else:
@@ -98,16 +101,30 @@ returnJSON = {
 
 # parsing
 try:
+
+    # check for peak list zip file
+    peakList_fileName = ntpath.basename(peakList_file)
+    if peakList_fileName.lower().endswith('.zip'):
+        try:
+            peakList_fileList = unzip_peak_lists(peakList_file)
+        except IOError as e:
+            returnJSON['errors'].append({
+                "type": "zipParseError",
+                "message": e,
+            })
+    else:
+        peakList_fileList = [peakList_file]
+
     # Identification File
     identifications_fileName = ntpath.basename(identifications_file)
     if identifications_fileName.lower().endswith('.mzid'):
         identifications_fileType = 'mzid'
 
-        returnJSON = mzidParser.parse(identifications_file, peakList_file, unimodPath, cur,  con, logger)
+        returnJSON = mzidParser.parse(identifications_file, peakList_fileList, unimodPath, cur,  con, logger)
 
     elif identifications_fileName.endswith('.csv'):
         identifications_fileType = 'csv'
-        returnJSON = csvParser.parse(identifications_file, peakList_file, cur, con, logger)
+        returnJSON = csvParser.parse(identifications_file, peakList_fileList, cur, con, logger)
         # mgfReader = py_mgf.read(peak_list_file)
         # peakListArr = [pl for pl in mgfReader]
 
