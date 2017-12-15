@@ -87,8 +87,9 @@ def map_spectra_data_to_protocol(mzid_reader):
         for spectrumIdentification in analysisCollection['SpectrumIdentification']:
             sid_protocol_ref = spectrumIdentification['spectrumIdentificationProtocol_ref']
             sid_protocol = mzid_reader.get_by_id(sid_protocol_ref, detailed=True)
-            frag_tol = sid_protocol['FragmentTolerance']
+
             try:
+                frag_tol = sid_protocol['FragmentTolerance']
                 frag_tol_plus = frag_tol['search tolerance plus value']
                 frag_tol_value = re.sub('[^0-9,.]', '', str(frag_tol_plus['value']))
                 if frag_tol_plus['unit'].lower() == 'parts per million':
@@ -98,20 +99,20 @@ def map_spectra_data_to_protocol(mzid_reader):
                 else:
                     frag_tol_unit = frag_tol_plus['unit']
 
+                if not all([
+                    frag_tol['search tolerance plus value']['value'] == frag_tol['search tolerance minus value']['value'],
+                    frag_tol['search tolerance plus value']['unit'] == frag_tol['search tolerance minus value']['unit']
+                ]):
+                    spectra_data_protocol_map['errors'].append(
+                        {"type": "mzidParseError",
+                         "message": "search tolerance plus value doesn't match minus value. Using plus value!"})
+
             except KeyError:
                 frag_tol_value = '10'
                 frag_tol_unit = 'ppm'
                 spectra_data_protocol_map['errors'].append(
                     {"type": "mzidParseError",
                      "message": "could not parse ms2tolerance. Falling back to default values."})
-
-            if not all([
-                frag_tol['search tolerance plus value']['value'] == frag_tol['search tolerance minus value']['value'],
-                frag_tol['search tolerance plus value']['unit'] == frag_tol['search tolerance minus value']['unit']
-            ]):
-                spectra_data_protocol_map['errors'].append(
-                    {"type": "mzidParseError",
-                     "message": "search tolerance plus value doesn't match minus value. Using plus value!"})
 
             for inputSpectra in spectrumIdentification['InputSpectra']:
                 spectra_data_ref = inputSpectra['spectraData_ref']
@@ -518,6 +519,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         multiple_inj_list_peak_lists.append([mzid_item_index, peak_list])
 
         # ms2 tolerance
+
 
         ms2_tol = spectra_data_protocol_map[id_item['spectraData_ref']]['fragmentTolerance']
 
