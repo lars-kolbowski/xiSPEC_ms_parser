@@ -4,7 +4,7 @@ import os
 import shutil
 import logging
 import ntpath
-
+from zipfile import BadZipfile
 
 try:
     # set working directory
@@ -107,7 +107,7 @@ try:
     if peakList_fileName.lower().endswith('.zip'):
         try:
             peakList_fileList = unzip_peak_lists(peakList_file)
-        except IOError as e:
+        except (IOError, BadZipfile) as e:
             returnJSON['errors'].append({
                 "type": "zipParseError",
                 "message": e,
