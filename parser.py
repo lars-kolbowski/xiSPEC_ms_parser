@@ -105,13 +105,16 @@ try:
     # check for peak list zip file
     peakList_fileName = ntpath.basename(peakList_file)
     if peakList_fileName.lower().endswith('.zip'):
-        try:
-            peakList_fileList = unzip_peak_lists(peakList_file)
-        except (IOError, BadZipfile) as e:
-            returnJSON['errors'].append({
-                "type": "zipParseError",
-                "message": e,
-            })
+        # try:
+        logger.info('unzipping start')
+        peakList_fileList = unzip_peak_lists(peakList_file)
+        logger.info('unzipping done')
+        # except (IOError, BadZipfile) as e:
+        #     returnJSON['errors'].append({
+        #         "type": "zipParseError",
+        #         "message": e.args[0],
+        #     })
+
     else:
         peakList_fileList = [peakList_file]
 
@@ -136,12 +139,11 @@ try:
 except Exception as e:
     logger.exception(e)
     returnJSON['errors'].append(
-        {"type": "Error", "message": e})
+        {"type": "Error", "message": e.args[0]})
 
 
 if len(returnJSON["errors"]) > 0:
-    returnJSON['response'] = "Warning: %i error(s) occured!" % len(
-        returnJSON['errors'])
+    returnJSON['response'] = "Warning: %i error(s) occured!" % len(returnJSON['errors'])
     for e in returnJSON['errors']:
         logger.error(e)
 else:

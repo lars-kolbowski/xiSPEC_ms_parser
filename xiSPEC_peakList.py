@@ -9,7 +9,7 @@ class ParseError(Exception):
 
 def unzip_peak_lists(zip_file):
     zip_ref = zipfile.ZipFile(zip_file, 'r')
-    unzip_path = '/'.join(zip_file.split('/')[:-1]) + '/unzip'
+    unzip_path = zip_file + '_unzip/'
     zip_ref.extractall(unzip_path)
     zip_ref.close()
 
@@ -68,7 +68,7 @@ def get_scan(readers, file_name, scan_id):
                              (file_name, ';'.join(readers.keys())))
     try:
         scan = reader[scan_id]
-    except IndexError:
+    except (IndexError, KeyError):
         raise ParseError("requested scanID %i not found in peakList file" % scan_id)
 
     return scan

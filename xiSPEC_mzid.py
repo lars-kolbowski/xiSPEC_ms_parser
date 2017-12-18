@@ -247,14 +247,18 @@ def get_peptide_info(sid_items, mzid_reader, unimod_masses, logger):
                     if mod['name'] in mod_aliases.keys():
                         mod['name'] = mod_aliases[mod['name']]
                     if 'cross-link donor' not in mod.keys() and 'cross-link acceptor' not in mod.keys():
-                        mod['name'] = add_to_modlist(mod, all_mods)  # save to all mods list and get back new_name
+                        cur_mod = pep_seq_dict[mod_location]
+                        # join modifications into one for multiple modifications on the same aa
+                        if not cur_mod['Modification'] == '':
+                            mod['name'] = '_'.join(sorted([cur_mod['Modification'], mod['name']], key=str.lower))
+                            cur_mod_mass = [x['monoisotopicMassDelta'] for x in all_mods if x['name'] == cur_mod['Modification']][0]
+                            mod['monoisotopicMassDelta'] += cur_mod_mass
 
-                        if pep_seq_dict[mod_location]['Modification'] == '':
-                            pep_seq_dict[mod_location]['Modification'] = mod['name']
-                        else:
-                            logger.error('double modification on aa')
-                            logger.error(mod)
-                            logger.error(pep_seq_dict[mod_location])
+                        mod['name'] = add_to_modlist(mod, all_mods)  # save to all mods list and get back new_name
+                        cur_mod['Modification'] = mod['name']
+
+
+
 
                 # error handling for mod without name
                 else:
@@ -330,7 +334,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         mzid_reader = py_mzid.MzIdentML(mzid_file)
     except Exception as e:
         return_json['errors'].append({
-            "type": "mzidParseerror",
+            "type": "mzidParseError",
             "message": e
         })
         return return_json
@@ -338,8 +342,6 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     logger.info('reading mzid - done')
 
     unimod_masses = get_unimod_masses(unimod_path)
-
-
 
     logger.info('generating spectra data protocol map - start')
     spectra_data_protocol_map = map_spectra_data_to_protocol(mzid_reader)
@@ -356,7 +358,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     # peakList readers ToDo: needs rework for multiple files - also duplicate code needs to move to xiSPEC_peakList
     peak_list_readers = {}
     for peak_list_file in peak_list_file_list:
-        logger.info('reading peakList file - start')
+        logger.info('reading peakList file %s - start' % peak_list_file)
         peak_list_file_name = ntpath.basename(peak_list_file)
         if peak_list_file_name.lower().endswith('.mzml'):
             peak_list_file_type = 'mzml'
@@ -373,13 +375,15 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             return_json['errors'].append({
                 "type": "peakListParseError",
                 "message": "unsupported peak list file type for: %s" % peak_list_file_name
-                })
+            })
 
-        logger.info('reading peakList file - done')
+    logger.info('reading peakList files - done')
+
+    # ToDo: better error handling for general errors - bundling together of same type errors
+    fragment_parsing_error_scans = []
 
     # main loop
     logger.info('entering main loop')
-
     for id_item in mzid_reader:  # mzid_item = mzid_reader.next()
 
         # make_spec_id_pairs(mzid_item['SpectrumIdentificationItem'])
@@ -400,7 +404,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             scan_id = int(id_item['peak list scans'])
         except KeyError:
             # ToDo: this might not work for all mzids. ProteomeDiscoverer 2.2 format 'scan=xx file=xx'
-            matches = re.findall("scan=([0-9]+)", id_item["spectrumID"])
+            matches = re.findall("(?:scan|index)=([0-9]+)", id_item["spectrumID"])
             if len(matches) > 0:
 
                 # ToDo: handle multiple scans? Is this standard compliant?
@@ -426,7 +430,9 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
         # raw file name
         try:
-            raw_file_name = mzid_reader.get_by_id(id_item['spectraData_ref'])['location']
+            raw_file_name = id_item['spectraData_ref'].split('/')[-1]
+            raw_file_name = re.sub('\.(mgf|mzml)', '', raw_file_name, flags=re.IGNORECASE)
+
         except KeyError:
             return_json['errors'].append({
                 "type": "mzidParseError",
@@ -442,7 +448,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         except peakListParser.ParseError as e:
             return_json['errors'].append({
                 "type": "peakListParseError",
-                "message": e,
+                "message": e.args[0],
                 'id': id_item['id']
             })
             continue
@@ -477,8 +483,8 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
             if len(pep_info['ions']) == 0:
                 pep_info['ions'] = ['peptide', 'b', 'y']
-                return_json['errors'].append(
-                    {"type": "IonParsing", "message": "could not parse fragment ions assuming precursor-, b- and y-ion", 'id': id_item['id']})
+                # ToDo: better error handling for general errors - bundling together of same type errors
+                fragment_parsing_error_scans.append(id_item['id'])
 
             pep_info['ions'] = ';'.join(pep_info['ions'])
 
@@ -564,6 +570,8 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             # commit changes
             con.commit()
 
+    # end main loop
+
     # once loop is done write remaining data to DB
     logger.info('writing remaining entries to DB')
     try:
@@ -585,5 +593,12 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
              'id': spec_id_item_index
              })
         return return_json
+
+    if len(fragment_parsing_error_scans) > 0:
+        return_json['errors'].append({
+            "type": "IonParsingError",
+            "message": "could not parse fragment ions assuming precursor-, b- and y-ion",
+            'id': ';'.join(fragment_parsing_error_scans)
+        })
 
     return return_json

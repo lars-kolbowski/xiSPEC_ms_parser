@@ -42,7 +42,7 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
     # peakList readers ToDo: needs rework for multiple files - also duplicate code needs to move to xiSPEC_peakList
     peak_list_readers = {}
     for peak_list_file in peak_list_file_list:
-        logger.info('reading peakList file - start')
+        logger.info('reading peakList file %s - start' % peak_list_file)
         peak_list_file_name = ntpath.basename(peak_list_file)
         if peak_list_file_name.lower().endswith('.mzml'):
             peak_list_file_type = 'mzml'
@@ -61,7 +61,7 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
                 "message": "unsupported peak list file type for: %s" % peak_list_file_name
             })
 
-    logger.info('reading peakList file - done')
+    logger.info('reading peakList files - done')
 
     # main loop
     logger.info('entering main loop')
@@ -76,7 +76,9 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
 
         # raw file name
         try:
-            raw_file_name = id_item['runname']
+            raw_file_name = id_item['runname'].split('/')[-1]
+            raw_file_name = re.sub('\.(mgf|mzml)', '', raw_file_name, flags=re.IGNORECASE)
+
         except KeyError:
             raw_file_name = ''
 
@@ -87,7 +89,7 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
         except peakListParser.ParseError as e:
             return_json['errors'].append({
                 "type": "peakListParseError",
-                "message": e,
+                "message": e.args[0],
                 'id': id_item['id']
             })
             continue
