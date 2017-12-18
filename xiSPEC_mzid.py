@@ -403,10 +403,11 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         try:
             scan_id = int(id_item['peak list scans'])
         except KeyError:
-            # ToDo: this might not work for all mzids. ProteomeDiscoverer 2.2 format 'scan=xx file=xx'
+            matches = re.findall("([0-9]+)", id_item["spectrumID"])
+            if len(matches) > 1:
+                # ToDo: this might not work for all mzids. Check more file formats.
             matches = re.findall("(?:scan|index)?=?([0-9]+)", id_item["spectrumID"])
             if len(matches) > 0:
-
                 # ToDo: handle multiple scans? Is this standard compliant?
                 # found in https://github.com/HUPO-PSI/mzIdentML/blob/master/examples/1_2examples/crosslinking/OpenxQuest_example_added_annotations.mzid
                 scan_ids = [int(m) for m in matches]
