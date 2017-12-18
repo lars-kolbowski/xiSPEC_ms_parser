@@ -404,7 +404,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             scan_id = int(id_item['peak list scans'])
         except KeyError:
             # ToDo: this might not work for all mzids. ProteomeDiscoverer 2.2 format 'scan=xx file=xx'
-            matches = re.findall("(?:scan|index)=([0-9]+)", id_item["spectrumID"])
+            matches = re.findall("(?:scan|index)?=?([0-9]+)", id_item["spectrumID"])
             if len(matches) > 0:
 
                 # ToDo: handle multiple scans? Is this standard compliant?
