@@ -431,8 +431,9 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
         # raw file name
         try:
-            raw_file_name = id_item['spectraData_ref'].split('/')[-1]
-            raw_file_name = re.sub('\.(mgf|mzml)', '', raw_file_name, flags=re.IGNORECASE)
+            raw_file_name = mzid_reader.get_by_id(id_item['spectraData_ref'])['name']
+            # raw_file_name = id_item['spectraData_ref'].split('/')[-1]
+            # raw_file_name = re.sub('\.(mgf|mzml)', '', raw_file_name, flags=re.IGNORECASE)
 
         except KeyError:
             return_json['errors'].append({
