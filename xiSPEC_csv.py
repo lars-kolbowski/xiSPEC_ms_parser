@@ -2,12 +2,13 @@ import pyteomics.mgf as py_mgf
 import pymzml
 import pandas as pd
 import ntpath
-import sys
 import re
 import xiSPEC_sqlite as db
+import json
+import xiSPEC_peakList as peakListParser
 
 
-def parse(csv_file, peak_list_file, cur, con, logger):
+def parse(csv_file, peak_list_file_list, cur, con, logger):
 
     return_json = {
         "response": "",
@@ -38,18 +39,29 @@ def parse(csv_file, peak_list_file, cur, con, logger):
     multiple_inj_list_peak_lists = []
     # modifications = []
 
-    # peakList file
-    logger.info('reading peakList file - start')
-    peak_list_file_name = ntpath.basename(peak_list_file).lower()
-    if peak_list_file_name.endswith('.mzml'):
-        peak_list_file_type = 'mzml'
-        pymzml_reader = pymzml.run.Reader(peak_list_file)
+    # peakList readers ToDo: needs rework for multiple files - also duplicate code needs to move to xiSPEC_peakList
+    peak_list_readers = {}
+    for peak_list_file in peak_list_file_list:
+        logger.info('reading peakList file %s - start' % peak_list_file)
+        peak_list_file_name = ntpath.basename(peak_list_file)
+        if peak_list_file_name.lower().endswith('.mzml'):
+            peak_list_file_type = 'mzml'
+            peak_list_reader_index = re.sub("\.mzml", "", peak_list_file_name, flags=re.I)
+            peak_list_readers[peak_list_reader_index] = pymzml.run.Reader(peak_list_file)
 
-    elif peak_list_file_name.endswith('.mgf'):
-        peak_list_file_type = 'mgf'
-        mgf_reader = py_mgf.read(peak_list_file)
-        peak_list_arr = [pl for pl in mgf_reader]
-    logger.info('reading peakList file - done')
+        elif peak_list_file_name.lower().endswith('.mgf'):
+            peak_list_file_type = 'mgf'
+            mgf_reader = py_mgf.read(peak_list_file)
+            peak_list_reader_index = re.sub("\.mgf", "", peak_list_file_name, flags=re.I)
+            peak_list_readers[peak_list_reader_index] = [pl for pl in mgf_reader]
+
+        else:
+            return_json['errors'].append({
+                "type": "peakListParseError",
+                "message": "unsupported peak list file type for: %s" % peak_list_file_name
+            })
+
+    logger.info('reading peakList files - done')
 
     # main loop
     logger.info('entering main loop')
@@ -62,46 +74,25 @@ def parse(csv_file, peak_list_file, cur, con, logger):
         # try:
         scan_id = int(id_item['scannumber'])
 
-        # except KeyError:
-        #     return_json['errors'].append(
-        #         {"type": "mzidParseError", "message": "Error parsing scanID from mzidentml!"}
-        #     )
-            # continue
+        # raw file name
+        try:
+            raw_file_name = id_item['runname'].split('/')[-1]
+            raw_file_name = re.sub('\.(mgf|mzml)', '', raw_file_name, flags=re.IGNORECASE)
+
+        except KeyError:
+            raw_file_name = ''
 
         # peakList
-        if peak_list_file_type == 'mzml':
-            try:
-                scan = pymzml_reader[scan_id]
-            except KeyError:
-                return_json['errors'].append({
-                    "type": "mzmlParseError",
-                    "message": "requested scanID %i not found in peakList file" % scan_id,
-                    'id': id_item['id']
-                })
-                continue
-            if scan['ms level'] == 1:
-                return_json['errors'].append({
-                    "type": "mzmlParseError",
-                    "message": "requested scanID %i is not a MSn scan" % scan_id,
-                    'id': id_item['id']
-                })
-                continue
-
-            peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan.peaks if i > 0])
-            # peak_list = get_peaklist_from_mzml(scan)
-
-        elif peak_list_file_type == 'mgf':
-            try:
-                scan = peak_list_arr[scan_id]
-            except IndexError:
-                return_json['errors'].append({
-                    "type": "mzmlParseError",
-                    "message": "requested scanID %i not found in peakList file" % scan_id,
-                    'id': id_item['id']
-                })
-                continue
-            peaks = zip(scan['m/z array'], scan['intensity array'])
-            peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in peaks if i > 0])
+        try:
+            scan = peakListParser.get_scan(peak_list_readers, raw_file_name, scan_id)
+            peak_list = peakListParser.get_peak_list(scan, peak_list_file_type)
+        except peakListParser.ParseError as e:
+            return_json['errors'].append({
+                "type": "peakListParseError",
+                "message": e.args[0],
+                'id': id_item['id']
+            })
+            continue
 
         multiple_inj_list_peak_lists.append([id_item_index, peak_list])
 
@@ -165,7 +156,7 @@ def parse(csv_file, peak_list_file, cur, con, logger):
         # ToDo: could check against mzml fragmentation type and display warning if ions don't match
 
         # score
-        score = {'score': id_item['score']}
+        score = json.dumps({'score': id_item['score']})
 
         # isDecoy
         try:
@@ -179,11 +170,6 @@ def parse(csv_file, peak_list_file, cur, con, logger):
             protein2 = id_item['protein 2']
         except KeyError:
             protein2 = ''
-        # raw file name
-        try:
-            raw_file_name = id_item['runname']
-        except KeyError:
-            raw_file_name = ''
 
         # create entry
         multiple_inj_list_identifications.append(
@@ -226,7 +212,7 @@ def parse(csv_file, peak_list_file, cur, con, logger):
                      "message": e.args[0],
                      'id': id_item_index
                      })
-                sys.exit(1)
+                return return_json
 
             # commit changes
             con.commit()
@@ -243,6 +229,6 @@ def parse(csv_file, peak_list_file, cur, con, logger):
              "message": e.args[0],
              'id': id_item_index
              })
-        sys.exit(1)
+        return return_json
 
     return return_json
