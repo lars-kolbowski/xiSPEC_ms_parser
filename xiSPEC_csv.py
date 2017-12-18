@@ -5,6 +5,8 @@ import ntpath
 import re
 import xiSPEC_sqlite as db
 import json
+import xiSPEC_peakList as peakListParser
+
 
 def parse(csv_file, peak_list_file_list, cur, con, logger):
 
@@ -37,7 +39,7 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
     multiple_inj_list_peak_lists = []
     # modifications = []
 
-    # peakList file
+    # peakList readers ToDo: needs rework for multiple files - also duplicate code needs to move to xiSPEC_peakList
     peak_list_readers = {}
     for peak_list_file in peak_list_file_list:
         logger.info('reading peakList file - start')
@@ -52,10 +54,14 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
             mgf_reader = py_mgf.read(peak_list_file)
             peak_list_reader_index = re.sub("\.mgf", "", peak_list_file_name, flags=re.I)
             peak_list_readers[peak_list_reader_index] = [pl for pl in mgf_reader]
-        logger.info('reading peakList file - done')
 
+        else:
+            return_json['errors'].append({
+                "type": "peakListParseError",
+                "message": "unsupported peak list file type for: %s" % peak_list_file_name
+            })
 
-        logger.info('reading peakList file - done')
+    logger.info('reading peakList file - done')
 
     # main loop
     logger.info('entering main loop')
@@ -74,67 +80,17 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
         except KeyError:
             raw_file_name = ''
 
-        # peakList ToDo: duplicate code blocks - needs refactoring
-        if peak_list_file_type == 'mzml':
-            try:
-                pl_reader = peak_list_readers[raw_file_name]
-            except KeyError:
-                if len(peak_list_readers.keys()) == 1:
-                    pl_reader = peak_list_readers[peak_list_readers.keys()[0]]
-                else:
-                    return_json['errors'].append({
-                        "type": "ParseError",
-                        "message": "%s from csv does not match any of your peaklist files: %s" %
-                                   (raw_file_name, ';'.join(peak_list_readers.keys())),
-                        'id': id_item['id']
-                    })
-                    continue
-            try:
-                scan = pl_reader[scan_id]
-            except IndexError:
-                return_json['errors'].append({
-                    "type": "mzmlParseError",
-                    "message": "requested scanID %i not found in peakList file" % scan_id,
-                    'id': id_item['id']
-                })
-                continue
-            if scan['ms level'] == 1:
-                return_json['errors'].append({
-                    "type": "mzmlParseError",
-                    "message": "requested scanID %i is not a MSn scan" % scan_id,
-                    'id': id_item['id']
-                })
-                continue
-
-            peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan.peaks if i > 0])
-            # peak_list = get_peaklist_from_mzml(scan)
-
-        elif peak_list_file_type == 'mgf':
-            try:
-                pl_reader = peak_list_readers[raw_file_name]
-            except KeyError:
-                if len(peak_list_readers.keys()) == 1:
-                    pl_reader = peak_list_readers[peak_list_readers.keys()[0]]
-                else:
-                    return_json['errors'].append({
-                        "type": "idParseError",
-                        "message": "%s from csv does not match any of your peaklist files: %s" %
-                                   (raw_file_name, ';'.join(peak_list_readers.keys())),
-                        'id': id_item['id']
-                    })
-                    continue
-            try:
-                scan = pl_reader[scan_id]
-            except IndexError:
-                return_json['errors'].append({
-                    "type": "mzmlParseError",
-                    "message": "requested scanID %i not found in peakList file" % scan_id,
-                    'id': id_item['id']
-                })
-                continue
-
-            peaks = zip(scan['m/z array'], scan['intensity array'])
-            peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in peaks if i > 0])
+        # peakList
+        try:
+            scan = peakListParser.get_scan(peak_list_readers, raw_file_name, scan_id)
+            peak_list = peakListParser.get_peak_list(scan, peak_list_file_type)
+        except peakListParser.ParseError as e:
+            return_json['errors'].append({
+                "type": "peakListParseError",
+                "message": e,
+                'id': id_item['id']
+            })
+            continue
 
         multiple_inj_list_peak_lists.append([id_item_index, peak_list])
 
