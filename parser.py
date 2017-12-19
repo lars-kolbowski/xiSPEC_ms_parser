@@ -107,9 +107,9 @@ try:
     peakList_fileName = ntpath.basename(peakList_file)
     if peakList_fileName.lower().endswith('.zip'):
         try:
-        logger.info('unzipping start')
-        peakList_fileList = unzip_peak_lists(peakList_file)
-        logger.info('unzipping done')
+            logger.info('unzipping start')
+            peakList_fileList = unzip_peak_lists(peakList_file)
+            logger.info('unzipping done')
         except (IOError, BadZipfile) as e:
             returnJSON['errors'].append({
                 "type": "zipParseError",
