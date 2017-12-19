@@ -1,6 +1,9 @@
 import ntpath
 import zipfile
 import glob
+import re
+import pymzml
+import pyteomics.mgf as py_mgf
 
 
 class ParseError(Exception):
@@ -57,7 +60,7 @@ def get_peak_list(scan, pl_file_type):
     return peak_list
 
 
-def get_scan(readers, file_name, scan_id):
+def get_reader(readers, file_name):
     try:
         reader = readers[file_name]
     except KeyError:
@@ -66,12 +69,58 @@ def get_scan(readers, file_name, scan_id):
         else:
             raise ParseError("%s from identifications file does not match any of your peaklist files: %s" %
                              (file_name, ';'.join(readers.keys())))
+    return reader
+
+
+def get_scan(reader, scan_id):
     try:
-        scan = reader[scan_id]
+        if reader['fileType'] == 'mgf':
+            scan = reader['reader'][scan_id]
+        elif reader['fileType'] == 'mzml':
+            scan = reader['reader'][scan_id]
     except (IndexError, KeyError):
         raise ParseError("requested scanID %i not found in peakList file" % scan_id)
 
     return scan
 
+
+def create_mgf_peak_list_reader(peak_list_file):
+    return_dict = {}
+    file_name = ntpath.basename(peak_list_file)
+
+    reader = py_mgf.read(peak_list_file)
+
+    reader_index = re.sub("\.(mgf)\Z", "", file_name, flags=re.I)
+    return_dict[reader_index] = {
+        'reader': [pl for pl in reader][:20],
+        'fileType': 'mgf'
+    }
+
+    return return_dict
+
+
+# def create_peak_list_reader(peak_list_file):
+#
+#     return_dict = {}
+#     peak_list_file_name = ntpath.basename(peak_list_file)
+#
+#     if peak_list_file_name.lower().endswith('.mzml'):
+#         peak_list_file_type = 'mzml'
+#         reader = pymzml.run.Reader(peak_list_file)
+#
+#     elif peak_list_file_name.lower().endswith('.mgf'):
+#         peak_list_file_type = 'mgf'
+#         reader = py_mgf.read(peak_list_file)
+#
+#     else:
+#         raise ParseError("unsupported peak list file type for: %s" % peak_list_file_name)
+#
+#     peak_list_reader_index = re.sub("\.(mzml|mgf)\Z", "", peak_list_file_name, flags=re.I)
+#     return_dict[peak_list_reader_index] = {
+#         'reader': reader,
+#         'fileType': peak_list_file_type
+#     }
+#
+#     return return_dict
 
 
