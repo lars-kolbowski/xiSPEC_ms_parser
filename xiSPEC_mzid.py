@@ -431,7 +431,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
         # raw file name
         try:
-            raw_file_name = mzid_reader.get_by_id(id_item['spectraData_ref'])['name']
+            spectra_data = mzid_reader.get_by_id(id_item['spectraData_ref'])
             # raw_file_name = id_item['spectraData_ref'].split('/')[-1]
             # raw_file_name = re.sub('\.(mgf|mzml)', '', raw_file_name, flags=re.IGNORECASE)
 
@@ -441,7 +441,13 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
                 "message": "no spectraData_ref specified",
                 'id': id_item['id']
             })
-            raw_file_name = ""
+
+        if 'name' in spectra_data.keys():
+            raw_file_name = spectra_data['name']
+        elif 'location' in spectra_data.keys():
+            raw_file_name = re.sub('\.(mgf|mzml)', '', spectra_data['location'].split('/')[-1], flags=re.IGNORECASE)
+        else:
+            raw_file_name = re.sub('\.(mgf|mzml)', '', id_item['spectraData_ref'].split('/')[-1], flags=re.IGNORECASE)
 
         # peakList
         try:
