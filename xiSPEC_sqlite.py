@@ -33,7 +33,8 @@ def create_tables(cur, con):
             "rank INT, "
             "scores TEXT, "
             "isDecoy INT, "
-            "protein TEXT, "
+            "protein1 TEXT, "
+            "protein2 TEXT, "
             "file TEXT, "
             "scanID INT, "
             "peakList_id INT)"
@@ -78,12 +79,13 @@ def write_identifications(inj_list, cur, con):
         'rank',
         'scores',
         'isDecoy',
-        'protein',
+        'protein1',
+        'protein2',
         'file',
         'scanID',
         'peakList_id'
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", inj_list)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", inj_list)
         con.commit()
 
     except sqlite3.Error as e:

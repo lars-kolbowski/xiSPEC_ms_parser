@@ -25,3 +25,5 @@ requests==2.18.4
 six==1.11.0
 traitlets==4.3.2
 urllib3==1.22
+pyteomics==3.4.2
+pandas==0.21.0

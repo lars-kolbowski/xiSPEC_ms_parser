@@ -2,18 +2,13 @@ import pyteomics.mgf as py_mgf
 import pymzml
 import pandas as pd
 import ntpath
-import sys
 import re
 import xiSPEC_sqlite as db
+import json
+import xiSPEC_peakList as peakListParser
 
 
-def parse(csv_file, peak_list_file, cur, con, logger):
-    logger.info('reading csv - start')
-    # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
-    id_df = pd.read_csv(csv_file)
-    logger.info('reading csv - done')
-
-    # unimod_masses = get_unimod_masses(unimod_path)
+def parse(csv_file, peak_list_file_list, cur, con, logger):
 
     return_json = {
         "response": "",
@@ -21,22 +16,52 @@ def parse(csv_file, peak_list_file, cur, con, logger):
         "errors": []
     }
 
+    logger.info('reading csv - start')
+    # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
+    id_df = pd.read_csv(csv_file)
+    id_df.columns = [x.lower() for x in id_df.columns]
+
+    required_cols = ['id', 'scannumber', 'charge', 'pepseq 1', 'protein 1']
+
+    for header in required_cols:
+        if header not in id_df.columns:
+            return_json['errors'].append({
+                "type": "csvParseError",
+                "message": "Required csv column %s missing" % header,
+            })
+            return return_json
+
+    logger.info('reading csv - done')
+
+    # unimod_masses = get_unimod_masses(unimod_path)
+
     multiple_inj_list_identifications = []
     multiple_inj_list_peak_lists = []
-    modifications = []
+    # modifications = []
 
-    # peakList file
-    logger.info('reading peakList file - start')
-    peak_list_file_name = ntpath.basename(peak_list_file).lower()
-    if peak_list_file_name.endswith('.mzml'):
-        peak_list_file_type = 'mzml'
-        pymzml_reader = pymzml.run.Reader(peak_list_file)
+    # peakList readers ToDo: needs rework for multiple files - also duplicate code needs to move to xiSPEC_peakList
+    peak_list_readers = {}
+    for peak_list_file in peak_list_file_list:
+        logger.info('reading peakList file %s - start' % peak_list_file)
+        peak_list_file_name = ntpath.basename(peak_list_file)
+        if peak_list_file_name.lower().endswith('.mzml'):
+            peak_list_file_type = 'mzml'
+            peak_list_reader_index = re.sub("\.mzml", "", peak_list_file_name, flags=re.I)
+            peak_list_readers[peak_list_reader_index] = pymzml.run.Reader(peak_list_file)
 
-    elif peak_list_file_name.endswith('.mgf'):
-        peak_list_file_type = 'mgf'
-        mgf_reader = py_mgf.read(peak_list_file)
-        peak_list_arr = [pl for pl in mgf_reader]
-    logger.info('reading peakList file - done')
+        elif peak_list_file_name.lower().endswith('.mgf'):
+            peak_list_file_type = 'mgf'
+            mgf_reader = py_mgf.read(peak_list_file)
+            peak_list_reader_index = re.sub("\.mgf", "", peak_list_file_name, flags=re.I)
+            peak_list_readers[peak_list_reader_index] = [pl for pl in mgf_reader]
+
+        else:
+            return_json['errors'].append({
+                "type": "peakListParseError",
+                "message": "unsupported peak list file type for: %s" % peak_list_file_name
+            })
+
+    logger.info('reading peakList files - done')
 
     # main loop
     logger.info('entering main loop')
@@ -47,48 +72,27 @@ def parse(csv_file, peak_list_file, cur, con, logger):
 
         # extract scan_id
         # try:
-        scan_id = int(id_item['scan_number'])
+        scan_id = int(id_item['scannumber'])
 
-        # except KeyError:
-        #     return_json['errors'].append(
-        #         {"type": "mzidParseError", "message": "Error parsing scanID from mzidentml!"}
-        #     )
-            # continue
+        # raw file name
+        try:
+            raw_file_name = id_item['runname'].split('/')[-1]
+            raw_file_name = re.sub('\.(mgf|mzml)', '', raw_file_name, flags=re.IGNORECASE)
+
+        except KeyError:
+            raw_file_name = ''
 
         # peakList
-        if peak_list_file_type == 'mzml':
-            try:
-                scan = pymzml_reader[scan_id]
-            except KeyError:
-                return_json['errors'].append({
-                    "type": "mzmlParseError",
-                    "message": "requested scanID %i not found in peakList file" % scan_id,
-                    'id': id_item['id']
-                })
-                continue
-            if scan['ms level'] == 1:
-                return_json['errors'].append({
-                    "type": "mzmlParseError",
-                    "message": "requested scanID %i is not a MSn scan" % scan_id,
-                    'id': id_item['id']
-                })
-                continue
-
-            peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan.peaks if i > 0])
-            # peak_list = get_peaklist_from_mzml(scan)
-
-        elif peak_list_file_type == 'mgf':
-            try:
-                scan = peak_list_arr[scan_id]
-            except IndexError:
-                return_json['errors'].append({
-                    "type": "mzmlParseError",
-                    "message": "requested scanID %i not found in peakList file" % scan_id,
-                    'id': id_item['id']
-                })
-                continue
-            peaks = zip(scan['m/z array'], scan['intensity array'])
-            peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in peaks if i > 0])
+        try:
+            scan = peakListParser.get_scan(peak_list_readers, raw_file_name, scan_id)
+            peak_list = peakListParser.get_peak_list(scan, peak_list_file_type)
+        except peakListParser.ParseError as e:
+            return_json['errors'].append({
+                "type": "peakListParseError",
+                "message": e.args[0],
+                'id': id_item['id']
+            })
+            continue
 
         multiple_inj_list_peak_lists.append([id_item_index, peak_list])
 
@@ -102,12 +106,13 @@ def parse(csv_file, peak_list_file, cur, con, logger):
             rank = 1
 
         # peptides and link positions
-        pep1 = id_item['peptide1']
+        pep1 = id_item['pepseq 1']
         try:
-            pep2 = id_item['peptide2']
-            linkpos1 = id_item['linkpos1']
-            linkpos2 = id_item['linkpos1']
-            cl_mod_mass = id_item['crosslinker_mod_mass']
+            # ToDo: improve error handling for cl peptides
+            pep2 = id_item['pepseq 2']
+            linkpos1 = id_item['linkpos 1'] - 1
+            linkpos2 = id_item['linkpos 2'] - 1
+            cl_mod_mass = id_item['crosslinkermodmass']
         except KeyError:
             # linear
             pep2 = ""
@@ -120,12 +125,12 @@ def parse(csv_file, peak_list_file, cur, con, logger):
 
         # passThreshold
         try:
-            pass_threshold = 1 if id_item['passThreshold'] else 0
+            pass_threshold = 1 if id_item['passthreshold'] else 0
         except KeyError:
             pass_threshold = 1
 
         # fragment tolerance
-        frag_tol = id_item['fragment_tolerance'].split(' ', 1)
+        frag_tol = id_item['fragmenttolerance'].split(' ', 1)
         if frag_tol[1].lower() == 'parts per million':
             frag_tol[1] = 'ppm'
         elif frag_tol[1].lower() == 'dalton':
@@ -133,14 +138,14 @@ def parse(csv_file, peak_list_file, cur, con, logger):
         if frag_tol[1] not in ['ppm', 'Da']:
             return_json['errors'].append({
                 "type": "fragTolParseError",
-                "message": "unknown frament tolerance unit: %s\nSupported values are: ppm, Da" % frag_tol[1],
+                "message": "unknown fragment tolerance unit: %s\nSupported values are: ppm, Da" % frag_tol[1],
                 'id': id_item['id']
             })
             continue
         ms2_tol = ' '.join(frag_tol)
 
         # ion types
-        ion_types = id_item['ion_types'].lower()
+        ion_types = id_item['iontypes'].lower()
         unknown_ions = [ion for ion in ion_types.split(';') if ion not in ['peptide', 'a', 'b', 'c', 'x', 'y', 'z']]
         if len(unknown_ions) > 0:
             return_json['errors'].append({
@@ -151,22 +156,20 @@ def parse(csv_file, peak_list_file, cur, con, logger):
         # ToDo: could check against mzml fragmentation type and display warning if ions don't match
 
         # score
-        score = id_item['score']
+        score = json.dumps({'score': id_item['score']})
 
         # isDecoy
         try:
-            is_decoy = 0 if id_item['is_decoy'] else 1
+            is_decoy = 0 if id_item['isdecoy'] else 1
         except KeyError:
             is_decoy = 0
 
         # protein
-        protein = id_item['protein']
-
-        # raw file name
+        protein1 = id_item['protein 1']
         try:
-            raw_file_name = id_item['raw_file']
+            protein2 = id_item['protein 2']
         except KeyError:
-            raw_file_name = ''
+            protein2 = ''
 
         # create entry
         multiple_inj_list_identifications.append(
@@ -184,7 +187,8 @@ def parse(csv_file, peak_list_file, cur, con, logger):
              rank,
              score,
              is_decoy,
-             protein,
+             protein1,
+             protein2,
              raw_file_name,
              scan_id,
              id_item_index]
@@ -208,7 +212,7 @@ def parse(csv_file, peak_list_file, cur, con, logger):
                      "message": e.args[0],
                      'id': id_item_index
                      })
-                sys.exit(1)
+                return return_json
 
             # commit changes
             con.commit()
@@ -225,6 +229,6 @@ def parse(csv_file, peak_list_file, cur, con, logger):
              "message": e.args[0],
              'id': id_item_index
              })
-        sys.exit(1)
+        return return_json
 
     return return_json
