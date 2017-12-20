@@ -1,9 +1,8 @@
 import ntpath
 import zipfile
-import glob
 import re
-import pymzml
 import pyteomics.mgf as py_mgf
+import os
 
 
 class ParseError(Exception):
@@ -18,12 +17,13 @@ def unzip_peak_lists(zip_file):
 
     return_file_list = []
 
-    for file_path in glob.glob(unzip_path + '/*'):
-        file_name = ntpath.basename(file_path)
-        if file_name.lower().endswith('.mgf') or file_name.lower().endswith('.mzml'):
-            return_file_list.append(file_path)
-        else:
-            raise IOError('unsupported file type: %s' % file_name)
+    for root, dir_names, file_names in os.walk(unzip_path):
+        for file_name in file_names:
+            os.path.join(root, file_name)
+            if file_name.lower().endswith('.mgf') or file_name.lower().endswith('.mzml'):
+                return_file_list.append(root+'/'+file_name)
+            else:
+                raise IOError('unsupported file type: %s' % file_name)
 
     return return_file_list
 
