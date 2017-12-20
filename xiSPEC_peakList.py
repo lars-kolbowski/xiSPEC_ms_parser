@@ -92,7 +92,7 @@ def create_mgf_peak_list_reader(peak_list_file):
 
     reader_index = re.sub("\.(mgf)\Z", "", file_name, flags=re.I)
     return_dict[reader_index] = {
-        'reader': [pl for pl in reader][:20],
+        'reader': [pl for pl in reader],
         'fileType': 'mgf'
     }
 
