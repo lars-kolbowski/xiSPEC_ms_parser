@@ -111,10 +111,14 @@ try:
             peakList_fileList = unzip_peak_lists(peakList_file)
             logger.info('unzipping done')
         except (IOError, BadZipfile) as e:
+            logger.error(e.args[0])
             returnJSON['errors'].append({
                 "type": "zipParseError",
-                "message": e.args[0],
+                "message": "Looks something went wrong with the upload! Try uploading again.\n",
             })
+            print(json.dumps(returnJSON))
+            sys.exit(1)
+
 
     else:
         peakList_fileList = [peakList_file]

@@ -600,14 +600,28 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
                 spec_id_set.add(get_cross_link_identifier(specIdItem))
                 linear_index -= 1
 
-        # extract scanID
+        # get spectra data
+        try:
+            spectra_data = mzid_reader.get_by_id(id_item['spectraData_ref'], detailed=True)
+            # raw_file_name = id_item['spectraData_ref'].split('/')[-1]
+            # raw_file_name = re.sub('\.(mgf|mzml)', '', raw_file_name, flags=re.IGNORECASE)
+
+        except KeyError:
+            return_json['errors'].append({
+                "type": "mzidParseError",
+                "message": "no spectraData_ref specified",
+                'id': id_item['id']
+            })
+
+        # get scan id
+        # scan_id = get_scan_id(id_item["spectrumID"], spectra_data['SpectrumIDFormat'])
         try:
             scan_id = int(id_item['peak list scans'])
         except KeyError:
             matches = re.findall("([0-9]+)", id_item["spectrumID"])
             if len(matches) > 1:
-                # ToDo: this might not work for all mzids. Check more file formats.
-                matches = re.findall("(?:scan|index)?=?([0-9]+)", id_item["spectrumID"])
+                # ToDo: this might not work for all mzids. Check more file formats. 0 vs 1 based mess
+                matches = re.findall("(?:scan|index|query|mzMLid)?=?([0-9]+)", id_item["spectrumID"])
             if len(matches) > 0:
                 # ToDo: handle multiple scans? Is this standard compliant?
                 # found in https://github.com/HUPO-PSI/mzIdentML/blob/master/examples/1_2examples/crosslinking/OpenxQuest_example_added_annotations.mzid
@@ -631,17 +645,6 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
                 continue
 
         # raw file name
-        try:
-            spectra_data = mzid_reader.get_by_id(id_item['spectraData_ref'])
-            # raw_file_name = id_item['spectraData_ref'].split('/')[-1]
-            # raw_file_name = re.sub('\.(mgf|mzml)', '', raw_file_name, flags=re.IGNORECASE)
-
-        except KeyError:
-            return_json['errors'].append({
-                "type": "mzidParseError",
-                "message": "no spectraData_ref specified",
-                'id': id_item['id']
-            })
 
         if 'name' in spectra_data.keys():
             raw_file_name = spectra_data['name']
