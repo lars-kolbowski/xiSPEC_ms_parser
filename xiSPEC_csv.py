@@ -239,6 +239,7 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
              cl_mod_mass,
              rank,
              score,
+             '',
              is_decoy,
              protein1,
              protein2,
