@@ -3,8 +3,7 @@ import re
 import xiSPEC_sqlite as db
 import json
 import xiSPEC_peakList as peakListParser
-from multiprocessing import Pool
-import ntpath
+
 
 def parse(csv_file, peak_list_file_list, cur, con, logger):
 
@@ -37,72 +36,9 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
     multiple_inj_list_peak_lists = []
     # modifications = []
 
-    # # peakList readers ToDo: needs rework for multiple files - also duplicate code needs to move to xiSPEC_peakList
-
-    import pymzml
-    # import pyteomics.mgf as py_mgf
-    peak_list_readers = {}
-    mgf_file_list = []
-
-    for peak_list_file in peak_list_file_list:
-        logger.info('reading peakList file %s - start' % peak_list_file)
-        peak_list_file_name = ntpath.basename(peak_list_file)
-        if peak_list_file_name.lower().endswith('.mzml'):
-            peak_list_file_type = 'mzml'
-            peak_list_reader_index = re.sub("\.mzml", "", peak_list_file_name, flags=re.I)
-            peak_list_readers[peak_list_reader_index] = {
-                'reader': pymzml.run.Reader(peak_list_file),
-                'fileType': peak_list_file_type
-            }
-
-        elif peak_list_file_name.lower().endswith('.mgf'):
-            mgf_file_list.append(peak_list_file)
-            # peak_list_file_type = 'mgf'
-            # mgf_reader = py_mgf.read(peak_list_file)
-            # peak_list_reader_index = re.sub("\.mgf", "", peak_list_file_name, flags=re.I)
-            # peak_list_readers[peak_list_reader_index] = {
-            #     # 'reader': mgf_reader, # not indexed
-            #     'reader': [pl for pl in mgf_reader],    # takes up a lot of memory
-            #     'fileType': peak_list_file_type
-            # }
-
-        else:
-            return_json['errors'].append({
-                "type": "peakListParseError",
-                "message": "unsupported peak list file type for: %s" % peak_list_file_name
-            })
-
-    pool = Pool(8)
-    try:
-        mgf_readers = pool.map(peakListParser.create_mgf_peak_list_reader, mgf_file_list)
-    except peakListParser.ParseError as e:
-        return_json['errors'].append({
-            "type": "peakListParseError",
-            "message": e.args[0]
-        })
-    pool.close()
-    pool.join()
-    # flatten dict
-    mgf_readers = {k: v for x in mgf_readers for k, v in x.iteritems()}
-
-    for k, v in mgf_readers.iteritems():
-        peak_list_readers[k] = v
-
-    # peakList readers - multiprocessing
-    #
-    # pool = Pool(8)
-    # try:
-    #     peak_list_readers = pool.map(peakListParser.create_peak_list_reader, peak_list_file_list)
-    # except peakListParser.ParseError as e:
-    #     return_json['errors'].append({
-    #         "type": "peakListParseError",
-    #         "message": e.args[0]
-    #     })
-    # pool.close()
-    # pool.join()
-    # # flatten dict
-    # peak_list_readers = {k: v for x in peak_list_readers for k, v in x.iteritems()}
-
+    # peakList readers
+    logger.info('reading peakList files - start')
+    peak_list_readers = peakListParser.create_peak_list_readers(peak_list_file_list)
     logger.info('reading peakList files - done')
 
     scan_not_found_error = {}
