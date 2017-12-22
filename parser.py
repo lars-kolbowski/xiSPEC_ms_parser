@@ -110,7 +110,15 @@ try:
             logger.info('unzipping start')
             peakList_fileList = unzip_peak_lists(peakList_file)
             logger.info('unzipping done')
-        except (IOError, BadZipfile) as e:
+        except IOError as e:
+            logger.error(e.args[0])
+            returnJSON['errors'].append({
+                "type": "zipParseError",
+                "message": e.args[0],
+            })
+            print(json.dumps(returnJSON))
+            sys.exit(1)
+        except BadZipfile as e:
             logger.error(e.args[0])
             returnJSON['errors'].append({
                 "type": "zipParseError",
