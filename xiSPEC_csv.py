@@ -151,7 +151,7 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
 
         # isDecoy
         try:
-            is_decoy = 0 if id_item['isdecoy'] else 1
+            is_decoy = 1 if id_item['isdecoy'] else 0
         except KeyError:
             is_decoy = 0
 
