@@ -98,7 +98,9 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
         pep1 = id_item['pepseq 1']
         try:
             # ToDo: improve error handling for cl peptides
-            pep2 = id_item['pepseq 2']
+            pep2 = str(id_item['pepseq 2'])
+            if pep2 == 'nan':
+                pep2 = ""
             linkpos1 = id_item['linkpos 1'] - 1
             linkpos2 = id_item['linkpos 2'] - 1
             cl_mod_mass = id_item['crosslinkermodmass']
