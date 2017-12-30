@@ -107,6 +107,8 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
         except KeyError:
             # linear
             pep2 = ""
+
+        if pep2 == '':
             linkpos1 = -1
             linkpos2 = -1
             cl_mod_mass = 0
@@ -177,7 +179,7 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
              cl_mod_mass,
              rank,
              score,
-             '',
+             score,
              is_decoy,
              protein1,
              protein2,
