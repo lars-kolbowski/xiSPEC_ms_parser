@@ -329,8 +329,14 @@ def get_peptide_info(sid_items, mzid_reader, unimod_masses, logger):
         except IndexError:
             return_dict['protein2'] = ''
         return_dict['passThreshold'] = sid_item['passThreshold']
-        return_dict['scores'] = {k: v for k, v in sid_item.iteritems()
-                   if 'score' in k.lower() or 'pvalue' in k.lower() or 'evalue' in k.lower()}
+        return_dict['scores'] = {
+            k: v for k, v in sid_item.iteritems()
+            if 'score' in k.lower() or
+             'pvalue' in k.lower() or
+             'evalue' in k.lower() or
+             'sequest' in k.lower() or
+             'scaffold' in k.lower()
+        }
         for mod in all_mods:
             return_dict['annotation']['modifications'].append({
                 'aminoAcids': mod['residues'],
