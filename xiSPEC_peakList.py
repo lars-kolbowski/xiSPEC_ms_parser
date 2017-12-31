@@ -70,7 +70,7 @@ def get_reader(readers, file_name):
             reader = readers[readers.keys()[0]]
         else:
             raise ParseError("%s from identifications file does not match any of your peaklist files: %s" %
-                             (file_name, ';'.join(readers.keys())))
+                             (file_name, '; '.join(readers.keys())))
     return reader
 
 

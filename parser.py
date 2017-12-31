@@ -159,9 +159,17 @@ if len(returnJSON["errors"]) > 0:
     returnJSON['response'] = "Warning: %i error(s) occured!" % len(returnJSON['errors'])
     for e in returnJSON['errors']:
         logger.error(e)
+    returnJSON["log"] = logFile.split('/')[-1]
+
 else:
     returnJSON['response'] = "No errors, smooth sailing!"
+
+if len(returnJSON["errors"]) > 100:
+    returnJSON["errors"] = returnJSON["errors"][:100]
+
+
 print(json.dumps(returnJSON))
+
 if con:
     con.close()
     logger.info('all done!')

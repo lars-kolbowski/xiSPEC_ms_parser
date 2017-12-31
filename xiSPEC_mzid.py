@@ -641,17 +641,21 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
     # multi error handler
     if len(fragment_parsing_error_scans) > 0:
+        if len(fragment_parsing_error_scans) > 50:
+            id_string = '; '.join(fragment_parsing_error_scans[:50]) + ' ...'
+        else:
+            id_string = '; '.join(fragment_parsing_error_scans)
         return_json['errors'].append({
             "type": "IonParsingError",
             "message": "could not parse fragment ions assuming precursor-, b- and y-ion",
-            'id': ';'.join(fragment_parsing_error_scans)
+            'id': id_string
         })
 
     for pl_file, scan_id_list in scan_not_found_error.iteritems():
         return_json['errors'].append({
             "type": "",
             "message": "requested scanID(s) not found in peakList file %s" % pl_file,
-            'id': ';'.join([str(scan_id) for scan_id in scan_id_list])
+            'id': '; '.join([str(scan_id) for scan_id in scan_id_list])
         })
 
     return return_json
