@@ -2,6 +2,7 @@ certifi==2017.11.5
 chardet==3.0.4
 Cython==0.27.3
 decorator==4.1.2
+dill==0.2.7.1
 enum34==1.1.6
 functools32==3.2.3.post2
 idna==2.6
@@ -10,10 +11,10 @@ jsonschema==2.6.0
 jupyter-core==4.3.0
 logging==0.4.9.6
 lxml==4.1.1
+multiprocess==0.70.5
 nbformat==4.4.0
 numpy==1.13.3
-pandas==0.21.1
-pkg-resources==0.0.0
+pandas==0.21.0
 plotly==2.0.16
 psycopg2==2.7.3.2
 pymzml==0.7.8
@@ -26,4 +27,3 @@ six==1.11.0
 traitlets==4.3.2
 urllib3==1.22
 pyteomics==3.4.2
-pandas==0.21.0

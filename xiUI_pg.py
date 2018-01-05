@@ -57,7 +57,7 @@ def write_peaklists(inj_list, cur, con):
                         inj_list)
         con.commit()
 
-    except sqlite3.Error as e:
+    except Exception as e:
         raise DBException(e)
 
     return []
@@ -68,7 +68,7 @@ def write_modifications(inj_list, cur, con):
         cur.executemany("""INSERT INTO modifications (id, name, mass, residues) VALUES (%s, %s, %s, %s)""",
                         inj_list)
         con.commit()
-    except sqlite3.Error as e:
+    except Exception as e:
         raise DBException(e)
 
     return []

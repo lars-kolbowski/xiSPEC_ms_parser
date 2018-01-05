@@ -23,7 +23,7 @@ try:
     # logging
     try:
         dev = False
-        logFile = dname + "/log/" + sys.argv[3] + ".log"
+        logFile = dname + "/log/%s_%s.log" % (sys.argv[3], int(time()))
 
     except IndexError:
         dev = True
@@ -38,7 +38,7 @@ try:
     logger = logging.getLogger(__name__)
 
 except Exception as e:
-    print e
+    print (e)
     sys.exit(1)
 
 
@@ -70,7 +70,7 @@ try:
         #     os.mkdir(dbfolder)
         dbName = ''#dbfolder + sys.argv[3] + '.db'
 except Exception as e:
-    logger.error(e)
+    logger.error(e.args[0])
     print(e)
     sys.exit(1)
 
@@ -105,15 +105,15 @@ try:
     # check for peak list zip file
     peakList_fileName = ntpath.basename(peakList_file)
     if peakList_fileName.lower().endswith('.zip'):
-        # try:
-        logger.info('unzipping start')
-        peakList_fileList = unzip_peak_lists(peakList_file)
-        logger.info('unzipping done')
-        # except (IOError, BadZipfile) as e:
-        #     returnJSON['errors'].append({
-        #         "type": "zipParseError",
-        #         "message": e.args[0],
-        #     })
+        try:
+            logger.info('unzipping start')
+            peakList_fileList = unzip_peak_lists(peakList_file)
+            logger.info('unzipping done')
+        except (IOError, BadZipfile) as e:
+            returnJSON['errors'].append({
+                "type": "zipParseError",
+                "message": e.args[0],
+            })
 
     else:
         peakList_fileList = [peakList_file]
