@@ -109,11 +109,23 @@ try:
             logger.info('unzipping start')
             peakList_fileList = unzip_peak_lists(peakList_file)
             logger.info('unzipping done')
-        except (IOError, BadZipfile) as e:
+        except IOError as e:
+            logger.error(e.args[0])
             returnJSON['errors'].append({
                 "type": "zipParseError",
                 "message": e.args[0],
             })
+            print(json.dumps(returnJSON))
+            sys.exit(1)
+        except BadZipfile as e:
+            logger.error(e.args[0])
+            returnJSON['errors'].append({
+                "type": "zipParseError",
+                "message": "Looks something went wrong with the upload! Try uploading again.\n",
+            })
+            print(json.dumps(returnJSON))
+            sys.exit(1)
+
 
     else:
         peakList_fileList = [peakList_file]
@@ -146,9 +158,17 @@ if len(returnJSON["errors"]) > 0:
     returnJSON['response'] = "Warning: %i error(s) occured!" % len(returnJSON['errors'])
     for e in returnJSON['errors']:
         logger.error(e)
+    returnJSON["log"] = logFile.split('/')[-1]
+
 else:
     returnJSON['response'] = "No errors, smooth sailing!"
+
+if len(returnJSON["errors"]) > 100:
+    returnJSON["errors"] = returnJSON["errors"][:100]
+
+
 print(json.dumps(returnJSON))
+
 if con:
     con.close()
     logger.info('all done!')
