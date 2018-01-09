@@ -584,7 +584,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
                  json.dumps(pep_info['scores']),
                  isDecoy,
                  protein1,
-                 #protein2,
+                 protein2,
                  raw_file_name,
                  scan_id,
                  mzid_item_index]

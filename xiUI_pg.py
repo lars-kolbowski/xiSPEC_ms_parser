@@ -35,14 +35,16 @@ INSERT INTO identifications (
     "ionTypes",
     "crosslinker_modMass",
     "rank",
-    scores,
+    score,
+    "allScores",
     "isDecoy",
-    protein,
+    protein1,
+    protein2
     file,
     "scanID",
     "peakList_id"
 )
-VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", inj_list)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", inj_list)
         con.commit()
 
     except psycopg2.Error as e:
@@ -72,5 +74,3 @@ def write_modifications(inj_list, cur, con):
         raise DBException(e)
 
     return []
-
-

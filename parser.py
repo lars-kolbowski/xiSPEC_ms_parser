@@ -5,6 +5,7 @@ import shutil
 import logging
 import ntpath
 from zipfile import BadZipfile
+from time import time
 
 try:
     # set working directory
