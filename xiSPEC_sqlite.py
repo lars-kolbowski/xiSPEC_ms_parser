@@ -9,7 +9,7 @@ def connect(dbname):
     try:
         con = sqlite3.connect(dbname)
     except sqlite3.Error as e:
-        raise DBException(e)
+        raise DBException(e.message)
 
     return con
 
@@ -58,7 +58,7 @@ def create_tables(cur, con):
         con.commit()
 
     except sqlite3.Error as e:
-        raise DBException(e)
+        raise DBException(e.message)
     return True
 
 
@@ -91,7 +91,7 @@ def write_identifications(inj_list, cur, con):
         con.commit()
 
     except sqlite3.Error as e:
-        raise DBException(e)
+        raise DBException(e.message)
 
     return []
 
@@ -103,7 +103,7 @@ def write_peaklists(inj_list, cur, con):
         con.commit()
 
     except sqlite3.Error as e:
-        raise DBException(e)
+        raise DBException(e.message)
 
     return []
 
@@ -114,7 +114,7 @@ def write_modifications(inj_list, cur, con):
                         inj_list)
         con.commit()
     except sqlite3.Error as e:
-        raise DBException(e)
+        raise DBException(e.message)
 
     return []
 
