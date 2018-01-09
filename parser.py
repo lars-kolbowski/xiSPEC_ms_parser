@@ -51,12 +51,12 @@ try:
 
     # development testfiles
     if dev:
-        baseDir = "/home/lars/work/xiSPEC/"
-        identifications_file = "/home/lars/Xi/xiSPEC/example/example.csv"
+        #baseDir = "/home/lars/work/xiSPEC/"
+        identifications_file = "/home/col/test/Tmuris_exosomes_2gel.mzid"
         # identifications_file = baseDir + 'OpenxQuest_example_added_annotations.mzid'
         # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
         # peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf"
-        peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf.zip"
+        peakList_file = "/home/col/test/20171027_DDA_JC1.zip_unzip/20171027_DDA_JC107.mgf";#baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf.zip"
 
         dbName = 'test.db'
 
@@ -166,7 +166,6 @@ else:
 
 if len(returnJSON["errors"]) > 100:
     returnJSON["errors"] = returnJSON["errors"][:100]
-
 
 print(json.dumps(returnJSON))
 

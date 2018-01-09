@@ -614,7 +614,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             except db.DBException as e:
                 return_json['errors'].append(
                     {"type": "dbError",
-                     "message": e.args[0],
+                     "message": e.message,
                      'id': spec_id_item_index
                      })
                 return return_json
@@ -641,8 +641,8 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     except db.DBException as e:
         return_json['errors'].append(
             {"type": "dbError",
-             "message": e.args[0],
-             'id': spec_id_item_index
+             "message": e.message,
+             "id": spec_id_item_index
              })
         return return_json
 

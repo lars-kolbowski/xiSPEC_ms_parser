@@ -11,7 +11,7 @@ def connect(dbname):
         con = psycopg2.connect(host=credentials.hostname, user=credentials.username, password=credentials.password,
                                dbname=credentials.database)
     except psycopg2.Error as e:
-        raise DBException(e)
+        raise DBException(e.message)
 
     return con
 
@@ -39,7 +39,7 @@ INSERT INTO identifications (
     "allScores",
     "isDecoy",
     protein1,
-    protein2
+    protein2,
     file,
     "scanID",
     "peakList_id"
@@ -48,7 +48,7 @@ VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
         con.commit()
 
     except psycopg2.Error as e:
-        raise DBException(e)
+        raise DBException(e.message)
 
     return []
 
@@ -60,7 +60,7 @@ def write_peaklists(inj_list, cur, con):
         con.commit()
 
     except Exception as e:
-        raise DBException(e)
+        raise DBException(e.message)
 
     return []
 
@@ -71,6 +71,6 @@ def write_modifications(inj_list, cur, con):
                         inj_list)
         con.commit()
     except Exception as e:
-        raise DBException(e)
+        raise DBException(e.message)
 
     return []
