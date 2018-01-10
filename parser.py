@@ -7,8 +7,6 @@ import ntpath
 from zipfile import BadZipfile
 from time import time
 
-sys.argv = ["","/home/col/xiSPEC_test_files/DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid","/home/col/xiSPEC_test_files/centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML","","pg"]
-
 try:
     # set working directory
     try:
@@ -32,7 +30,6 @@ try:
         dev = True
         logFile = "log/parser.log"
 
-    #if not os.path.isfile(logFile):
     os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
 
     # create logger
