@@ -69,12 +69,12 @@ try:
         identifications_file = sys.argv[1]
         peakList_file = sys.argv[2]
         upload_folder = "../uploads/" + sys.argv[3]
-        # dbfolder = "dbs/tmp/"
-        # try:
-        #     os.stat(dbfolder)
-        # except:
-        #     os.mkdir(dbfolder)
-        dbName = ''#dbfolder + sys.argv[3] + '.db'
+        dbfolder = "dbs/tmp/"
+        try:
+            os.stat(dbfolder)
+        except:
+            os.mkdir(dbfolder)
+        dbName = dbfolder + sys.argv[3] + '.db'
 except Exception as e:
     logger.error(e.args[0])
     print(e)
