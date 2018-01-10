@@ -30,8 +30,7 @@ try:
         dev = True
         logFile = "log/parser.log"
 
-    if not os.path.isfile(logFile):
-        os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
+    os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
 
     # create logger
     logging.basicConfig(filename=logFile, level=logging.DEBUG,
@@ -42,21 +41,27 @@ except Exception as e:
     print (e)
     sys.exit(1)
 
-
+try:
+    if sys.argv[4] == "pg":
+        import xiUI_pg as db
+    else:
+        import xiSPEC_sqlite as db
+except IndexError:
+    import xiSPEC_sqlite as db
+    
 # paths and file names
 try:
-    import xiSPEC_sqlite as db
 
     unimodPath = 'obo/unimod.obo'
 
     # development testfiles
     if dev:
-        baseDir = "/home/lars/work/xiSPEC/"
-        identifications_file = "/home/lars/Xi/xiSPEC/example/example.csv"
+        #baseDir = "/home/lars/work/xiSPEC/"
+        identifications_file = "/home/col/xiSPEC_test_files/DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
         # identifications_file = baseDir + 'OpenxQuest_example_added_annotations.mzid'
         # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
         # peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf"
-        peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf.zip"
+        peakList_file = "/home/col/xiSPEC_test_files/centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML";#baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf.zip"
 
         dbName = 'test.db'
 
@@ -166,7 +171,6 @@ else:
 
 if len(returnJSON["errors"]) > 100:
     returnJSON["errors"] = returnJSON["errors"][:100]
-
 
 print(json.dumps(returnJSON))
 

@@ -114,4 +114,3 @@ def create_peak_list_readers(pl_file_list):
 
 def create_peak_list_reader(pl_file_name):
     pass
-

@@ -2,8 +2,15 @@ import pyteomics.mzid as py_mzid
 import re
 import ntpath
 import json
-import xiSPEC_sqlite as db
+import sys
 import xiSPEC_peakList as peakListParser
+try:
+    if sys.argv[4] == "pg":
+        import xiUI_pg as db
+    else:
+        import xiSPEC_sqlite as db
+except IndexError:
+    import xiSPEC_sqlite as db
 
 
 def path_leaf(path):
@@ -365,10 +372,20 @@ def get_unimod_masses(unimod_path):
 
 def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
+    #hack to get analysis software name
+    mzid_stream = open(mzid_file, 'r')
+    fileStart = mzid_stream.read(5000)  # read by character
+    mzid_stream.close()
+    r = re.finditer('<SoftwareName>.*?<cvParam.*?name="(.*?)"', fileStart, re.DOTALL)
+    analysisSoftware = [];
+    for i in r:
+        analysisSoftware.append(i.group(1))
+
     return_json = {
         "response": "",
         "modifications": [],
-        "errors": []
+        "errors": [],
+        "analysisSoftware": analysisSoftware
     }
 
     logger.info('reading mzid - start')
@@ -613,7 +630,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             except db.DBException as e:
                 return_json['errors'].append(
                     {"type": "dbError",
-                     "message": e.args[0],
+                     "message": e.message,
                      'id': spec_id_item_index
                      })
                 return return_json
@@ -640,8 +657,8 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     except db.DBException as e:
         return_json['errors'].append(
             {"type": "dbError",
-             "message": e.args[0],
-             'id': spec_id_item_index
+             "message": e.message,
+             "id": spec_id_item_index
              })
         return return_json
 

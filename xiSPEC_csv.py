@@ -1,8 +1,15 @@
 import pandas as pd
 import re
-import xiSPEC_sqlite as db
 import json
+import sys
 import xiSPEC_peakList as peakListParser
+try:
+    if sys.argv[4] == "pg":
+        import xiUI_pg as db
+    else:
+        import xiSPEC_sqlite as db
+except IndexError:
+    import xiSPEC_sqlite as db
 
 
 def parse(csv_file, peak_list_file_list, cur, con, logger):
