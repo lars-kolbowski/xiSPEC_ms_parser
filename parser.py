@@ -7,6 +7,8 @@ import ntpath
 from zipfile import BadZipfile
 from time import time
 
+sys.argv = ["","/home/col/xiSPEC_test_files/DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid","/home/col/xiSPEC_test_files/centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML","","pg"]
+
 try:
     # set working directory
     try:
@@ -42,10 +44,16 @@ except Exception as e:
     print (e)
     sys.exit(1)
 
-
+try:
+    if sys.argv[4] == "pg":
+        import xiUI_pg as db
+    else:
+        import xiSPEC_sqlite as db
+except IndexError:
+    import xiSPEC_sqlite as db
+    
 # paths and file names
 try:
-    import xiUI_pg as db
 
     unimodPath = 'obo/unimod.obo'
 
