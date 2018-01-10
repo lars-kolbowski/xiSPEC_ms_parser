@@ -44,7 +44,7 @@ INSERT INTO identifications (
     "scanID",
     "peakList_id"
 )
-VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", inj_list)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", inj_list[1:])
         con.commit()
 
     except psycopg2.Error as e:

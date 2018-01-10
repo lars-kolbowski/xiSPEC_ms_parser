@@ -584,7 +584,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
                 score = ''
 
             multiple_inj_list_identifications.append(
-                [#spec_id_item_index,
+                [spec_id_item_index,
                  id_item['id'],
                  pep1,
                  pep2,
