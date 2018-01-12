@@ -578,10 +578,10 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
                 linkpos1 = -1
                 linkpos2 = -1
 
-            try:
-                score = float(pep_info['scores'].values()[0])
-            except IndexError:
-                score = ''
+            # try:
+            #     score = float(pep_info['scores'].values()[0])
+            # except IndexError:
+            #     score = ''
 
             multiple_inj_list_identifications.append(
                 [spec_id_item_index,
@@ -596,7 +596,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
                  pep_info['ions'],
                  pep_info["cross-linker modMass"],
                  rank,
-                 score,
+                 # score,
                  json.dumps(pep_info['scores']),
                  isDecoy,
                  protein1,

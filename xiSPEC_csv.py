@@ -156,7 +156,7 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
         # ToDo: could check against mzml fragmentation type and display warning if ions don't match
 
         # score
-        score = id_item['score']
+        # score = id_item['score']
         all_scores = json.dumps({'score': id_item['score']})
 
         # isDecoy
@@ -186,7 +186,7 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
              ion_types,
              cl_mod_mass,
              rank,
-             score,
+             # score,
              all_scores,
              is_decoy,
              protein1,

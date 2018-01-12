@@ -31,7 +31,6 @@ def create_tables(cur, con):
             "ionTypes TEXT, "
             "crosslinker_modMass FLOAT, "
             "rank INT, "
-            "score FLOAT, "
             "allScores TEXT,"
             "isDecoy INT, "
             "protein1 TEXT, "
@@ -78,7 +77,6 @@ def write_identifications(inj_list, cur, con):
         'ionTypes',
         'crosslinker_modMass',
         'rank',
-        'score',
         'allScores',
         'isDecoy',
         'protein1',
@@ -87,7 +85,7 @@ def write_identifications(inj_list, cur, con):
         'scanID',
         'peakList_id'
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", inj_list)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", inj_list)
         con.commit()
 
     except sqlite3.Error as e:
