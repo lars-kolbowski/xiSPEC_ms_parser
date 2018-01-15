@@ -2,6 +2,7 @@ import pandas as pd
 import re
 import json
 import sys
+from time import time
 import xiSPEC_peakList as peakListParser
 try:
     if sys.argv[4] == "pg":
@@ -13,6 +14,8 @@ except IndexError:
 
 
 def parse(csv_file, peak_list_file_list, cur, con, logger):
+    logger.info('reading csv - start')
+    csvStartTime = time()
 
     return_json = {
         "response": "",
@@ -20,7 +23,6 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
         "errors": []
     }
 
-    logger.info('reading csv - start')
     # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
     id_df = pd.read_csv(csv_file)
     id_df.columns = [x.lower() for x in id_df.columns]
@@ -35,7 +37,7 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
             })
             return return_json
 
-    logger.info('reading csv - done')
+    logger.info('reading csv - done. Time: ' + str(round(time() - csvStartTime, 2)) + " sec")
 
     # unimod_masses = get_unimod_masses(unimod_path)
 
@@ -44,9 +46,10 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
     # modifications = []
 
     # peakList readers
+    peakListStartTime = time()
     logger.info('reading peakList files - start')
     peak_list_readers = peakListParser.create_peak_list_readers(peak_list_file_list)
-    logger.info('reading peakList files - done')
+    logger.info('reading peakList files - done. Time: ' + str(round(time() - peakListStartTime, 2)) + " sec")
 
     scan_not_found_error = {}
 

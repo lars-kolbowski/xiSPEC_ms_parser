@@ -60,12 +60,21 @@ try:
 
     # development testfiles
     if dev:
-        #baseDir = "/home/lars/work/xiSPEC/"
-        identifications_file = "/home/col/xiSPEC_test_files/DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
+        baseDir = "/home/col/"
         # identifications_file = baseDir + 'OpenxQuest_example_added_annotations.mzid'
         # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
         # peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf"
-        peakList_file = "/home/col/xiSPEC_test_files/centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML";#baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf.zip"
+
+        # small mzid dataset
+        # identifications_file = baseDir + "xiSPEC_test_files/DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
+        peakList_file = baseDir + "xiSPEC_test_files/centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
+
+        # large mzid dataset
+        # identifications_file = baseDir + "test/Tmuris_exosomes1.mzid"
+        # peakList_file = baseDir + "test/20171027_DDA_JC1.zip";
+
+        #csv file
+        identifications_file = baseDir + "example.csv"
 
         dbName = 'test.db'
 
@@ -110,15 +119,17 @@ returnJSON = {
 }
 
 # parsing
+startTime = time()
 try:
 
     # check for peak list zip file
     peakList_fileName = ntpath.basename(peakList_file)
     if peakList_fileName.lower().endswith('.zip'):
         try:
+            unzipStartTime = time()
             logger.info('unzipping start')
             peakList_fileList = unzip_peak_lists(peakList_file)
-            logger.info('unzipping done')
+            logger.info('unzipping done. Time: ' + str(round(time() - unzipStartTime, 2)) + " sec")
         except IOError as e:
             logger.error(e.args[0])
             returnJSON['errors'].append({
@@ -141,17 +152,21 @@ try:
         peakList_fileList = [peakList_file]
 
     # Identification File
+    parseStartTime = time()
     identifications_fileName = ntpath.basename(identifications_file)
     if identifications_fileName.lower().endswith('.mzid'):
+        logger.info('parsing mzid start')
         identifications_fileType = 'mzid'
-
         returnJSON = mzidParser.parse(identifications_file, peakList_fileList, unimodPath, cur,  con, logger)
 
     elif identifications_fileName.endswith('.csv'):
+        logger.info('parsing csv start')
         identifications_fileType = 'csv'
         returnJSON = csvParser.parse(identifications_file, peakList_fileList, cur, con, logger)
         # mgfReader = py_mgf.read(peak_list_file)
         # peakListArr = [pl for pl in mgfReader]
+
+    logger.info('parsing done. Time: ' + str(round(time() - parseStartTime, 2)) + " sec")
 
     # delete uploaded files after they have been parsed
     if not dev:
@@ -180,4 +195,4 @@ print(json.dumps(returnJSON))
 
 if con:
     con.close()
-    logger.info('all done!')
+logger.info('all done! Total time: ' + str(round(time() - startTime, 2)) + " sec")
