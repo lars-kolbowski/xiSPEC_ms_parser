@@ -30,6 +30,10 @@ try:
         dev = True
         logFile = "log/parser.log"
 
+    try:
+        os.remove(logFile)
+    except OSError:
+        pass
     os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
 
     # create logger
