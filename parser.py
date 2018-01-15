@@ -67,14 +67,14 @@ try:
 
         # small mzid dataset
         # identifications_file = baseDir + "xiSPEC_test_files/DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
-        peakList_file = baseDir + "xiSPEC_test_files/centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
+        # peakList_file = baseDir + "xiSPEC_test_files/centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
 
         # large mzid dataset
-        # identifications_file = baseDir + "test/Tmuris_exosomes1.mzid"
-        # peakList_file = baseDir + "test/20171027_DDA_JC1.zip";
+        identifications_file = baseDir + "test/Tmuris_exosomes1.mzid"
+        peakList_file = baseDir + "test/20171027_DDA_JC1.zip";
 
         #csv file
-        identifications_file = baseDir + "example.csv"
+        # identifications_file = baseDir + "example.csv"
 
         dbName = 'test.db'
 
