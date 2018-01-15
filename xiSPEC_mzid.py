@@ -3,7 +3,9 @@ import re
 import ntpath
 import json
 import sys
+from time import time
 import xiSPEC_peakList as peakListParser
+
 try:
     if sys.argv[4] == "pg":
         import xiUI_pg as db
@@ -371,6 +373,8 @@ def get_unimod_masses(unimod_path):
 
 
 def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
+    logger.info('reading mzid - start')
+    mzidStartTime = time()
 
     #hack to get analysis software name
     mzid_stream = open(mzid_file, 'r')
@@ -388,7 +392,6 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         "analysisSoftware": analysisSoftware
     }
 
-    logger.info('reading mzid - start')
     # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
     try:
         mzid_reader = py_mzid.MzIdentML(mzid_file)
@@ -399,15 +402,16 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         })
         return return_json
 
-    logger.info('reading mzid - done')
+    logger.info('reading mzid - done. Time: ' + str(round(time() - mzidStartTime, 2)) + " sec")
 
     unimod_masses = get_unimod_masses(unimod_path)
 
+    spectraMapStartTime = time()
     logger.info('generating spectra data protocol map - start')
     spectra_data_protocol_map = map_spectra_data_to_protocol(mzid_reader)
     return_json['errors'] += spectra_data_protocol_map['errors']
     # ToDo: save FragmentTolerance to annotationsTable
-    logger.info('generating spectraData_ProtocolMap - done')
+    logger.info('generating spectraData_ProtocolMap - done. Time: ' + str(round(time() - spectraMapStartTime, 2)) + " sec")
 
     mzid_item_index = 0
     spec_id_item_index = 0
@@ -416,7 +420,10 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     modifications = []
 
     # peakList readers
+    peakListStartTime = time()
+    logger.info('reading peakList files - start')
     peak_list_readers = peakListParser.create_peak_list_readers(peak_list_file_list)
+    logger.info('reading peakList files - done. Time: ' + str(round(time() - peakListStartTime, 2)) + " sec")
 
     # ToDo: better error handling for general errors - bundling errors of same type errors together
     fragment_parsing_error_scans = []
