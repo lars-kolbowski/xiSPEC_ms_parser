@@ -431,7 +431,6 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
     # main loop
     logger.info('entering main loop')
-    mainLoopStartTime = time()
 
     for id_item in mzid_reader:  # mzid_item = mzid_reader.next()
 
