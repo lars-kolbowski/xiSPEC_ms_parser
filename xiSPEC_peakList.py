@@ -54,7 +54,8 @@ def get_peak_list(scan, pl_file_type):
         peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan.peaks if i > 0])
 
     elif pl_file_type == 'mgf':
-        peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan['peaks'] if i > 0])
+        peak_list = scan['peaks']
+        # peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan['peaks'] if i > 0])
 
     else:
         raise ParseError("unsupported peak list file type: %s" % pl_file_type)
@@ -66,6 +67,7 @@ def get_reader(readers, file_name):
     try:
         reader = readers[file_name]
     except KeyError:
+        #add warning?
         if len(readers.keys()) == 1:
             reader = readers[readers.keys()[0]]
         else:

@@ -27,7 +27,7 @@ from collections import defaultdict as ddict
 
 class RegexPatterns(object):
     params_pattern = re.compile('([A-Z]+)=(.*)')
-    peak_list_pattern = re.compile('([0-9.]+)\s([0-9.]+)')
+    peak_list_pattern = re.compile('([0-9.]+\s[0-9.]+\s)+')
 
 
 class ParseError(Exception):
@@ -236,13 +236,13 @@ class Reader(object):
             self.seeker.seek(start_pos, 0)
             data = self.seeker.read(end_pos - self.info['offsets'][scan_id])
             try:
-                for m in RegexPatterns.params_pattern.finditer(data):
-                    params[m.groups()[0]] = m.groups()[1]
+                # for m in RegexPatterns.params_pattern.finditer(data):
+                #     params[m.groups()[0]] = m.groups()[1]
 
-                peak_list = []
-                for m in RegexPatterns.peak_list_pattern.finditer(data):
-                    if float(m.groups()[1]) > 0:
-                        peak_list.append(m.groups())
+                # for m in RegexPatterns.peak_list_pattern.finditer(data):
+                #     if float(m.groups()[1]) > 0:
+                # peak_list.append(m.groups())
+                peak_list = RegexPatterns.peak_list_pattern.search(data).groups()[0]
 
             except:
                 raise ParseError()
