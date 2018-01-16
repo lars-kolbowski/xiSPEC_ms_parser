@@ -27,7 +27,7 @@ from collections import defaultdict as ddict
 
 class RegexPatterns(object):
     params_pattern = re.compile('([A-Z]+)=(.*)')
-    peak_list_pattern = re.compile('([0-9.]+\s[0-9.]+\s)+')
+    peak_list_pattern = re.compile('(^(?:[0-9.]+\s[0-9.]+\s)+)', re.M)
 
 
 class ParseError(Exception):
