@@ -374,22 +374,22 @@ def get_unimod_masses(unimod_path):
 
 def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     logger.info('reading mzid - start')
-    mzidStartTime = time()
+    mzid_start_time = time()
 
     #hack to get analysis software name
     mzid_stream = open(mzid_file, 'r')
-    fileStart = mzid_stream.read(5000)  # read by character
+    file_start = mzid_stream.read(5000)  # read by character
     mzid_stream.close()
-    r = re.finditer('<SoftwareName>.*?<cvParam.*?name="(.*?)"', fileStart, re.DOTALL)
-    analysisSoftware = [];
+    r = re.finditer('<SoftwareName>.*?<cvParam.*?name="(.*?)"', file_start, re.DOTALL)
+    analysis_software = [];
     for i in r:
-        analysisSoftware.append(i.group(1))
+        analysis_software.append(i.group(1))
 
     return_json = {
         "response": "",
         "modifications": [],
         "errors": [],
-        "analysisSoftware": analysisSoftware
+        "analysisSoftware": analysis_software
     }
 
     # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
@@ -402,16 +402,16 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         })
         return return_json
 
-    logger.info('reading mzid - done. Time: ' + str(round(time() - mzidStartTime, 2)) + " sec")
+    logger.info('reading mzid - done. Time: ' + str(round(time() - mzid_start_time, 2)) + " sec")
 
     unimod_masses = get_unimod_masses(unimod_path)
 
-    spectraMapStartTime = time()
+    spectra_map_start_time = time()
     logger.info('generating spectra data protocol map - start')
     spectra_data_protocol_map = map_spectra_data_to_protocol(mzid_reader)
     return_json['errors'] += spectra_data_protocol_map['errors']
     # ToDo: save FragmentTolerance to annotationsTable
-    logger.info('generating spectraData_ProtocolMap - done. Time: ' + str(round(time() - spectraMapStartTime, 2)) + " sec")
+    logger.info('generating spectraData_ProtocolMap - done. Time: ' + str(round(time() - spectra_map_start_time, 2)) + " sec")
 
     mzid_item_index = 0
     spec_id_item_index = 0
@@ -420,17 +420,18 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     modifications = []
 
     # peakList readers
-    peakListStartTime = time()
+    peak_list_start_time = time()
     logger.info('reading peakList files - start')
     peak_list_readers = peakListParser.create_peak_list_readers(peak_list_file_list)
-    logger.info('reading peakList files - done. Time: ' + str(round(time() - peakListStartTime, 2)) + " sec")
+    logger.info('reading peakList files - done. Time: ' + str(round(time() - peak_list_start_time, 2)) + " sec")
 
     # ToDo: better error handling for general errors - bundling errors of same type errors together
     fragment_parsing_error_scans = []
     scan_not_found_error = {}
 
     # main loop
-    logger.info('entering main loop')
+    main_loop_start_time = time()
+    logger.info('main loop - start')
 
     for id_item in mzid_reader:  # mzid_item = mzid_reader.next()
 
@@ -561,7 +562,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             rank = paired_spec_id_items[0]['rank']
 
             # ToDo: handling for mzid that don't include isDecoy
-            isDecoy = any([pep['isDecoy'] for pep in pep_info['isDecoy']])
+            is_decoy = any([pep['isDecoy'] for pep in pep_info['isDecoy']])
             # accessions = ";".join(pep_info['proteins'])
             protein1 = pep_info['protein1']
             protein2 = pep_info['protein2']
@@ -572,31 +573,26 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             else:
                 pass_threshold = 0
 
-            # peps and linkpos
+            # peptides and linker position
             pep1 = pep_info['peptides'][0]
 
             if len(pep_info['peptides']) > 1:
-                linkpos1 = pep_info['linkSites'][0]
+                link_pos1 = pep_info['linkSites'][0]
                 pep2 = pep_info['peptides'][1]
-                linkpos2 = pep_info['linkSites'][1]
+                link_pos2 = pep_info['linkSites'][1]
 
             else:
                 pep2 = ""
-                linkpos1 = -1
-                linkpos2 = -1
-
-            # try:
-            #     score = float(pep_info['scores'].values()[0])
-            # except IndexError:
-            #     score = ''
+                link_pos1 = -1
+                link_pos2 = -1
 
             multiple_inj_list_identifications.append(
                 [spec_id_item_index,
                  id_item['id'],
                  pep1,
                  pep2,
-                 linkpos1,
-                 linkpos2,
+                 link_pos1,
+                 link_pos2,
                  pep_info['precursorCharge'],
                  pass_threshold,
                  ms2_tol,
@@ -605,7 +601,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
                  rank,
                  # score,
                  json.dumps(pep_info['scores']),
-                 isDecoy,
+                 is_decoy,
                  protein1,
                  protein2,
                  raw_file_name,
@@ -646,9 +642,11 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             con.commit()
 
     # end main loop
+    logger.info('main loop - done. Time: ' + str(round(time() - main_loop_start_time, 2)) + " sec")
 
     # once loop is done write remaining data to DB
-    logger.info('writing remaining entries to DB')
+    db_wrap_up_start_time = time()
+    logger.info('write remaining entries and modifications to DB - start')
     try:
         db.write_identifications(multiple_inj_list_identifications, cur, con)
         db.write_peaklists(multiple_inj_list_peak_lists, cur, con)

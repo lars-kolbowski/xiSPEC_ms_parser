@@ -60,18 +60,18 @@ try:
 
     # development testfiles
     if dev:
-        baseDir = "/home/col/"
+        baseDir = "/media/data/xiSPEC_test_files/xiSPEC/"
         # identifications_file = baseDir + 'OpenxQuest_example_added_annotations.mzid'
         # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
-        # peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf"
+        peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf"
 
         # small mzid dataset
-        # identifications_file = baseDir + "xiSPEC_test_files/DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
-        # peakList_file = baseDir + "xiSPEC_test_files/centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
+        identifications_file = baseDir + "DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
+        # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
 
         # large mzid dataset
-        identifications_file = baseDir + "test/Tmuris_exosomes1.mzid"
-        peakList_file = baseDir + "test/20171027_DDA_JC1.zip";
+        # identifications_file = baseDir + "test/Tmuris_exosomes1.mzid"
+        # peakList_file = baseDir + "test/20171027_DDA_JC1.zip"
 
         #csv file
         # identifications_file = baseDir + "example.csv"
@@ -147,12 +147,10 @@ try:
             print(json.dumps(returnJSON))
             sys.exit(1)
 
-
     else:
         peakList_fileList = [peakList_file]
 
     # Identification File
-    parseStartTime = time()
     identifications_fileName = ntpath.basename(identifications_file)
     if identifications_fileName.lower().endswith('.mzid'):
         logger.info('parsing mzid start')
@@ -165,8 +163,6 @@ try:
         returnJSON = csvParser.parse(identifications_file, peakList_fileList, cur, con, logger)
         # mgfReader = py_mgf.read(peak_list_file)
         # peakListArr = [pl for pl in mgfReader]
-
-    logger.info('parsing done. Time: ' + str(round(time() - parseStartTime, 2)) + " sec")
 
     # delete uploaded files after they have been parsed
     if not dev:
