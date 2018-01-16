@@ -14,8 +14,6 @@ except IndexError:
 
 
 def parse(csv_file, peak_list_file_list, cur, con, logger):
-    logger.info('reading csv - start')
-    csvStartTime = time()
 
     return_json = {
         "response": "",
@@ -23,6 +21,8 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
         "errors": []
     }
 
+    csv_start_time = time()
+    logger.info('reading csv - start')
     # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
     id_df = pd.read_csv(csv_file)
     id_df.columns = [x.lower() for x in id_df.columns]
@@ -37,7 +37,7 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
             })
             return return_json
 
-    logger.info('reading csv - done. Time: ' + str(round(time() - csvStartTime, 2)) + " sec")
+    logger.info('reading csv - done. Time: ' + str(round(time() - csv_start_time, 2)) + " sec")
 
     # unimod_masses = get_unimod_masses(unimod_path)
 
@@ -46,15 +46,16 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
     # modifications = []
 
     # peakList readers
-    peakListStartTime = time()
+    peak_list_start_time = time()
     logger.info('reading peakList files - start')
     peak_list_readers = peakListParser.create_peak_list_readers(peak_list_file_list)
-    logger.info('reading peakList files - done. Time: ' + str(round(time() - peakListStartTime, 2)) + " sec")
+    logger.info('reading peakList files - done. Time: ' + str(round(time() - peak_list_start_time, 2)) + " sec")
 
     scan_not_found_error = {}
 
     # main loop
-    logger.info('entering main loop')
+    main_loop_start_time = time()
+    logger.info('main loop - start')
 
     for id_item_index, id_item in id_df.iterrows():  # id_item_index, id_item = id_df.iterrows().next()
 
@@ -110,17 +111,17 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
             # ToDo: improve error handling for cl peptides
             pep2 = str(id_item['pepseq 2'])
             if pep2 == 'nan':
-                pep2 = ""
-            linkpos1 = id_item['linkpos 1'] - 1
-            linkpos2 = id_item['linkpos 2'] - 1
+                pep2 = ''
+            link_pos1 = id_item['linkpos 1'] - 1
+            link_pos2 = id_item['linkpos 2'] - 1
             cl_mod_mass = id_item['crosslinkermodmass']
         except KeyError:
             # linear
-            pep2 = ""
+            pep2 = ''
 
         if pep2 == '':
-            linkpos1 = -1
-            linkpos2 = -1
+            link_pos1 = -1
+            link_pos2 = -1
             cl_mod_mass = 0
 
         # charge
@@ -159,7 +160,7 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
         # ToDo: could check against mzml fragmentation type and display warning if ions don't match
 
         # score
-        score = id_item['score']
+        # score = id_item['score']
         all_scores = json.dumps({'score': id_item['score']})
 
         # isDecoy
@@ -181,15 +182,15 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
              identification_id,
              pep1,
              pep2,
-             linkpos1,
-             linkpos2,
+             link_pos1,
+             link_pos2,
              charge,
              pass_threshold,
              ms2_tol,
              ion_types,
              cl_mod_mass,
              rank,
-             score,
+             # score,
              all_scores,
              is_decoy,
              protein1,
@@ -222,8 +223,13 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
             # commit changes
             con.commit()
 
+    # end main loop
+    logger.info('main loop - done. Time: ' + str(round(time() - main_loop_start_time, 2)) + " sec")
+
     # once loop is done write remaining data to DB
-    logger.info('writing remaining entries to DB')
+    db_wrap_up_start_time = time()
+    logger.info('write remaining entries to DB - start')
+
     try:
         db.write_identifications(multiple_inj_list_identifications, cur, con)
         db.write_peaklists(multiple_inj_list_peak_lists, cur, con)
@@ -236,8 +242,10 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
              })
         return return_json
 
-    # multi error handler
+    logger.info('write remaining entries to DB - done. Time: '
+                + str(round(time() - db_wrap_up_start_time, 2)) + " sec")
 
+    # multi error handler
     for pl_file, scan_id_list in scan_not_found_error.iteritems():
         return_json['errors'].append({
             "type": "",

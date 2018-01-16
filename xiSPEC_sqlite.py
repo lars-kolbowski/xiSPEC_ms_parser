@@ -1,5 +1,5 @@
 import sqlite3
-
+import json
 
 class DBException(Exception):
     pass
@@ -31,7 +31,6 @@ def create_tables(cur, con):
             "ionTypes TEXT, "
             "crosslinker_modMass FLOAT, "
             "rank INT, "
-            "score FLOAT, "
             "allScores TEXT,"
             "isDecoy INT, "
             "protein1 TEXT, "
@@ -78,7 +77,6 @@ def write_identifications(inj_list, cur, con):
         'ionTypes',
         'crosslinker_modMass',
         'rank',
-        'score',
         'allScores',
         'isDecoy',
         'protein1',
@@ -87,7 +85,7 @@ def write_identifications(inj_list, cur, con):
         'scanID',
         'peakList_id'
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", inj_list)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", inj_list)
         con.commit()
 
     except sqlite3.Error as e:
@@ -117,5 +115,46 @@ def write_modifications(inj_list, cur, con):
         raise DBException(e.message)
 
     return []
+
+# con = connect('/home/lars/Xi/xiSPEC_ms_parser/dbs/saved/Tmuris_exosomes1.db')
+# cur = con.cursor()
+
+
+def fill_in_missing_scores(cur, con):
+    try:
+        cur.execute("""
+      SELECT DISTINCT scoresJSON.key as scoreKey 
+      FROM identifications, json_each(identifications.allScores) AS scoresJSON""")
+
+        all_scores = cur.fetchall()
+        all_scores = set([str(x[0]) for x in all_scores])
+
+        multiple_inj_list = []
+
+        cur.execute('SELECT id, allScores FROM identifications')
+        res = cur.fetchall()
+
+        for row in res:
+            row_scores = json.loads(row[1])
+            missing = all_scores - set(row_scores.keys())
+            missing_dict = {key: -1 for key in missing}
+
+            if len(missing) > 0:
+                row_scores.update(missing_dict)
+                multiple_inj_list.append([json.dumps(row_scores), row[0]])
+                # cur.execute('UPDATE identifications SET allScores=? WHERE id = row[0]', json.dumps(row_scores))
+
+        cur.executemany("""
+        UPDATE identifications 
+        SET `allScores` = ?
+        WHERE `id` = ?""", multiple_inj_list)
+
+        con.commit()
+
+    except sqlite3.Error as e:
+        raise DBException(e.message)
+
+
+
 
 
