@@ -218,10 +218,10 @@ def get_peptide_info(sid_items, mzid_reader, unimod_masses, logger):
 
     all_mods = []  # Modifications list
     mod_aliases = {
-        "amidated_bs3": "bs3nh2",
-        "carbamidomethyl": "cm",
-        "hydrolyzed_bs3": "bs3oh",
-        "oxidation": "ox"
+        # "amidated_bs3": "bs3nh2",
+        # "carbamidomethyl": "cm",
+        # "hydrolyzed_bs3": "bs3oh",
+        # "oxidation": "ox"
     }
 
     proteins = []
