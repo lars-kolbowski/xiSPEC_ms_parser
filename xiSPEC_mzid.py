@@ -389,6 +389,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         "response": "",
         "modifications": [],
         "errors": [],
+        "warnings": [],
         "analysisSoftware": analysis_software
     }
 
@@ -682,8 +683,8 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             id_string = '; '.join(fragment_parsing_error_scans[:50]) + ' ...'
         else:
             id_string = '; '.join(fragment_parsing_error_scans)
-        return_json['errors'].append({
-            "type": "IonParsingError",
+        return_json['warnings'].append({
+            "type": "IonParsing",
             "message": "could not parse fragment ions assuming precursor-, b- and y-ion",
             'id': id_string
         })
