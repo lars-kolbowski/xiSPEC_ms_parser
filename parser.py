@@ -115,7 +115,8 @@ except db.DBException as e:
 returnJSON = {
     "response": "",
     "modifications": [],
-    "errors": []
+    "errors": [],
+    "warnings": []
 }
 
 # parsing
@@ -175,10 +176,12 @@ except Exception as e:
         {"type": "Error", "message": e.args[0]})
 
 
-if len(returnJSON["errors"]) > 0:
-    returnJSON['response'] = "Warning: %i error(s) occured!" % len(returnJSON['errors'])
-    for e in returnJSON['errors']:
-        logger.error(e)
+if len(returnJSON["errors"]) > 0 or len(returnJSON["errors"]) > 0:
+    returnJSON['response'] = "%i warning(s) and %i error(s) occurred!" % (len(returnJSON['warnings']), len(returnJSON['errors']))
+    for warn in returnJSON['warnings']:
+        logger.error(warn)
+    for err in returnJSON['errors']:
+        logger.error(err)
     returnJSON["log"] = logFile.split('/')[-1]
 
 else:
