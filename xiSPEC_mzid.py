@@ -105,48 +105,69 @@ def map_spectra_data_to_protocol(mzid_reader):
         'errors': [],
     }
 
-    for analysisCollection in mzid_reader.iterfind('AnalysisCollection'):
-        for spectrumIdentification in analysisCollection['SpectrumIdentification']:
-            sid_protocol_ref = spectrumIdentification['spectrumIdentificationProtocol_ref']
-            sid_protocol = mzid_reader.get_by_id(sid_protocol_ref, detailed=True)
+    analysisCollection = mzid_reader.iterfind('AnalysisCollection').next()
+    for spectrumIdentification in analysisCollection['SpectrumIdentification']:
+        sid_protocol_ref = spectrumIdentification['spectrumIdentificationProtocol_ref']
+        sid_protocol = mzid_reader.get_by_id(sid_protocol_ref, detailed=True)
 
-            try:
-                frag_tol = sid_protocol['FragmentTolerance']
-                frag_tol_plus = frag_tol['search tolerance plus value']
-                frag_tol_value = re.sub('[^0-9,.]', '', str(frag_tol_plus['value']))
-                if frag_tol_plus['unit'].lower() == 'parts per million':
-                    frag_tol_unit = 'ppm'
-                elif frag_tol_plus['unit'].lower() == 'dalton':
-                    frag_tol_unit = 'Da'
-                else:
-                    frag_tol_unit = frag_tol_plus['unit']
-
-                if not all([
-                    frag_tol['search tolerance plus value']['value'] == frag_tol['search tolerance minus value']['value'],
-                    frag_tol['search tolerance plus value']['unit'] == frag_tol['search tolerance minus value']['unit']
-                ]):
-                    spectra_data_protocol_map['errors'].append(
-                        {"type": "mzidParseError",
-                         "message": "search tolerance plus value doesn't match minus value. Using plus value!"})
-
-            except KeyError:
-                frag_tol_value = '10'
+        try:
+            frag_tol = sid_protocol['FragmentTolerance']
+            frag_tol_plus = frag_tol['search tolerance plus value']
+            frag_tol_value = re.sub('[^0-9,.]', '', str(frag_tol_plus['value']))
+            if frag_tol_plus['unit'].lower() == 'parts per million':
                 frag_tol_unit = 'ppm'
+            elif frag_tol_plus['unit'].lower() == 'dalton':
+                frag_tol_unit = 'Da'
+            else:
+                frag_tol_unit = frag_tol_plus['unit']
+
+            if not all([
+                frag_tol['search tolerance plus value']['value'] == frag_tol['search tolerance minus value']['value'],
+                frag_tol['search tolerance plus value']['unit'] == frag_tol['search tolerance minus value']['unit']
+            ]):
                 spectra_data_protocol_map['errors'].append(
                     {"type": "mzidParseError",
-                     "message": "could not parse ms2tolerance. Falling back to default values."})
+                     "message": "search tolerance plus value doesn't match minus value. Using plus value!"})
 
-            for inputSpectra in spectrumIdentification['InputSpectra']:
-                spectra_data_ref = inputSpectra['spectraData_ref']
+        except KeyError:
+            frag_tol_value = '10'
+            frag_tol_unit = 'ppm'
+            spectra_data_protocol_map['errors'].append(
+                {"type": "mzidParseError",
+                 "message": "could not parse ms2tolerance. Falling back to default values."})
 
-                spectra_data_protocol_map[spectra_data_ref] = {
-                    'protocol_ref': sid_protocol_ref,
-                    'fragmentTolerance': ' '.join([frag_tol_value, frag_tol_unit])
-                }
+        for inputSpectra in spectrumIdentification['InputSpectra']:
+            spectra_data_ref = inputSpectra['spectraData_ref']
+
+            spectra_data_protocol_map[spectra_data_ref] = {
+                'protocol_ref': sid_protocol_ref,
+                'fragmentTolerance': ' '.join([frag_tol_value, frag_tol_unit])
+            }
 
     mzid_reader.reset()
 
     return spectra_data_protocol_map
+
+def map_seq_ref_to_protein(mzid_reader):
+    """
+    extract and map - which includes data like -
+     ToDo: improve error handling
+
+    Parameters:
+    ------------------------
+    mzid_reader: pyteomics mzid_reader
+    """
+
+    seq_ref_prot_map = {
+        'errors': [],
+    }
+
+    sequenceCollection = mzid_reader.iterfind('SequenceCollection').next()
+    for sequence in sequenceCollection['DBSequence']:
+        seq_ref_prot_map[sequence["id"]] = sequence["accession"]
+    mzid_reader.reset()
+
+    return seq_ref_prot_map
 
 
 def get_cross_link_identifier(sid_item):
@@ -206,7 +227,7 @@ def add_to_modlist(mod, modlist):
     return mod['name']
 
 
-def get_peptide_info(sid_items, mzid_reader, unimod_masses, logger):
+def get_peptide_info(sid_items, mzid_reader, unimod_masses, seq_ref_protein_map, logger):
 
     return_dict = {
         'peptides': [],
@@ -240,7 +261,9 @@ def get_peptide_info(sid_items, mzid_reader, unimod_masses, logger):
         target_decoy.append({"peptideId": pep_index, 'isDecoy': decoy})  # TODO: multiple PeptideEvidenceRefs TD?
 
         # proteins
-        proteins.append([mzid_reader.get_by_id(p['dBSequence_ref']) for p in peptide_evidences][0])
+        #mzid_reader.get_by_id(peptide_evidences[0]['dBSequence_ref']
+        #proteins.append([mzid_reader.get_by_id(p['dBSequence_ref']) for p in peptide_evidences][0])
+        proteins.append(seq_ref_protein_map[peptide_evidences[0]['dBSequence_ref']])
 
         # convert pepsequence to dict
         pepId = sid_item['peptide_ref']
@@ -320,7 +343,8 @@ def get_peptide_info(sid_items, mzid_reader, unimod_masses, logger):
 
         # ToDo: use searchDatabase_ref
         try:
-            protein_accessions = [p['accession'] for p in proteins]
+            protein_accessions = proteins
+            #protein_accessions = [p['accession'] for p in proteins]
         except KeyError:
             return_dict['errors'].append({
                 "type": "mzidParseError",
@@ -413,6 +437,14 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     return_json['errors'] += spectra_data_protocol_map['errors']
     # ToDo: save FragmentTolerance to annotationsTable
     logger.info('generating spectraData_ProtocolMap - done. Time: ' + str(round(time() - spectra_map_start_time, 2)) + " sec")
+
+    protein_map_start_time = time()
+    logger.info('generating dBSequence to protein map - start')
+    seq_ref_protein_map = map_seq_ref_to_protein(mzid_reader)
+    return_json['errors'] += seq_ref_protein_map['errors']
+    # ToDo: save FragmentTolerance to annotationsTable
+    logger.info('generating dBSequence to protein map - done. Time: ' + str(round(time() - protein_map_start_time, 2)) + " sec")
+
 
     mzid_item_index = 0
     spec_id_item_index = 0
@@ -542,7 +574,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             #     })
             #     continue
 
-            pep_info = get_peptide_info(paired_spec_id_items, mzid_reader, unimod_masses, logger)
+            pep_info = get_peptide_info(paired_spec_id_items, mzid_reader, unimod_masses, seq_ref_protein_map, logger)
 
             # fragmentation ions
             pep_info['ions'] = get_ion_types_mzid(paired_spec_id_items[0], logger)
