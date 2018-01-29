@@ -379,10 +379,15 @@ def get_peptide_info(sid_items, mzid_reader, unimod_masses, seq_ref_protein_map,
              'scaffold' in k.lower()
         }
         for mod in all_mods:
+            try:
+                mod_accession = mod['accession']
+            except KeyError:
+                mod_accession = ''
             return_dict['annotation']['modifications'].append({
                 'aminoAcids': mod['residues'],
                 'id': mod['name'],
-                'mass': mod['monoisotopicMassDelta']
+                'mass': mod['monoisotopicMassDelta'],
+                'accession': mod_accession
             })
 
     return return_dict
@@ -705,7 +710,13 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         mod_index = 0
         multiple_inj_list_modifications = []
         for mod in modifications:
-            multiple_inj_list_modifications.append([mod_index, mod['id'], mod['mass'], ''.join(mod['aminoAcids'])])
+            multiple_inj_list_modifications.append([
+                mod_index,
+                mod['id'],
+                mod['mass'],
+                ''.join(mod['aminoAcids']),
+                mod['accession']
+            ])
             mod_index += 1
         db.write_modifications(multiple_inj_list_modifications, cur, con)
 
