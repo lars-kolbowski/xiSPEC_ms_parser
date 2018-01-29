@@ -671,11 +671,14 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
         mzid_item_index += 1
 
-        if spec_id_item_index % 500 == 0:
-            logger.info('writing 500 entries to DB')
+        if spec_id_item_index % 1000 == 0:
+            logger.info('writing 1000 entries to DB')
             try:
-                multiple_inj_list_identifications = db.write_identifications(multiple_inj_list_identifications, cur, con)
-                multiple_inj_list_peak_lists = db.write_peaklists(multiple_inj_list_peak_lists, cur, con)
+                db.write_identifications(multiple_inj_list_identifications, cur, con)
+                multiple_inj_list_identifications = []
+
+                db.write_peaklists(multiple_inj_list_peak_lists, cur, con)
+                multiple_inj_list_peak_lists = []
 
             except db.DBException as e:
                 return_json['errors'].append(

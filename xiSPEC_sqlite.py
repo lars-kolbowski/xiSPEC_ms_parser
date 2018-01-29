@@ -91,7 +91,7 @@ def write_identifications(inj_list, cur, con):
     except sqlite3.Error as e:
         raise DBException(e.message)
 
-    return []
+    return True
 
 
 def write_peaklists(inj_list, cur, con):
@@ -103,7 +103,7 @@ def write_peaklists(inj_list, cur, con):
     except sqlite3.Error as e:
         raise DBException(e.message)
 
-    return []
+    return True
 
 
 def write_modifications(inj_list, cur, con):
@@ -114,7 +114,7 @@ def write_modifications(inj_list, cur, con):
     except sqlite3.Error as e:
         raise DBException(e.message)
 
-    return []
+    return True
 
 # con = connect('/home/lars/Xi/xiSPEC_ms_parser/dbs/saved/Tmuris_exosomes1.db')
 # cur = con.cursor()

@@ -50,7 +50,7 @@ VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
     except psycopg2.Error as e:
         raise DBException(e.message)
 
-    return []
+    return True
 
 
 def write_peaklists(inj_list, cur, con):
@@ -62,7 +62,7 @@ def write_peaklists(inj_list, cur, con):
     except Exception as e:
         raise DBException(e.message)
 
-    return []
+    return True
 
 
 def write_modifications(inj_list, cur, con):
@@ -73,4 +73,4 @@ def write_modifications(inj_list, cur, con):
     except Exception as e:
         raise DBException(e.message)
 
-    return []
+    return True
