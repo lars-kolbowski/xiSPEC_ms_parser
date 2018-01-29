@@ -1,6 +1,7 @@
 # xiSPEC mgf reader - Lars Kolbowski
 #
-# adopted from pymzml.run.reader (Copyright (C) 2010-2014 T. Bald, J. Barth, A. Niehues, M. Specht, H. Roest, C. Fufezan)
+#    adopted from pymzml.run.reader
+#   (Copyright (C) 2010-2014 T. Bald, J. Barth, A. Niehues, M. Specht, H. Roest, C. Fufezan)
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -48,8 +49,6 @@ class Reader(object):
 
     Example:
 
-    run = pymzml.run.Reader("../mzML_example_files/100729_t300_100729172744.mzML.gz",
-                                MS1_Precision = 20e-6)
     """
 
     def __init__(
