@@ -105,10 +105,10 @@ def map_spectra_data_to_protocol(mzid_reader):
         'errors': [],
     }
 
-    analysisCollection = mzid_reader.iterfind('AnalysisCollection').next()
-    for spectrumIdentification in analysisCollection['SpectrumIdentification']:
+    analysis_collection = mzid_reader.iterfind('AnalysisCollection').next()
+    for spectrumIdentification in analysis_collection['SpectrumIdentification']:
         sid_protocol_ref = spectrumIdentification['spectrumIdentificationProtocol_ref']
-        sid_protocol = mzid_reader.get_by_id(sid_protocol_ref, detailed=True)
+        sid_protocol = mzid_reader.get_by_id(sid_protocol_ref, tag_id='SpectrumIdentificationProtocol', detailed=True)
 
         try:
             frag_tol = sid_protocol['FragmentTolerance']
@@ -148,6 +148,7 @@ def map_spectra_data_to_protocol(mzid_reader):
 
     return spectra_data_protocol_map
 
+
 def map_seq_ref_to_protein(mzid_reader):
     """
     extract and map - which includes data like -
@@ -162,10 +163,19 @@ def map_seq_ref_to_protein(mzid_reader):
         'errors': [],
     }
 
-    sequenceCollection = mzid_reader.iterfind('SequenceCollection').next()
-    for sequence in sequenceCollection['DBSequence']:
+    sequence_collection = mzid_reader.iterfind('SequenceCollection').next()
+    for sequence in sequence_collection['DBSequence']:
         seq_ref_prot_map[sequence["id"]] = sequence["accession"]
     mzid_reader.reset()
+
+    # takes more processing time but uses less memory ~15 Mb difference from memory snapshots on large Tmuris example
+    # this might not be accurate way to measure memory...
+    # for db_sequence_id in mzid_reader._offset_index["DBSequence"].keys():
+    #     db_sequence = mzid_reader.get_by_id(db_sequence_id)
+    #     try:
+    #         seq_ref_prot_map[db_sequence_id] = db_sequence['accession']
+    #     except KeyError:
+    #         seq_ref_prot_map[db_sequence_id] = db_sequence['name']
 
     return seq_ref_prot_map
 
@@ -252,7 +262,7 @@ def get_peptide_info(sid_items, mzid_reader, unimod_masses, seq_ref_protein_map,
     for sid_item in sid_items:  # len = 1 for linear
 
         # Target-Decoy
-        peptide_evidences = [mzid_reader.get_by_id(s['peptideEvidence_ref']) for s in sid_item['PeptideEvidenceRef']]
+        peptide_evidences = [mzid_reader.get_by_id(s['peptideEvidence_ref'], tag_id='PeptideEvidence') for s in sid_item['PeptideEvidenceRef']]
         # ToDo: isDecoy might not be defined. How to handle? (could make use of pyteomics.mzid.is_decoy())
         try:
             decoy = peptide_evidences[0]['isDecoy']
@@ -261,13 +271,11 @@ def get_peptide_info(sid_items, mzid_reader, unimod_masses, seq_ref_protein_map,
         target_decoy.append({"peptideId": pep_index, 'isDecoy': decoy})  # TODO: multiple PeptideEvidenceRefs TD?
 
         # proteins
-        #mzid_reader.get_by_id(peptide_evidences[0]['dBSequence_ref']
-        #proteins.append([mzid_reader.get_by_id(p['dBSequence_ref']) for p in peptide_evidences][0])
         proteins.append(seq_ref_protein_map[peptide_evidences[0]['dBSequence_ref']])
 
         # convert pepsequence to dict
         pepId = sid_item['peptide_ref']
-        peptide = mzid_reader.get_by_id(pepId, detailed=True)
+        peptide = mzid_reader.get_by_id(pepId, tag_id='Peptide', detailed=True)
 
         pep_seq_dict = []
         for aa in peptide['PeptideSequence']:
@@ -289,7 +297,7 @@ def get_peptide_info(sid_items, mzid_reader, unimod_masses, seq_ref_protein_map,
                         })
                         continue
 
-                link_index = 0  # TODO: multilink support
+                # link_index = 0  # TODO: multilink support
 
                 if mod['location'] == 0:
                     mod_location = 0
@@ -371,10 +379,15 @@ def get_peptide_info(sid_items, mzid_reader, unimod_masses, seq_ref_protein_map,
              'scaffold' in k.lower()
         }
         for mod in all_mods:
+            try:
+                mod_accession = mod['accession']
+            except KeyError:
+                mod_accession = ''
             return_dict['annotation']['modifications'].append({
                 'aminoAcids': mod['residues'],
                 'id': mod['name'],
-                'mass': mod['monoisotopicMassDelta']
+                'mass': mod['monoisotopicMassDelta'],
+                'accession': mod_accession
             })
 
     return return_dict
@@ -396,18 +409,24 @@ def get_unimod_masses(unimod_path):
     return masses
 
 
-def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
-    logger.info('reading mzid - start')
-    mzid_start_time = time()
-
-    #hack to get analysis software name
+def get_analysis_software(mzid_file):
+    # hack to get analysis software name
     mzid_stream = open(mzid_file, 'r')
     file_start = mzid_stream.read(5000)  # read by character
     mzid_stream.close()
     r = re.finditer('<SoftwareName>.*?<cvParam.*?name="(.*?)"', file_start, re.DOTALL)
-    analysis_software = [];
+    analysis_software = []
     for i in r:
         analysis_software.append(i.group(1))
+
+    return analysis_software
+
+
+def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
+    logger.info('reading mzid - start')
+    mzid_start_time = time()
+
+    analysis_software = get_analysis_software(mzid_file)
 
     return_json = {
         "response": "",
@@ -483,7 +502,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
         # get spectra data
         try:
-            spectra_data = mzid_reader.get_by_id(id_item['spectraData_ref'], detailed=True)
+            spectra_data = mzid_reader.get_by_id(id_item['spectraData_ref'], tag_id='SpectraData', detailed=True)
             # raw_file_name = id_item['spectraData_ref'].split('/')[-1]
             # raw_file_name = re.sub('\.(mgf|mzml)', '', raw_file_name, flags=re.IGNORECASE)
 
@@ -657,11 +676,14 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
         mzid_item_index += 1
 
-        if spec_id_item_index % 500 == 0:
-            logger.info('writing 500 entries to DB')
+        if spec_id_item_index % 1000 == 0:
+            logger.info('writing 1000 entries to DB')
             try:
-                multiple_inj_list_identifications = db.write_identifications(multiple_inj_list_identifications, cur, con)
-                multiple_inj_list_peak_lists = db.write_peaklists(multiple_inj_list_peak_lists, cur, con)
+                db.write_identifications(multiple_inj_list_identifications, cur, con)
+                multiple_inj_list_identifications = []
+
+                db.write_peaklists(multiple_inj_list_peak_lists, cur, con)
+                multiple_inj_list_peak_lists = []
 
             except db.DBException as e:
                 return_json['errors'].append(
@@ -688,7 +710,13 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         mod_index = 0
         multiple_inj_list_modifications = []
         for mod in modifications:
-            multiple_inj_list_modifications.append([mod_index, mod['id'], mod['mass'], ''.join(mod['aminoAcids'])])
+            multiple_inj_list_modifications.append([
+                mod_index,
+                mod['id'],
+                mod['mass'],
+                ''.join(mod['aminoAcids']),
+                mod['accession']
+            ])
             mod_index += 1
         db.write_modifications(multiple_inj_list_modifications, cur, con)
 

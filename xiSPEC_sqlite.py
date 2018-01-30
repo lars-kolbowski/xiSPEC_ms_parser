@@ -45,7 +45,8 @@ def create_tables(cur, con):
             "id INT PRIMARY KEY, "
             "name TEXT, "
             "mass FLOAT, "
-            "residues TEXT)"
+            "residues TEXT, "
+            "accession TEXT)"
         )
         cur.execute("DROP TABLE IF EXISTS peakLists")
         cur.execute(
@@ -91,7 +92,7 @@ def write_identifications(inj_list, cur, con):
     except sqlite3.Error as e:
         raise DBException(e.message)
 
-    return []
+    return True
 
 
 def write_peaklists(inj_list, cur, con):
@@ -103,18 +104,18 @@ def write_peaklists(inj_list, cur, con):
     except sqlite3.Error as e:
         raise DBException(e.message)
 
-    return []
+    return True
 
 
 def write_modifications(inj_list, cur, con):
     try:
-        cur.executemany("""INSERT INTO modifications ('id', 'name', 'mass', 'residues') VALUES (?, ?, ?, ?)""",
+        cur.executemany("""INSERT INTO modifications ('id', 'name', 'mass', 'residues', 'accession') VALUES (?, ?, ?, ?, ?)""",
                         inj_list)
         con.commit()
     except sqlite3.Error as e:
         raise DBException(e.message)
 
-    return []
+    return True
 
 # con = connect('/home/lars/Xi/xiSPEC_ms_parser/dbs/saved/Tmuris_exosomes1.db')
 # cur = con.cursor()

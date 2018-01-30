@@ -28,7 +28,7 @@ try:
 
     except IndexError:
         dev = True
-        logFile = "log/parser.log"
+        logFile = "log/parser_%s.log" % int(time())
 
     try:
         os.remove(logFile)
