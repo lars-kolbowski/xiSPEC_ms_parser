@@ -5,6 +5,10 @@ import json
 import sys
 from time import time
 import xiSPEC_peakList as peakListParser
+import zipfile
+import gzip
+import os
+
 
 try:
     if sys.argv[4] == "pg":
@@ -38,6 +42,36 @@ def get_ion_types_mzid(sid_item, logger):
             continue
 
     return ion_types
+
+
+# split into two functions
+def extract_mzid(archive):
+    if archive.endswith('zip'):
+        zip_ref = zipfile.ZipFile(archive, 'r')
+        unzip_path = archive + '_unzip/'
+        zip_ref.extractall(unzip_path)
+        zip_ref.close()
+
+        return_file_list = []
+
+        for root, dir_names, file_names in os.walk(unzip_path):
+            file_names = [f for f in file_names if not f[0] == '.']
+            dir_names[:] = [d for d in dir_names if not d[0] == '.']
+            for file_name in file_names:
+                os.path.join(root, file_name)
+                if file_name.lower().endswith('.mzid'):
+                    return_file_list.append(root+'/'+file_name)
+                else:
+                    raise IOError('unsupported file type: %s' % file_name)
+
+        if len(return_file_list) > 1:
+            raise StandardError("more than one mzid file found!")
+
+        return return_file_list[0]
+
+    # elif archive.endswith('gz'):
+    # with gzip.open(archive, 'wb') as f:
+    #     f.write(archive[])
 
 
 # ToDo: clear confusion about 0 & 1 based formats
@@ -425,6 +459,14 @@ def get_analysis_software(mzid_file):
 def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     logger.info('reading mzid - start')
     mzid_start_time = time()
+
+    if mzid_file.endswith('gz'):
+        in_f = gzip.open(mzid_file, 'rb')
+        mzid_file = mzid_file.replace(".gz", "")
+        out_f = open(mzid_file, 'wb')
+        out_f.write(in_f.read())
+        in_f.close()
+        out_f.close()
 
     analysis_software = get_analysis_software(mzid_file)
 
