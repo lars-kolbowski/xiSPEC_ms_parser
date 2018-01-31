@@ -4,6 +4,7 @@ import xiSPEC_mgfReader as py_mgf
 import pymzml
 import re
 import os
+import gzip
 
 
 class ParseError(Exception):
@@ -11,24 +12,38 @@ class ParseError(Exception):
 
 
 def unzip_peak_lists(zip_file):
-    zip_ref = zipfile.ZipFile(zip_file, 'r')
-    unzip_path = zip_file + '_unzip/'
-    zip_ref.extractall(unzip_path)
-    zip_ref.close()
 
-    return_file_list = []
+    if zip_file.endswith(".zip"):
+        zip_ref = zipfile.ZipFile(zip_file, 'r')
+        unzip_path = zip_file + '_unzip/'
+        zip_ref.extractall(unzip_path)
+        zip_ref.close()
 
-    for root, dir_names, file_names in os.walk(unzip_path):
-        file_names = [f for f in file_names if not f[0] == '.']
-        dir_names[:] = [d for d in dir_names if not d[0] == '.']
-        for file_name in file_names:
-            os.path.join(root, file_name)
-            if file_name.lower().endswith('.mgf') or file_name.lower().endswith('.mzml'):
-                return_file_list.append(root+'/'+file_name)
-            else:
-                raise IOError('unsupported file type: %s' % file_name)
+        return_file_list = []
 
-    return return_file_list
+        for root, dir_names, file_names in os.walk(unzip_path):
+            file_names = [f for f in file_names if not f[0] == '.']
+            dir_names[:] = [d for d in dir_names if not d[0] == '.']
+            for file_name in file_names:
+                os.path.join(root, file_name)
+                if file_name.lower().endswith('.mgf') or file_name.lower().endswith('.mzml'):
+                    return_file_list.append(root+'/'+file_name)
+                else:
+                    raise IOError('unsupported file type: %s' % file_name)
+
+        return return_file_list
+
+    elif zip_file.endswith('.gz'):
+        in_f = gzip.open(zip_file, 'rb')
+        zip_file = zip_file.replace(".gz", "")
+        out_f = open(zip_file, 'wb')
+        out_f.write(in_f.read())
+        in_f.close()
+        out_f.close()
+
+        return [zip_file]
+    else:
+        raise StandardError("unsupported file extension for: %s" % zip_file)
 
 
 def get_ion_types_mzml(scan):
