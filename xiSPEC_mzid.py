@@ -5,6 +5,10 @@ import json
 import sys
 from time import time
 import xiSPEC_peakList as peakListParser
+import zipfile
+import gzip
+import os
+
 
 try:
     if sys.argv[4] == "pg":
@@ -38,6 +42,36 @@ def get_ion_types_mzid(sid_item, logger):
             continue
 
     return ion_types
+
+
+# split into two functions
+def extract_mzid(archive):
+    if archive.endswith('zip'):
+        zip_ref = zipfile.ZipFile(archive, 'r')
+        unzip_path = archive + '_unzip/'
+        zip_ref.extractall(unzip_path)
+        zip_ref.close()
+
+        return_file_list = []
+
+        for root, dir_names, file_names in os.walk(unzip_path):
+            file_names = [f for f in file_names if not f[0] == '.']
+            dir_names[:] = [d for d in dir_names if not d[0] == '.']
+            for file_name in file_names:
+                os.path.join(root, file_name)
+                if file_name.lower().endswith('.mzid'):
+                    return_file_list.append(root+'/'+file_name)
+                else:
+                    raise IOError('unsupported file type: %s' % file_name)
+
+        if len(return_file_list) > 1:
+            raise StandardError("more than one mzid file found!")
+
+        return return_file_list[0]
+
+    # elif archive.endswith('gz'):
+    # with gzip.open(archive, 'wb') as f:
+    #     f.write(archive[])
 
 
 # ToDo: clear confusion about 0 & 1 based formats
@@ -166,22 +200,77 @@ def map_seq_ref_to_protein(mzid_reader, cur, con):
 
     sequence_collection = mzid_reader.iterfind('SequenceCollection').next()
 
+    #DBSEQUENCES
     inj_list = [];
     for db_sequence in sequence_collection['DBSequence']:
         seq_ref_prot_map[db_sequence["id"]] = db_sequence["accession"]
-        inj_list.append(db_sequence)
+
+        data = []; #id, accession, name, description, sequence, is_decoy
+        data.append(db_sequence["id"]) #id, required
+        data.append(db_sequence["accession"]) #accession, required
+
+        # name, optional elem att
+        if "name" in db_sequence :
+            data.append(db_sequence["name"])
+        else :
+            data.append(db_sequence["accession"])
+
+        # description, officialy not there?
+        if "protein description"  in db_sequence:
+            data.append(db_sequence["protein description"])
+        else:
+            data.append("protein description")
+
+        #searchDatabase_ref
+
+        # sequence
+        if "Seq" in db_sequence : # Seq is optional child elem of DBSequence
+            data.append(db_sequence["Seq"])
+        else:
+            # todo: get sequence
+            data.append("no sequence")
+
+        # is_decoy - not there
+        data.append("false")
+
+        inj_list.append(data)
+
     db.write_db_sequences(inj_list, cur, con)
 
+    #PEPTIDES
     inj_list = [];
     for peptide in sequence_collection['Peptide']:
-        inj_list.append(peptide)
+        data = [];  # id, sequence
+        data.append(peptide["id"])  # id, required
+        data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
+        #todo: modifications
+
+        inj_list.append(data)
+
     db.write_peptides(inj_list, cur, con)
 
+    #PEPTIDE EVIDENCES
     inj_list = [];
     for peptide_evidence in sequence_collection['PeptideEvidence']:
-        inj_list.append(peptide_evidence)
+        data = [];  # peptide_ref, dBSequence_ref, start
+        data.append(peptide_evidence["peptide_ref"])  # peptide_ref att, required
+        data.append(peptide_evidence["dBSequence_ref"])  # DBSequence_ref att, required
+        if "start" in peptide_evidence:
+            data.append(peptide_evidence["start"])  # start att, optional
+        else:
+            data.append(-1)
+
+        #annoyingly, this seems to be where we get decoy info
+        if "isDecoy" in peptide_evidence:
+            data.append(peptide_evidence["isDecoy"])  # isDecoy att, optional
+        else:
+            data.append("false")  # hmm
+
+        inj_list.append(data)
+
     db.write_peptide_evidences(inj_list, cur, con)
 
+    con.commit()
     mzid_reader.reset()
 
     # takes more processing time but uses less memory ~15 Mb difference from memory snapshots on large Tmuris example
@@ -442,6 +531,14 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     logger.info('reading mzid - start')
     mzid_start_time = time()
 
+    if mzid_file.endswith('gz'):
+        in_f = gzip.open(mzid_file, 'rb')
+        mzid_file = mzid_file.replace(".gz", "")
+        out_f = open(mzid_file, 'wb')
+        out_f.write(in_f.read())
+        in_f.close()
+        out_f.close()
+
     analysis_software = get_analysis_software(mzid_file)
 
     return_json = {
@@ -498,11 +595,11 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     scan_not_found_error = {}
 
     # main loop
-    # main_loop_start_time = time()
-    # logger.info('main loop - start')
-    #
-    # for id_item in mzid_reader:  # mzid_item = mzid_reader.next()
-    #
+    main_loop_start_time = time()
+    logger.info('main loop - start')
+
+    for id_item in mzid_reader:  # mzid_item = mzid_reader.next()
+        pass
     #     # make_spec_id_pairs(mzid_item['SpectrumIdentificationItem'])
     #     spec_id_set = set()
     #     linear_index = -1  # negative index values for linear peptides
@@ -723,40 +820,40 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     #         # commit changes
     #         con.commit()
     #
-    # # end main loop
-    # logger.info('main loop - done. Time: ' + str(round(time() - main_loop_start_time, 2)) + " sec")
+    # end main loop
+    logger.info('main loop - done. Time: ' + str(round(time() - main_loop_start_time, 2)) + " sec")
 
     # once loop is done write remaining data to DB
-    db_wrap_up_start_time = time()
-    logger.info('write remaining entries and modifications to DB - start')
-    try:
-        db.write_identifications(multiple_inj_list_identifications, cur, con)
-        db.write_peaklists(multiple_inj_list_peak_lists, cur, con)
-
-        # modifications
-        mod_index = 0
-        multiple_inj_list_modifications = []
-        for mod in modifications:
-            multiple_inj_list_modifications.append([
-                mod_index,
-                mod['id'],
-                mod['mass'],
-                ''.join(mod['aminoAcids']),
-                mod['accession']
-            ])
-            mod_index += 1
-        db.write_modifications(multiple_inj_list_modifications, cur, con)
-
-    except db.DBException as e:
-        return_json['errors'].append(
-            {"type": "dbError",
-             "message": e.message,
-             "id": spec_id_item_index
-             })
-        return return_json
-
-    logger.info('write remaining entries and modifications to DB - done. Time: '
-                + str(round(time() - db_wrap_up_start_time, 2)) + " sec")
+    # db_wrap_up_start_time = time()
+    # logger.info('write remaining entries and modifications to DB - start')
+    # try:
+    #     db.write_identifications(multiple_inj_list_identifications, cur, con)
+    #     db.write_peaklists(multiple_inj_list_peak_lists, cur, con)
+    #
+    #     # modifications
+    #     mod_index = 0
+    #     multiple_inj_list_modifications = []
+    #     for mod in modifications:
+    #         multiple_inj_list_modifications.append([
+    #             mod_index,
+    #             mod['id'],
+    #             mod['mass'],
+    #             ''.join(mod['aminoAcids']),
+    #             mod['accession']
+    #         ])
+    #         mod_index += 1
+    #     db.write_modifications(multiple_inj_list_modifications, cur, con)
+    #
+    # except db.DBException as e:
+    #     return_json['errors'].append(
+    #         {"type": "dbError",
+    #          "message": e.message,
+    #          "id": spec_id_item_index
+    #          })
+    #     return return_json
+    #
+    # logger.info('write remaining entries and modifications to DB - done. Time: '
+    #             + str(round(time() - db_wrap_up_start_time, 2)) + " sec")
 
     # fill in missing score information
     score_fill_start_time = time()

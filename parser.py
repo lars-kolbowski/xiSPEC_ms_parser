@@ -6,6 +6,14 @@ import logging
 import ntpath
 from zipfile import BadZipfile
 from time import time
+import re
+import getopt
+
+try:
+    opts, args = getopt.getopt(sys.argv[1:], "f", [])
+except getopt.GetoptError:
+    # print 'test.py -i <inputfile> -o <outputfile>'
+    sys.exit(2)
 
 try:
     # set working directory
@@ -24,7 +32,7 @@ try:
     # logging
     try:
         dev = False
-        logFile = dname + "/log/%s_%s.log" % (sys.argv[3], int(time()))
+        logFile = dname + "/log/%s_%s.log" % (args[2], int(time()))
 
     except IndexError:
         dev = True
@@ -37,7 +45,7 @@ try:
     os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
 
     # create logger
-    logging.basicConfig(filename=logFile, level=logging.DEBUG,
+    logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s %(levelname)s %(name)s %(message)s')
     logger = logging.getLogger(__name__)
 
@@ -46,13 +54,13 @@ except Exception as e:
     sys.exit(1)
 
 try:
-    if sys.argv[4] == "pg":
+    if args[3] == "pg":
         import xiUI_pg as db
     else:
         import xiSPEC_sqlite as db
 except IndexError:
     import xiSPEC_sqlite as db
-    
+
 # paths and file names
 try:
 
@@ -60,18 +68,25 @@ try:
 
     # development testfiles
     if dev:
-        baseDir = "/media/data/xiSPEC_test_files/"
+        baseDir = "/media/data/work/xiSPEC_test_files/"
         # identifications_file = baseDir + 'OpenxQuest_example_added_annotations.mzid'
         # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
         # peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf"
 
+        # identifications_file = "/media/data/work/xiSPEC_test_files/SL/02_wogroups.mzid"
+        # peakList_file = "/media/data/work/xiSPEC_test_files/SL/mscon_PF_20_100_0_B160803_02_new.mgf"
+
+        # # mzid has duplicate ids!!! - fixed now with non-flat index
+        # identifications_file = "/media/data/work/xiSPEC_test_files/PXD006767/MTases_Trypsin_ETD_search.mzid"
+        # peakList_file = "/media/data/work/xiSPEC_test_files/PXD006767/PXD006767.zip"
+
         # small mzid dataset
-        identifications_file = baseDir + "xiSPEC/DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
-        peakList_file = baseDir + "xiSPEC/centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
+        # identifications_file = baseDir + "xiSPEC/DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
+        # peakList_file = baseDir + "xiSPEC/centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
 
         # large mzid dataset
-        # identifications_file = baseDir + "test/Tmuris_exosomes1.mzid"
-        # peakList_file = baseDir + "test/20171027_DDA_JC1.zip"
+        identifications_file = baseDir + "test/Tmuris_exosomes1.mzid"
+        peakList_file = baseDir + "test/20171027_DDA_JC1.zip"
 
         #csv file
         # identifications_file = baseDir + "example.csv"
@@ -79,15 +94,42 @@ try:
         dbName = 'test.db'
 
     else:
-        identifications_file = sys.argv[1]
-        peakList_file = sys.argv[2]
-        upload_folder = "../uploads/" + sys.argv[3]
+        if '-f' in [o[0] for o in opts]:
+            import ftplib
+
+            upload_folder = "../uploads/%s/" % int(time())
+            try:
+                os.stat(upload_folder)
+            except:
+                os.mkdir(upload_folder)
+
+            pxd_path = "/".join(args[0].split("/")[3:-1])
+            pxd_path = "/%s/" % pxd_path
+
+            id_file_name = args[0].split("/")[-1]
+            identifications_file = upload_folder + id_file_name
+
+            pl_file_name = args[1].split("/")[-1]
+            peakList_file = upload_folder + pl_file_name
+
+            ftp = ftplib.FTP('ftp.pride.ebi.ac.uk')
+            ftp.login()
+            ftp.cwd(pxd_path)
+            ftp.retrbinary("RETR " + id_file_name, open(identifications_file, 'wb').write)
+            ftp.retrbinary("RETR " + pl_file_name, open(peakList_file, 'wb').write)
+            ftp.quit()
+        else:
+
+            identifications_file = args[0]
+            peakList_file = args[1]
+            upload_folder = "../uploads/" + args[2]
+
         dbfolder = "dbs/tmp/"
         try:
             os.stat(dbfolder)
         except:
             os.mkdir(dbfolder)
-        dbName = dbfolder + sys.argv[3] + '.db'
+        dbName = dbfolder + args[2] + '.db'
 except Exception as e:
     logger.error(e.args[0])
     print(e)
@@ -122,10 +164,9 @@ returnJSON = {
 # parsing
 startTime = time()
 try:
-
     # check for peak list zip file
     peakList_fileName = ntpath.basename(peakList_file)
-    if peakList_fileName.lower().endswith('.zip'):
+    if re.search(".*\.(gz|zip)$", peakList_fileName):
         try:
             unzipStartTime = time()
             logger.info('unzipping start')
@@ -153,7 +194,7 @@ try:
 
     # Identification File
     identifications_fileName = ntpath.basename(identifications_file)
-    if identifications_fileName.lower().endswith('.mzid'):
+    if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
         logger.info('parsing mzid start')
         identifications_fileType = 'mzid'
         returnJSON = mzidParser.parse(identifications_file, peakList_fileList, unimodPath, cur,  con, logger)

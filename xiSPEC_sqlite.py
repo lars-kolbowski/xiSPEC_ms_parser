@@ -55,20 +55,29 @@ def create_tables(cur, con):
             "peakList TEXT)"
         )
 
+        cur.execute("DROP TABLE IF EXISTS db_sequences")
         cur.execute(
             "CREATE TABLE db_sequences("
-            "id INT PRIMARY KEY, "
-            "peakList TEXT)"
+            "id text PRIMARY KEY, "
+            "accession VARCHAR(10), "
+            "name TEXT, "
+            "description TEXT, "
+            "sequence TEXT, "
+            "is_decoy BOOLEAN)"
         )
+        cur.execute("DROP TABLE IF EXISTS peptides")
         cur.execute(
             "CREATE TABLE peptides("
-            "id INT PRIMARY KEY, "
-            "peakList TEXT)"
+            "id text PRIMARY KEY, "
+            "sequence TEXT)"
         )
+        cur.execute("DROP TABLE IF EXISTS peptide_evidences")
         cur.execute(
             "CREATE TABLE peptide_evidences("
-            "id INT PRIMARY KEY, "
-            "peakList TEXT)"
+            "peptide_ref text, "
+            "dbsequence_ref text, "
+            "start int, "
+            "is_decoy BOOLEAN)"
         )
 
         con.commit()
@@ -79,16 +88,57 @@ def create_tables(cur, con):
 
 
 def write_db_sequences(inj_list, cur, con):
-    pass
+
+    try:
+        cur.executemany("""
+    INSERT INTO db_sequences (
+        'id',
+        'accession',
+        'name',
+        'description',
+        'sequence',
+        'is_decoy'
+    )
+    VALUES (?, ?, ?, ?, ?, ?)""", inj_list)
+        con.commit()
+
+    except sqlite3.Error as e:
+        raise DBException(e.message)
+
+    return True
 
 
 def write_peptides(inj_list, cur, con):
-    pass
+    try:
+        cur.executemany("""
+    INSERT INTO db_sequences (
+        'id',
+        'sequence'
+    )
+    VALUES (?, ?)""", inj_list)
+        con.commit()
 
+    except sqlite3.Error as e:
+        raise DBException(e.message)
+
+    return True
 
 def write_peptide_evidences(inj_list, cur, con):
-    pass
+    try:
+        cur.executemany("""
+    INSERT INTO peptide_evidences (
+        'peptide_ref',
+        'dbsequence_ref',
+        'start',
+        'is_decoy'
+    )
+    VALUES (?, ?, ?, ?)""", inj_list)
+        con.commit()
 
+    except sqlite3.Error as e:
+        raise DBException(e.message)
+
+    return True
 
 def write_identifications(inj_list, cur, con):
 
