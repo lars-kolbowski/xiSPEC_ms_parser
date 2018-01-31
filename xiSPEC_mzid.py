@@ -183,7 +183,7 @@ def map_spectra_data_to_protocol(mzid_reader):
     return spectra_data_protocol_map
 
 
-def map_seq_ref_to_protein(mzid_reader, cur, con):
+def map_seq_ref_to_protein(mzid_reader, cur, con, unimod_masses, logger):
     """
     extract and map - which includes data like -
      ToDo: improve error handling
@@ -197,6 +197,13 @@ def map_seq_ref_to_protein(mzid_reader, cur, con):
         'errors': [],
     }
 
+    all_mods = []  # Modifications list
+    mod_aliases = {
+        # "amidated_bs3": "bs3nh2",
+        # "carbamidomethyl": "cm",
+        # "hydrolyzed_bs3": "bs3oh",
+        # "oxidation": "ox"
+    }
 
     sequence_collection = mzid_reader.iterfind('SequenceCollection').next()
 
@@ -243,7 +250,85 @@ def map_seq_ref_to_protein(mzid_reader, cur, con):
         data = [];  # id, sequence
         data.append(peptide["id"])  # id, required
         data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
-        #todo: modifications
+
+        pep_seq_dict = []
+        for aa in peptide['PeptideSequence']:
+            pep_seq_dict.append({"Modification": "", "aminoAcid": aa})
+
+        link_site = -1
+        crosslinker_modmass = -1
+
+        #MODIFICATIONS
+        # add in modifications
+        if 'Modification' in peptide.keys():
+            for mod in peptide['Modification']:
+
+                if 'monoisotopicMassDelta' not in mod.keys():
+                    try:
+                        mod['monoisotopicMassDelta'] = unimod_masses[mod['accession']]
+
+                    except KeyError:
+                        seq_ref_prot_map['errors'].append({
+                            "type": "mzidParseError",
+                            "message": "could not get modification mass for modification {}" % mod,
+                            "id": mod["id"]
+                        })
+                        continue
+
+                # link_index = 0  # TODO: multilink support
+
+                if mod['location'] == 0:
+                    mod_location = 0
+                    n_terminal_mod = True
+                elif mod['location'] == len(peptide['PeptideSequence']) + 1:
+                    mod_location = mod['location'] - 2
+                    c_terminal_mod = True
+                else:
+                    mod_location = mod['location'] - 1
+                    n_terminal_mod = False
+                    c_terminal_mod = False
+                if 'residues' not in mod:
+                    mod['residues'] = peptide['PeptideSequence'][mod_location]
+
+                if 'name' in mod.keys():
+                    # fix mod names
+                    mod['name'] = mod['name'].lower()
+                    mod['name'] = mod['name'].replace(" ", "_")
+                    if mod['name'] in mod_aliases.keys():
+                        mod['name'] = mod_aliases[mod['name']]
+                    if 'cross-link donor' not in mod.keys() and 'cross-link acceptor' not in mod.keys():
+                        cur_mod = pep_seq_dict[mod_location]
+                        # join modifications into one for multiple modifications on the same aa
+                        if not cur_mod['Modification'] == '':
+                            mod['name'] = '_'.join(sorted([cur_mod['Modification'], mod['name']], key=str.lower))
+                            cur_mod_mass = \
+                            [x['monoisotopicMassDelta'] for x in all_mods if x['name'] == cur_mod['Modification']][0]
+                            mod['monoisotopicMassDelta'] += cur_mod_mass
+
+                        mod['name'] = add_to_modlist(mod, all_mods)  # save to all mods list and get back new_name
+                        cur_mod['Modification'] = mod['name']
+
+                # error handling for mod without name
+                else:
+                    # cross-link acceptor doesn't have a name
+                    if 'cross-link acceptor' not in mod.keys():
+                        pass
+                        # logger.error('modification without name!')
+                        # logger.error(mod)
+
+                # add CL locations
+                if 'cross-link donor' in mod.keys() or 'cross-link acceptor' in mod.keys():
+                    link_site = mod_location - 1
+                    # return_dict['linkSites'].append(
+                    #     {"id": link_index, "peptideId": pep_index, "linkSite": mod_location - 1})
+                if 'cross-link donor' in mod.keys():
+                    crosslinker_modmass = round(mod['monoisotopicMassDelta'], 6)
+
+        peptide_seq_with_mods = ''.join([''.join([x['aminoAcid'], x['Modification']]) for x in pep_seq_dict])
+
+        data.append(peptide_seq_with_mods)
+        data.append(link_site)
+        data.append(crosslinker_modmass)
 
         inj_list.append(data)
 
@@ -572,7 +657,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
     protein_map_start_time = time()
     logger.info('generating dBSequence to protein map - start')
-    seq_ref_protein_map = map_seq_ref_to_protein(mzid_reader, cur, con)
+    seq_ref_protein_map = map_seq_ref_to_protein(mzid_reader, cur, con, unimod_masses, logger)
     return_json['errors'] += seq_ref_protein_map['errors']
     # ToDo: save FragmentTolerance to annotationsTable
     logger.info('generating dBSequence to protein map - done. Time: ' + str(round(time() - protein_map_start_time, 2)) + " sec")
@@ -598,8 +683,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     main_loop_start_time = time()
     logger.info('main loop - start')
 
-    for id_item in mzid_reader:  # mzid_item = mzid_reader.next()
-        pass
+    # for id_item in mzid_reader:  # mzid_item = mzid_reader.next()
     #     # make_spec_id_pairs(mzid_item['SpectrumIdentificationItem'])
     #     spec_id_set = set()
     #     linear_index = -1  # negative index values for linear peptides
@@ -613,18 +697,22 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     #             spec_id_set.add(get_cross_link_identifier(specIdItem))
     #             linear_index -= 1
     #
-    #     # get spectra data
-    #     try:
-    #         spectra_data = mzid_reader.get_by_id(id_item['spectraData_ref'], tag_id='SpectraData', detailed=True)
-    #         # raw_file_name = id_item['spectraData_ref'].split('/')[-1]
-    #         # raw_file_name = re.sub('\.(mgf|mzml)', '', raw_file_name, flags=re.IGNORECASE)
-    #
-    #     except KeyError:
-    #         return_json['errors'].append({
-    #             "type": "mzidParseError",
-    #             "message": "no spectraData_ref specified",
-    #             'id': id_item['id']
-    #         })
+
+    analysis_collection = mzid_reader.iterfind('AnalysisCollection').next()
+    for spectrumIdentification in analysis_collection['SpectrumIdentificationResult']:
+        pass
+        # get spectra data
+        # try:
+        #     spectra_data = mzid_reader.get_by_id(id_item['spectraData_ref'], tag_id='SpectraData', detailed=True)
+        #     # raw_file_name = id_item['spectraData_ref'].split('/')[-1]
+        #     # raw_file_name = re.sub('\.(mgf|mzml)', '', raw_file_name, flags=re.IGNORECASE)
+        #
+        # except KeyError:
+        #     return_json['errors'].append({
+        #         "type": "mzidParseError",
+        #         "message": "no spectraData_ref specified",
+        #         'id': id_item['id']
+        #     })
     #
     #     # get scan id ToDo: clear up 1/0-based confusion
     #     # scan_id = get_scan_id(id_item["spectrumID"], spectra_data['SpectrumIDFormat'])
@@ -824,36 +912,36 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     logger.info('main loop - done. Time: ' + str(round(time() - main_loop_start_time, 2)) + " sec")
 
     # once loop is done write remaining data to DB
-    # db_wrap_up_start_time = time()
-    # logger.info('write remaining entries and modifications to DB - start')
-    # try:
-    #     db.write_identifications(multiple_inj_list_identifications, cur, con)
-    #     db.write_peaklists(multiple_inj_list_peak_lists, cur, con)
-    #
-    #     # modifications
-    #     mod_index = 0
-    #     multiple_inj_list_modifications = []
-    #     for mod in modifications:
-    #         multiple_inj_list_modifications.append([
-    #             mod_index,
-    #             mod['id'],
-    #             mod['mass'],
-    #             ''.join(mod['aminoAcids']),
-    #             mod['accession']
-    #         ])
-    #         mod_index += 1
-    #     db.write_modifications(multiple_inj_list_modifications, cur, con)
-    #
-    # except db.DBException as e:
-    #     return_json['errors'].append(
-    #         {"type": "dbError",
-    #          "message": e.message,
-    #          "id": spec_id_item_index
-    #          })
-    #     return return_json
-    #
-    # logger.info('write remaining entries and modifications to DB - done. Time: '
-    #             + str(round(time() - db_wrap_up_start_time, 2)) + " sec")
+    db_wrap_up_start_time = time()
+    logger.info('write remaining entries and modifications to DB - start')
+    try:
+        db.write_identifications(multiple_inj_list_identifications, cur, con)
+        db.write_peaklists(multiple_inj_list_peak_lists, cur, con)
+
+        # modifications
+        mod_index = 0
+        multiple_inj_list_modifications = []
+        for mod in modifications:
+            multiple_inj_list_modifications.append([
+                mod_index,
+                mod['id'],
+                mod['mass'],
+                ''.join(mod['aminoAcids']),
+                mod['accession']
+            ])
+            mod_index += 1
+        db.write_modifications(multiple_inj_list_modifications, cur, con)
+
+    except db.DBException as e:
+        return_json['errors'].append(
+            {"type": "dbError",
+             "message": e.message,
+             "id": spec_id_item_index
+             })
+        return return_json
+
+    logger.info('write remaining entries and modifications to DB - done. Time: '
+                + str(round(time() - db_wrap_up_start_time, 2)) + " sec")
 
     # fill in missing score information
     score_fill_start_time = time()

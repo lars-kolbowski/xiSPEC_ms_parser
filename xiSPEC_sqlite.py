@@ -69,7 +69,11 @@ def create_tables(cur, con):
         cur.execute(
             "CREATE TABLE peptides("
             "id text PRIMARY KEY, "
-            "sequence TEXT)"
+            "sequence TEXT,"
+            "seq_mods TEXT,"
+            "link_site int,"
+            "crosslinker_modmass FLOAT)"
+
         )
         cur.execute("DROP TABLE IF EXISTS peptide_evidences")
         cur.execute(
@@ -111,11 +115,14 @@ def write_db_sequences(inj_list, cur, con):
 def write_peptides(inj_list, cur, con):
     try:
         cur.executemany("""
-    INSERT INTO db_sequences (
+    INSERT INTO peptides (
         'id',
-        'sequence'
+        'sequence',
+        'seq_mods',
+        'link_site',
+        'crosslinker_modmass'
     )
-    VALUES (?, ?)""", inj_list)
+    VALUES (?, ?, ?, ?, ?)""", inj_list)
         con.commit()
 
     except sqlite3.Error as e:
