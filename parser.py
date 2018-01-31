@@ -103,19 +103,21 @@ try:
             except:
                 os.mkdir(upload_folder)
 
-            pxd_path = "/".join(args[0].split("/")[3:-1])
-            pxd_path = "/%s/" % pxd_path
-
+            id_file_path = "/".join(args[0].split("/")[3:-1])
+            id_file_path = "/%s/" % id_file_path
             id_file_name = args[0].split("/")[-1]
             identifications_file = upload_folder + id_file_name
 
+            pl_file_path = "/".join(args[1].split("/")[3:-1])
+            pl_file_path = "/%s/" % pl_file_path
             pl_file_name = args[1].split("/")[-1]
             peakList_file = upload_folder + pl_file_name
 
             ftp = ftplib.FTP('ftp.pride.ebi.ac.uk')
             ftp.login()
-            ftp.cwd(pxd_path)
+            ftp.cwd(id_file_path)
             ftp.retrbinary("RETR " + id_file_name, open(identifications_file, 'wb').write)
+            ftp.cwd(pl_file_path)
             ftp.retrbinary("RETR " + pl_file_name, open(peakList_file, 'wb').write)
             ftp.quit()
         else:
