@@ -55,6 +55,22 @@ def create_tables(cur, con):
             "peakList TEXT)"
         )
 
+        cur.execute(
+            "CREATE TABLE db_sequences("
+            "id INT PRIMARY KEY, "
+            "peakList TEXT)"
+        )
+        cur.execute(
+            "CREATE TABLE peptides("
+            "id INT PRIMARY KEY, "
+            "peakList TEXT)"
+        )
+        cur.execute(
+            "CREATE TABLE peptide_evidences("
+            "id INT PRIMARY KEY, "
+            "peakList TEXT)"
+        )
+
         con.commit()
 
     except sqlite3.Error as e:
@@ -62,7 +78,20 @@ def create_tables(cur, con):
     return True
 
 
+def write_db_sequences(inj_list, cur, con):
+    pass
+
+
+def write_peptides(inj_list, cur, con):
+    pass
+
+
+def write_peptide_evidences(inj_list, cur, con):
+    pass
+
+
 def write_identifications(inj_list, cur, con):
+
     try:
         cur.executemany("""
     INSERT INTO identifications (
