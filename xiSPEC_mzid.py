@@ -460,6 +460,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     logger.info('reading mzid - start')
     mzid_start_time = time()
 
+    # ToDo: move to function
     if mzid_file.endswith('gz'):
         in_f = gzip.open(mzid_file, 'rb')
         mzid_file = mzid_file.replace(".gz", "")
@@ -787,7 +788,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             id_string = '; '.join(fragment_parsing_error_scans)
         return_json['warnings'].append({
             "type": "IonParsing",
-            "message": "could not parse fragment ions assuming precursor-, b- and y-ion",
+            "message": "mzidentML file does not specify fragment ions.",
             'id': id_string
         })
 
