@@ -16,7 +16,7 @@ try:
     else:
         import xiSPEC_sqlite as db
 except IndexError:
-    import xiSPEC_sqlite as db
+    import xiUI_sqlite as db
 
 
 def path_leaf(path):
@@ -691,9 +691,6 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
                 spec_id_set.add(get_cross_link_identifier(specIdItem))
                 linear_index -= 1
 
-    analysis_collection = mzid_reader.iterfind('AnalysisCollection').next()
-    for spectrumIdentification in analysis_collection['SpectrumIdentificationResult']:
-        pass
         # get spectra data
         try:
             spectra_data = mzid_reader.get_by_id(sid_result['spectraData_ref'], tag_id='SpectraData', detailed=True)

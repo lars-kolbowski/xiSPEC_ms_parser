@@ -25,7 +25,7 @@ try:
         dname = ''
 
     # import local files
-    import xiSPEC_mzid as mzidParser
+    import xiUI_mzid as mzidParser
     import xiSPEC_csv as csvParser
     from xiSPEC_peakList import unzip_peak_lists
 
@@ -59,7 +59,7 @@ try:
     else:
         import xiSPEC_sqlite as db
 except IndexError:
-    import xiSPEC_sqlite as db
+    import xiUI_sqlite as db
 
 # paths and file names
 try:
