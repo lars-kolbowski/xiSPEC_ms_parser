@@ -476,12 +476,15 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
     logger.info('reading mzid - done. Time: ' + str(round(time() - mzid_start_time, 2)) + " sec")
 
+    analysis_software_start_time = time()
+    logger.info('getting analysis software - start')
     # see https://groups.google.com/forum/#!topic/pyteomics/Mw4eUHmicyU
     mzid_reader.schema_info['lists'].add("AnalysisSoftware")
     analysis_software_list = mzid_reader.iterfind('AnalysisSoftwareList').next()
     mzid_reader.reset()
     return_json["analysis_software"] = analysis_software_list
-
+    logger.info(
+        'getting analysis software - done. Time: ' + str(round(time() - analysis_software_start_time, 2)) + " sec")
 
     unimod_masses = get_unimod_masses(unimod_path)
 
