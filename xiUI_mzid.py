@@ -183,7 +183,7 @@ def map_spectra_data_to_protocol(mzid_reader):
     return spectra_data_protocol_map
 
 
-def map_seq_ref_to_protein(mzid_reader, cur, con, unimod_masses, logger):
+def parse_sequence_collection(mzid_reader, cur, con, unimod_masses, logger):
     """
     extract and map - which includes data like -
      ToDo: improve error handling
@@ -650,7 +650,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
     protein_map_start_time = time()
     logger.info('generating dBSequence to protein map - start')
-    seq_ref_protein_map = map_seq_ref_to_protein(mzid_reader, cur, con, unimod_masses, logger)
+    seq_ref_protein_map = parse_sequence_collection(mzid_reader, cur, con, unimod_masses, logger)
     return_json['errors'] += seq_ref_protein_map['errors']
     # ToDo: save FragmentTolerance to annotationsTable
     logger.info('generating dBSequence to protein map - done. Time: ' + str(round(time() - protein_map_start_time, 2)) + " sec")
