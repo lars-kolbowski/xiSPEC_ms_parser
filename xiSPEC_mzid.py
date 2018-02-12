@@ -480,7 +480,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     mzid_reader.schema_info['lists'].add("AnalysisSoftware")
     analysis_software_list = mzid_reader.iterfind('AnalysisSoftwareList').next()
     mzid_reader.reset()
-    return_json["analysis_software"] = analysis_software_list
+    return_json["analysis_software"] = analysis_software_list['AnalysisSoftware']
 
 
     unimod_masses = get_unimod_masses(unimod_path)
