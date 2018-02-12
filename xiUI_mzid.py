@@ -183,7 +183,7 @@ def map_spectra_data_to_protocol(mzid_reader):
     return spectra_data_protocol_map
 
 
-def map_seq_ref_to_protein(mzid_reader):
+def map_seq_ref_to_protein(mzid_reader, cur, con, unimod_masses, logger):
     """
     extract and map - which includes data like -
      ToDo: improve error handling
@@ -197,9 +197,165 @@ def map_seq_ref_to_protein(mzid_reader):
         'errors': [],
     }
 
+    all_mods = []  # Modifications list
+    mod_aliases = {
+        # "amidated_bs3": "bs3nh2",
+        # "carbamidomethyl": "cm",
+        # "hydrolyzed_bs3": "bs3oh",
+        # "oxidation": "ox"
+    }
+
     sequence_collection = mzid_reader.iterfind('SequenceCollection').next()
-    for sequence in sequence_collection['DBSequence']:
-        seq_ref_prot_map[sequence["id"]] = sequence["accession"]
+
+    #DBSEQUENCES
+    inj_list = [];
+    for db_sequence in sequence_collection['DBSequence']:
+        seq_ref_prot_map[db_sequence["id"]] = db_sequence["accession"]
+
+        data = []; #id, accession, name, description, sequence, is_decoy
+        data.append(db_sequence["id"]) #id, required
+        data.append(db_sequence["accession"]) #accession, required
+
+        # name, optional elem att
+        if "name" in db_sequence :
+            data.append(db_sequence["name"])
+        else :
+            data.append(db_sequence["accession"])
+
+        # description, officialy not there?
+        if "protein description"  in db_sequence:
+            data.append(db_sequence["protein description"])
+        else:
+            data.append("protein description")
+
+        #searchDatabase_ref
+
+        # sequence
+        if "Seq" in db_sequence : # Seq is optional child elem of DBSequence
+            data.append(db_sequence["Seq"])
+        else:
+            # todo: get sequence
+            data.append("no sequence")
+
+        # is_decoy - not there
+        data.append("false")
+
+        inj_list.append(data)
+
+    db.write_db_sequences(inj_list, cur, con)
+
+    #PEPTIDES
+    inj_list = [];
+    for peptide in sequence_collection['Peptide']:
+        data = [];  # id, sequence
+        data.append(peptide["id"])  # id, required
+        data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
+
+        pep_seq_dict = []
+        for aa in peptide['PeptideSequence']:
+            pep_seq_dict.append({"Modification": "", "aminoAcid": aa})
+
+        link_site = -1
+        crosslinker_modmass = -1
+
+        #MODIFICATIONS
+        # add in modifications
+        if 'Modification' in peptide.keys():
+            for mod in peptide['Modification']:
+
+                if 'monoisotopicMassDelta' not in mod.keys():
+                    try:
+                        mod['monoisotopicMassDelta'] = unimod_masses[mod['accession']]
+
+                    except KeyError:
+                        seq_ref_prot_map['errors'].append({
+                            "type": "mzidParseError",
+                            "message": "could not get modification mass for modification {}" % mod,
+                            "id": mod["id"]
+                        })
+                        continue
+
+                # link_index = 0  # TODO: multilink support
+
+                if mod['location'] == 0:
+                    mod_location = 0
+                    n_terminal_mod = True
+                elif mod['location'] == len(peptide['PeptideSequence']) + 1:
+                    mod_location = mod['location'] - 2
+                    c_terminal_mod = True
+                else:
+                    mod_location = mod['location'] - 1
+                    n_terminal_mod = False
+                    c_terminal_mod = False
+                if 'residues' not in mod:
+                    mod['residues'] = peptide['PeptideSequence'][mod_location]
+
+                if 'name' in mod.keys():
+                    # fix mod names
+                    mod['name'] = mod['name'].lower()
+                    mod['name'] = mod['name'].replace(" ", "_")
+                    if mod['name'] in mod_aliases.keys():
+                        mod['name'] = mod_aliases[mod['name']]
+                    if 'cross-link donor' not in mod.keys() and 'cross-link acceptor' not in mod.keys():
+                        cur_mod = pep_seq_dict[mod_location]
+                        # join modifications into one for multiple modifications on the same aa
+                        if not cur_mod['Modification'] == '':
+                            mod['name'] = '_'.join(sorted([cur_mod['Modification'], mod['name']], key=str.lower))
+                            cur_mod_mass = \
+                            [x['monoisotopicMassDelta'] for x in all_mods if x['name'] == cur_mod['Modification']][0]
+                            mod['monoisotopicMassDelta'] += cur_mod_mass
+
+                        mod['name'] = add_to_modlist(mod, all_mods)  # save to all mods list and get back new_name
+                        cur_mod['Modification'] = mod['name']
+
+                # error handling for mod without name
+                else:
+                    # cross-link acceptor doesn't have a name
+                    if 'cross-link acceptor' not in mod.keys():
+                        pass
+                        # logger.error('modification without name!')
+                        # logger.error(mod)
+
+                # add CL locations
+                if 'cross-link donor' in mod.keys() or 'cross-link acceptor' in mod.keys():
+                    link_site = mod_location - 1
+                    # return_dict['linkSites'].append(
+                    #     {"id": link_index, "peptideId": pep_index, "linkSite": mod_location - 1})
+                if 'cross-link donor' in mod.keys():
+                    crosslinker_modmass = round(mod['monoisotopicMassDelta'], 6)
+
+        peptide_seq_with_mods = ''.join([''.join([x['aminoAcid'], x['Modification']]) for x in pep_seq_dict])
+
+        data.append(peptide_seq_with_mods)
+        data.append(link_site)
+        data.append(crosslinker_modmass)
+
+        inj_list.append(data)
+
+    db.write_peptides(inj_list, cur, con)
+
+    #PEPTIDE EVIDENCES
+    inj_list = [];
+    for peptide_evidence in sequence_collection['PeptideEvidence']:
+        data = [];  # peptide_ref, dBSequence_ref, start
+        data.append(peptide_evidence["peptide_ref"])  # peptide_ref att, required
+        data.append(peptide_evidence["dBSequence_ref"])  # DBSequence_ref att, required
+        if "start" in peptide_evidence:
+            data.append(peptide_evidence["start"])  # start att, optional
+        else:
+            data.append(-1)
+
+        #annoyingly, this seems to be where we get decoy info
+        if "isDecoy" in peptide_evidence:
+            data.append(peptide_evidence["isDecoy"])  # isDecoy att, optional
+        else:
+            data.append("false")  # hmm
+
+        inj_list.append(data)
+
+    db.write_peptide_evidences(inj_list, cur, con)
+
+    con.commit()
     mzid_reader.reset()
 
     # takes more processing time but uses less memory ~15 Mb difference from memory snapshots on large Tmuris example
@@ -494,7 +650,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
     protein_map_start_time = time()
     logger.info('generating dBSequence to protein map - start')
-    seq_ref_protein_map = map_seq_ref_to_protein(mzid_reader)
+    seq_ref_protein_map = map_seq_ref_to_protein(mzid_reader, cur, con, unimod_masses, logger)
     return_json['errors'] += seq_ref_protein_map['errors']
     # ToDo: save FragmentTolerance to annotationsTable
     logger.info('generating dBSequence to protein map - done. Time: ' + str(round(time() - protein_map_start_time, 2)) + " sec")
@@ -535,6 +691,9 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
                 spec_id_set.add(get_cross_link_identifier(specIdItem))
                 linear_index -= 1
 
+    analysis_collection = mzid_reader.iterfind('AnalysisCollection').next()
+    for spectrumIdentification in analysis_collection['SpectrumIdentificationResult']:
+        pass
         # get spectra data
         try:
             spectra_data = mzid_reader.get_by_id(sid_result['spectraData_ref'], tag_id='SpectraData', detailed=True)
