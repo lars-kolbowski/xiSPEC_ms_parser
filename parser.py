@@ -233,7 +233,7 @@ else:
 if len(returnJSON["errors"]) > 100:
     returnJSON["errors"] = returnJSON["errors"][:100]
 
-print(json.dumps(returnJSON))
+print(json.dumps(returnJSON, indent=4))
 
 if con:
     con.close()

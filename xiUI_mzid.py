@@ -104,7 +104,6 @@ def get_scan_id(spec_id, spec_id_format):
     #     return spectrumID;
     # }
 
-
     # e.g.: MS:1000768(Thermo        nativeID        format)
     # e.g.: MS:1000769(Waters        nativeID        format)
     # e.g.: MS:1000770(WIFF        nativeID        format)
@@ -183,7 +182,7 @@ def map_spectra_data_to_protocol(mzid_reader):
     return spectra_data_protocol_map
 
 
-def parse_sequence_collection(mzid_reader, cur, con, unimod_masses, logger):
+def parse_sequence_collection(mzid_reader, cur, con, unimod_masses):
     """
     extract and map - which includes data like -
      ToDo: improve error handling
@@ -222,7 +221,7 @@ def parse_sequence_collection(mzid_reader, cur, con, unimod_masses, logger):
         else :
             data.append(db_sequence["accession"])
 
-        # description, officialy not there?
+        # description, officially not there?
         if "protein description"  in db_sequence:
             data.append(db_sequence["protein description"])
         else:
@@ -616,8 +615,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         "response": "",
         "modifications": [],
         "errors": [],
-        "warnings": [],
-        "analysis_software": []
+        "warnings": []
     }
 
     # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
@@ -638,7 +636,15 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     mzid_reader.reset()
     return_json["analysis_software"] = analysis_software_list['AnalysisSoftware']
 
+    analysis_collection = mzid_reader.iterfind('AnalysisCollection').next()
+    mzid_reader.reset()
+    return_json["spectrum_identification"] = analysis_collection['SpectrumIdentification']
 
+    # analysis_protocol_collection = mzid_reader.iterfind('AnalysisProtocolCollection').next()
+    # mzid_reader.reset()
+    # return_json["spectrum_identification_protocol"] = analysis_protocol_collection['SpectrumIdentificationProtocol']
+
+    # might be stuff in pyteomics lib for this
     unimod_masses = get_unimod_masses(unimod_path)
 
     spectra_map_start_time = time()
@@ -650,17 +656,16 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
     protein_map_start_time = time()
     logger.info('generating dBSequence to protein map - start')
-    seq_ref_protein_map = parse_sequence_collection(mzid_reader, cur, con, unimod_masses, logger)
+    seq_ref_protein_map = parse_sequence_collection(mzid_reader, cur, con, unimod_masses)
     return_json['errors'] += seq_ref_protein_map['errors']
     # ToDo: save FragmentTolerance to annotationsTable
     logger.info('generating dBSequence to protein map - done. Time: ' + str(round(time() - protein_map_start_time, 2)) + " sec")
 
-
     mzid_item_index = 0
     spec_id_item_index = 0
-    multiple_inj_list_identifications = []
-    multiple_inj_list_peak_lists = []
-    modifications = []
+    # multiple_inj_list_identifications = []
+    # multiple_inj_list_peak_lists = []
+    # modifications = []
 
     # peakList readers
     peak_list_start_time = time()
@@ -676,9 +681,12 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     main_loop_start_time = time()
     logger.info('main loop - start')
 
-    for sid_result in mzid_reader:  # mzid_item = mzid_reader.next()
+    spectrum_results = []
+    spectrum_identifications = []
 
-        # make_spec_id_pairs(mzid_item['SpectrumIdentificationItem'])
+    for sid_result in mzid_reader:
+
+        # make_spec_id_pairs(sid_result['SpectrumIdentificationItem'])
         spec_id_set = set()
         linear_index = -1  # negative index values for linear peptides
 
@@ -766,10 +774,11 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
         peak_list = peakListParser.get_peak_list(scan, peak_list_reader['fileType'])
 
-        multiple_inj_list_peak_lists.append([mzid_item_index, peak_list])
-
         # ms2 tolerance
-        ms2_tol = spectra_data_protocol_map[sid_result['spectraData_ref']]['fragmentTolerance']
+        # ms2_tol = spectra_data_protocol_map[sid_result['spectraData_ref']]['fragmentTolerance']
+        protocol = spectra_data_protocol_map[sid_result['spectraData_ref']]
+
+        spectrum_results.append([mzid_item_index, peak_list, raw_file_name, scan_id, protocol, json.dumps(sid_result)])
 
         # alternatives = []
         for SpecId in spec_id_set:
@@ -784,108 +793,41 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             #     })
             #     continue
 
-            pep_info = get_peptide_info(paired_spec_id_items, mzid_reader, unimod_masses, seq_ref_protein_map, logger)
-
-            # fragmentation ions
-            pep_info['ions'] = get_ion_types_mzid(paired_spec_id_items[0], logger)
-            # if no ion types are specified in the id file check the mzML file
-            if len(pep_info['ions']) == 0 and peak_list_reader['fileType'] == 'mzml':
-                pep_info['ions'] = peakListParser.get_ion_types_mzml(scan)
-
-            pep_info['ions'] = list(set(pep_info['ions']))
-
-            if len(pep_info['ions']) == 0:
-                pep_info['ions'] = ['peptide', 'b', 'y']
-                # ToDo: better error handling for general errors - bundling together of same type errors
-                fragment_parsing_error_scans.append(sid_result['id'])
-
-            pep_info['ions'] = ';'.join(pep_info['ions'])
+            # pep_info = get_peptide_info(paired_spec_id_items, mzid_reader, unimod_masses, seq_ref_protein_map, logger)
+            #
+            # # fragmentation ions
+            ions = get_ion_types_mzid(paired_spec_id_items[0], logger)
+            # # if no ion types are specified in the id file check the mzML file
+            # if len(pep_info['ions']) == 0 and peak_list_reader['fileType'] == 'mzml':
+            #     pep_info['ions'] = peakListParser.get_ion_types_mzml(scan)
+            #
+            # pep_info['ions'] = list(set(pep_info['ions']))
+            #
+            # if len(pep_info['ions']) == 0:
+            #     pep_info['ions'] = ['peptide', 'b', 'y']
+            #     # ToDo: better error handling for general errors - bundling together of same type errors
+            #     fragment_parsing_error_scans.append(sid_result['id'])
+            #
+            # pep_info['ions'] = ';'.join(pep_info['ions'])
 
             # extract other useful info to display
             rank = paired_spec_id_items[0]['rank']
 
-            # ToDo: handling for mzid that don't include isDecoy
-            is_decoy = any([pep['isDecoy'] for pep in pep_info['isDecoy']])
-            # accessions = ";".join(pep_info['proteins'])
-            protein1 = pep_info['protein1']
-            protein2 = pep_info['protein2']
-
-            # passThreshold
-            if pep_info['passThreshold']:
-                pass_threshold = 1
-            else:
-                pass_threshold = 0
-
-            # peptides and linker position
-            pep1 = pep_info['peptides'][0]
-
-            if len(pep_info['peptides']) > 1:
-                link_pos1 = pep_info['linkSites'][0]
-                pep2 = pep_info['peptides'][1]
-                link_pos2 = pep_info['linkSites'][1]
-
-            else:
-                pep2 = ""
-                link_pos1 = -1
-                link_pos2 = -1
-
-            multiple_inj_list_identifications.append(
+            spectrum_identifications.append(
                 [spec_id_item_index,
                  sid_result['id'],
-                 pep1,
-                 pep2,
-                 link_pos1,
-                 link_pos2,
-                 pep_info['precursorCharge'],
-                 pass_threshold,
-                 ms2_tol,
-                 pep_info['ions'],
-                 pep_info["cross-linker modMass"],
+                 'pep1',
+                 'pep2',
+                 'pass_threshold',
                  rank,
-                 # score,
-                 json.dumps(pep_info['scores']),
-                 is_decoy,
-                 protein1,
-                 protein2,
-                 raw_file_name,
-                 scan_id,
+                 json.dumps(ions),
+                 'scores',
                  mzid_item_index]
             )
-
-            # add mods to global modList
-            for mod in pep_info['annotation']['modifications']:
-                if mod['id'] not in [m['id'] for m in modifications]:
-                    modifications.append(mod)
-                else:
-                    old_mod = modifications[[m['id'] for m in modifications].index(mod['id'])]
-                    # check if modname with different mass exists already
-                    for res in mod['aminoAcids']:
-                        if res not in old_mod['aminoAcids']:
-                            old_mod['aminoAcids'].append(res)
 
             spec_id_item_index += 1
 
         mzid_item_index += 1
-
-        if spec_id_item_index % 1000 == 0:
-            logger.info('writing 1000 entries to DB')
-            try:
-                db.write_identifications(multiple_inj_list_identifications, cur, con)
-                multiple_inj_list_identifications = []
-
-                db.write_peaklists(multiple_inj_list_peak_lists, cur, con)
-                multiple_inj_list_peak_lists = []
-
-            except db.DBException as e:
-                return_json['errors'].append(
-                    {"type": "dbError",
-                     "message": e.message,
-                     'id': spec_id_item_index
-                     })
-                return return_json
-
-            # commit changes
-            con.commit()
 
     # end main loop
     logger.info('main loop - done. Time: ' + str(round(time() - main_loop_start_time, 2)) + " sec")
@@ -894,22 +836,22 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     db_wrap_up_start_time = time()
     logger.info('write remaining entries and modifications to DB - start')
     try:
-        db.write_identifications(multiple_inj_list_identifications, cur, con)
-        db.write_peaklists(multiple_inj_list_peak_lists, cur, con)
+        db.write_spectrum_results(spectrum_results, cur, con)
+        db.write_spectrum_identifications(spectrum_identifications, cur, con)
 
         # modifications
-        mod_index = 0
-        multiple_inj_list_modifications = []
-        for mod in modifications:
-            multiple_inj_list_modifications.append([
-                mod_index,
-                mod['id'],
-                mod['mass'],
-                ''.join(mod['aminoAcids']),
-                mod['accession']
-            ])
-            mod_index += 1
-        db.write_modifications(multiple_inj_list_modifications, cur, con)
+        # mod_index = 0
+        # multiple_inj_list_modifications = []
+        # for mod in modifications:
+        #     multiple_inj_list_modifications.append([
+        #         mod_index,
+        #         mod['id'],
+        #         mod['mass'],
+        #         ''.join(mod['aminoAcids']),
+        #         mod['accession']
+        #     ])
+        #     mod_index += 1
+        # db.write_modifications(multiple_inj_list_modifications, cur, con)
 
     except db.DBException as e:
         return_json['errors'].append(
