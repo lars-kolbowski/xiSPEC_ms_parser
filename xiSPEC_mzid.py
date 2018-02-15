@@ -443,19 +443,6 @@ def get_unimod_masses(unimod_path):
     return masses
 
 
-def get_analysis_software(mzid_file):
-    # hack to get analysis software name
-    mzid_stream = open(mzid_file, 'r')
-    file_start = mzid_stream.read(5000)  # read by character
-    mzid_stream.close()
-    r = re.finditer('<SoftwareName>.*?<cvParam.*?name="(.*?)"', file_start, re.DOTALL)
-    analysis_software = []
-    for i in r:
-        analysis_software.append(i.group(1))
-
-    return analysis_software
-
-
 def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     logger.info('reading mzid - start')
     mzid_start_time = time()
@@ -469,14 +456,12 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         in_f.close()
         out_f.close()
 
-    analysis_software = get_analysis_software(mzid_file)
-
     return_json = {
         "response": "",
         "modifications": [],
         "errors": [],
         "warnings": [],
-        "analysisSoftware": analysis_software
+        "analysis_software": []
     }
 
     # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
@@ -490,6 +475,16 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         return return_json
 
     logger.info('reading mzid - done. Time: ' + str(round(time() - mzid_start_time, 2)) + " sec")
+
+    analysis_software_start_time = time()
+    logger.info('getting analysis software - start')
+    # see https://groups.google.com/forum/#!topic/pyteomics/Mw4eUHmicyU
+    mzid_reader.schema_info['lists'].add("AnalysisSoftware")
+    analysis_software_list = mzid_reader.iterfind('AnalysisSoftwareList').next()
+    mzid_reader.reset()
+    return_json["analysis_software"] = analysis_software_list['AnalysisSoftware']
+    logger.info(
+        'getting analysis software - done. Time: ' + str(round(time() - analysis_software_start_time, 2)) + " sec")
 
     unimod_masses = get_unimod_masses(unimod_path)
 

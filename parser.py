@@ -77,12 +77,12 @@ try:
         # peakList_file = "/media/data/work/xiSPEC_test_files/SL/mscon_PF_20_100_0_B160803_02_new.mgf"
 
         # # mzid has duplicate ids!!! - fixed now with non-flat index
-        identifications_file = "/media/data/work/xiSPEC_test_files/PXD006767/MTases_Trypsin_ETD_search.mzid"
-        peakList_file = "/media/data/work/xiSPEC_test_files/PXD006767/PXD006767.zip"
+        # identifications_file = "/media/data/work/xiSPEC_test_files/PXD006767/MTases_Trypsin_ETD_search.mzid"
+        # peakList_file = "/media/data/work/xiSPEC_test_files/PXD006767/PXD006767.zip"
 
         # small mzid dataset
-        # identifications_file = baseDir + "DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
-        # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
+        identifications_file = baseDir + "DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
+        peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
 
         # # large mzid dataset
         # identifications_file = baseDir + "Tmuris_exo/Tmuris_exosomes1.mzid"
