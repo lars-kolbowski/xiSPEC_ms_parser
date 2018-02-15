@@ -17,21 +17,22 @@ def connect(dbname):
 def create_tables(cur, con):
     try:
         cur.execute("DROP TABLE IF EXISTS uploads")
-        # 'filename', 'raw_files',
-        # analysis_software, provider, audits, samples, analyses, protocols, bib
         cur.execute(
             "CREATE TABLE uploads("
             "id INT PRIMARY KEY, "
             "user_id INT,"
             "filename TEXT, "
             "raw_file_names TEXT, "
-            "analysis_software JSON"
-            "provider JSON"
-            "audits JSON"
-            "samples JSON"
-            "analysis JSON"
+            "analysis_software JSON,"
+            "provider JSON,"
+            "audits JSON,"
+            "samples JSON,"
+            "analyses JSON,"
+            "protocol JSON,"
+            "bib JSON,"
             "upload_time DATE, "
-            "upload_loc TEXT)"
+            "upload_loc TEXT,"          
+            "default_pdb TEXT)"
         )
         cur.execute("DROP TABLE IF EXISTS protocols")
         cur.execute(
@@ -92,9 +93,9 @@ def create_tables(cur, con):
             "scan_id INT, "
             "frag_tol)"
         )
-        cur.execute("DROP TABLE IF EXISTS spectrum_identification")
+        cur.execute("DROP TABLE IF EXISTS spectrum_identifications")
         cur.execute(
-            "CREATE TABLE spectrum_identification("
+            "CREATE TABLE spectrum_identifications("
             "id INT, "
             "upload_id INT,"
             "spectrum_id INT, "
@@ -113,22 +114,26 @@ def create_tables(cur, con):
 
 
 def write_upload(inj_list, cur, con):
+    try:
+        cur.executemany("""
+    INSERT INTO uploads (
+        'user_id',
+        'filename',
+        'analysis_software',
+        'provider',
+        'audits',
+        'samples',
+        'analyses',
+        'protocol',
+        'bib',
+        'upload_time',
+        'upload_loc'
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", inj_list)
+        con.commit()
 
-    # try:
-    #     cur.executemany("""
-    # INSERT INTO db_sequences (
-    #     'id',
-    #     'accession',
-    #     'name',
-    #     'description',
-    #     'sequence',
-    #     'is_decoy'
-    # )
-    # VALUES (?, ?, ?, ?, ?, ?)""", inj_list)
-    #     con.commit()
-    #
-    # except sqlite3.Error as e:
-    #     raise DBException(e.message)
+    except sqlite3.Error as e:
+        raise DBException(e.message)
 
     return True
 
@@ -222,7 +227,7 @@ def write_peptide_evidences(inj_list, cur, con):
     return True
 
 
-def write_spectrum_results(inj_list, cur, con):
+def write_spectra(inj_list, cur, con):
     try:
         cur.executemany("""INSERT INTO spectrum ('id', 'upload_id', 'peak_list', 'raw_file_name', 'scan_id', 'frag_tol')
                         VALUES (?, ?, ?, ?, ?, ?)""", inj_list)
@@ -236,7 +241,7 @@ def write_spectrum_results(inj_list, cur, con):
 
 def write_spectrum_identifications(inj_list, cur, con):
     try:
-        cur.executemany("""INSERT INTO spectrum_identification ('id', 'upload_id', 'spectrum_id', 'pep1_id', 'pep2_id',
+        cur.executemany("""INSERT INTO spectrum_identifications ('id', 'upload_id', 'spectrum_id', 'pep1_id', 'pep2_id',
                             rank, 'pass_threshold', 'ions', 'scores') VALUES (?, ?, ?, ?, ?, ?, ? , ?, ?)""", inj_list)
         con.commit()
 
@@ -251,39 +256,39 @@ def write_spectrum_identifications(inj_list, cur, con):
 
 
 def fill_in_missing_scores(cur, con):
-    try:
-        cur.execute("""
-      SELECT DISTINCT scoresJSON.key as scoreKey 
-      FROM identifications, json_each(identifications.allScores) AS scoresJSON""")
-
-        all_scores = cur.fetchall()
-        all_scores = set([str(x[0]) for x in all_scores])
-
-        multiple_inj_list = []
-
-        cur.execute('SELECT id, allScores FROM identifications')
-        res = cur.fetchall()
-
-        for row in res:
-            row_scores = json.loads(row[1])
-            missing = all_scores - set(row_scores.keys())
-            missing_dict = {key: -1 for key in missing}
-
-            if len(missing) > 0:
-                row_scores.update(missing_dict)
-                multiple_inj_list.append([json.dumps(row_scores), row[0]])
-                # cur.execute('UPDATE identifications SET allScores=? WHERE id = row[0]', json.dumps(row_scores))
-
-        cur.executemany("""
-        UPDATE identifications 
-        SET `allScores` = ?
-        WHERE `id` = ?""", multiple_inj_list)
-
-        con.commit()
-
-    except sqlite3.Error as e:
-        raise DBException(e.message)
-
+    # try:
+    #     cur.execute("""
+    #   SELECT DISTINCT scoresJSON.key as scoreKey
+    #   FROM identifications, json_each(identifications.allScores) AS scoresJSON""")
+    #
+    #     all_scores = cur.fetchall()
+    #     all_scores = set([str(x[0]) for x in all_scores])
+    #
+    #     multiple_inj_list = []
+    #
+    #     cur.execute('SELECT id, allScores FROM identifications')
+    #     res = cur.fetchall()
+    #
+    #     for row in res:
+    #         row_scores = json.loads(row[1])
+    #         missing = all_scores - set(row_scores.keys())
+    #         missing_dict = {key: -1 for key in missing}
+    #
+    #         if len(missing) > 0:
+    #             row_scores.update(missing_dict)
+    #             multiple_inj_list.append([json.dumps(row_scores), row[0]])
+    #             # cur.execute('UPDATE identifications SET allScores=? WHERE id = row[0]', json.dumps(row_scores))
+    #
+    #     cur.executemany("""
+    #     UPDATE identifications
+    #     SET `allScores` = ?
+    #     WHERE `id` = ?""", multiple_inj_list)
+    #
+    #     con.commit()
+    #
+    # except sqlite3.Error as e:
+    #     raise DBException(e.message)
+    pass
 
 
 
