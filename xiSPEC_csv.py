@@ -20,7 +20,8 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
     return_json = {
         "response": "",
         "modifications": [],
-        "errors": []
+        "errors": [],
+        "warnings": []
     }
 
     csv_start_time = time()
