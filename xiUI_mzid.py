@@ -8,6 +8,7 @@ import xiSPEC_peakList as peakListParser
 import zipfile
 import gzip
 import os
+import numpy as np
 
 
 try:
@@ -182,19 +183,176 @@ def map_spectra_data_to_protocol(mzid_reader):
     return spectra_data_protocol_map
 
 
-def parse_sequence_collection(mzid_reader, cur, con, unimod_masses):
-    """
-    extract and map - which includes data like -
-     ToDo: improve error handling
+def get_cross_link_identifier(sid_item):
+    # For reporting the evidence associated with the identification, within a given <SpectrumIdentificationResult>,
+    # a pair of cross-linked peptides MUST be reported as two instances of <SpectrumIdentificationItem> through having
+    # a shared local unique identifier as the value for the CV term "cross-link spectrum identification item" MS:1002511
+    # The two instances of <SpectrumIdentificationItem> MUST also share the same value for the rank attribute.
+    #
+    # If a cross-linked pair of peptides has been identified, there MUST be two
+    # <SpectrumIdentificationItem> elements with the same rank value. Both MUST have the
+    # "cross-link spectrum identification item" cvParam, and the value acts as a local identifier
+    # within the <SpectrumIdentificationResult> to group these two elements together. The
+    # experimentalMassToCharge, calculateMassToCharge and chargeState MUST be identical
+    # over both SII elements, indicating the overall values for the pair.
 
-    Parameters:
-    ------------------------
-    mzid_reader: pyteomics mzid_reader
-    """
+    # cl_id_item = str(int(sid_item['cross-link spectrum identification item']))
+    # rank = str(sid_item['rank'])
 
-    seq_ref_prot_map = {
-        'errors': [],
+    return sid_item['cross-link spectrum identification item']
+    # return '_'.join([cl_id_item, rank])
+
+
+def add_to_modlist(mod, modlist):
+    # modlist_test = [
+    #     {'name': "bs3nh2", 'monoisotopicMassDelta': 123, 'residues': ["A"]}
+    # ]
+    # mod1_test = {'name': "unknown_modification", 'monoisotopicMassDelta': 123, 'residues': ["B"]}
+    # mod2_test = {'name': "bs3nh2", 'monoisotopicMassDelta': 1232, 'residues': ["B"]}
+    # mod3_test = {'name': "bs3nh2", 'monoisotopicMassDelta': 12323, 'residues': ["A"]}
+    # print add_to_modlist(mod1_test, modlist_test)
+    # print modlist_test
+    # print add_to_modlist(mod2_test, modlist_test)
+    # print modlist_test
+    # print add_to_modlist(mod3_test, modlist_test)
+    # print modlist_test
+
+    if mod['name'] == "unknown_modification":
+        mod['name'] = "({0:.2f})".format(mod['monoisotopicMassDelta'])
+
+    mod['monoisotopicMassDelta'] = round(float(mod['monoisotopicMassDelta']), 6)
+
+    mod['residues'] = [aa for aa in mod['residues']]
+
+    if mod['name'] in [m['name'] for m in modlist]:
+        old_mod = modlist[[m['name'] for m in modlist].index(mod['name'])]
+        # check if modname with different mass exists already
+        if mod['monoisotopicMassDelta'] != old_mod['monoisotopicMassDelta']:
+            mod['name'] += "*"
+            add_to_modlist(mod, modlist)
+        else:
+            for res in mod['residues']:
+                if res not in old_mod['residues']:
+                    old_mod['residues'].append(res)
+    else:
+        modlist.append(mod)
+
+    return mod['name']
+
+
+def get_unimod_masses(unimod_path):
+    masses = {}
+    mod_id = -1
+
+    with open(unimod_path) as f:
+        for line in f:
+            if line.startswith('id: '):
+                mod_id = ''.join(line.replace('id: ', '').split())
+
+            elif line.startswith('xref: delta_mono_mass ') and not mod_id == -1:
+                mass = float(line.replace('xref: delta_mono_mass ', '').replace('"', ''))
+                masses[mod_id] = mass
+
+    return masses
+
+
+def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
+    logger.info('reading mzid - start')
+    mzid_start_time = time()
+
+    # ToDo: move to function
+    if mzid_file.endswith('gz'):
+        in_f = gzip.open(mzid_file, 'rb')
+        mzid_file = mzid_file.replace(".gz", "")
+        out_f = open(mzid_file, 'wb')
+        out_f.write(in_f.read())
+        in_f.close()
+        out_f.close()
+
+    return_json = {
+        "response": "",
+        "modifications": [],
+        "errors": [],
+        "warnings": []
     }
+
+    # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
+    try:
+        mzid_reader = py_mzid.MzIdentML(mzid_file)
+    except Exception as e:
+        return_json['errors'].append({
+            "type": "mzidParseError",
+            "message": e
+        })
+        return return_json
+
+    logger.info('reading mzid - done. Time: ' + str(round(time() - mzid_start_time, 2)) + " sec")
+
+    #
+    # Upload info
+    #
+
+    upload_info_start_time = time()
+    logger.info('getting upload info (provider, etc) - start')
+
+    # AnalysisSoftwareList
+    # see https://groups.google.com/forum/#!topic/pyteomics/Mw4eUHmicyU
+    mzid_reader.schema_info['lists'].add("AnalysisSoftware")
+    analysis_software = mzid_reader.iterfind('AnalysisSoftwareList').next()['AnalysisSoftware']
+    mzid_reader.reset()
+
+    # Provider
+    provider = mzid_reader.iterfind('Provider').next()
+    mzid_reader.reset()
+
+    # AuditCollection
+    audits = mzid_reader.iterfind('AuditCollection').next()
+    mzid_reader.reset()
+
+    # AnalysisSampleCollection
+    samples = ''
+    # sample_collection = mzid_reader.iterfind('AnalysisSampleCollection').next()
+    # samples = sample_collection['Sample']
+    # mzid_reader.reset()
+
+    # AnalysisCollection
+    analyses = mzid_reader.iterfind('AnalysisCollection').next()['SpectrumIdentification']
+    mzid_reader.reset()
+
+    # AnalysisProtocolCollection
+    protocols = mzid_reader.iterfind('AnalysisProtocolCollection').next()[
+        'SpectrumIdentificationProtocol']
+    mzid_reader.reset()
+
+    # BibliographicReference
+    bib =''
+    # bib = mzid_reader.iterfind('BibliographicReference').next()
+    # mzid_reader.reset()
+
+    # db.write_upload([['filename', 'raw_files',
+    #                  analysis_software, provider, audits, samples, analyses, protocols, bib]], cur, con,
+    #                 'upload_time', 'geo');
+    upload_id = 1 #temp, this would need to come back from db for all-uploads-in-one db
+
+    logger.info(
+        'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
+
+    # ToDo: might be stuff in pyteomics lib for this?
+    unimod_masses = get_unimod_masses(unimod_path)
+
+    spectra_map_start_time = time()
+    logger.info('generating spectra data protocol map - start')
+    spectra_data_protocol_map = map_spectra_data_to_protocol(mzid_reader)
+    return_json['errors'] += spectra_data_protocol_map['errors']
+    # ToDo: save FragmentTolerance to annotationsTable
+    logger.info('generating spectraData_ProtocolMap - done. Time: ' + str(round(time() - spectra_map_start_time, 2)) + " sec")
+
+    #
+    # Sequences, Peptides, Peptide Evidences (inc. peptide positions), Modifications
+    #
+
+    sequences_start_time = time()
+    logger.info('getting sequences, peptides, peptide evidences - start')
 
     all_mods = []  # Modifications list
     mod_aliases = {
@@ -209,7 +367,6 @@ def parse_sequence_collection(mzid_reader, cur, con, unimod_masses):
     #DBSEQUENCES
     inj_list = [];
     for db_sequence in sequence_collection['DBSequence']:
-        seq_ref_prot_map[db_sequence["id"]] = db_sequence["accession"]
 
         data = []; #id, accession, name, description, sequence, is_decoy
         data.append(db_sequence["id"]) #id, required
@@ -246,7 +403,7 @@ def parse_sequence_collection(mzid_reader, cur, con, unimod_masses):
     #PEPTIDES
     inj_list = [];
     for peptide in sequence_collection['Peptide']:
-        data = [];  # id, sequence
+        data = []  # id, sequence
         data.append(peptide["id"])  # id, required
         data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
 
@@ -267,11 +424,11 @@ def parse_sequence_collection(mzid_reader, cur, con, unimod_masses):
                         mod['monoisotopicMassDelta'] = unimod_masses[mod['accession']]
 
                     except KeyError:
-                        seq_ref_prot_map['errors'].append({
-                            "type": "mzidParseError",
-                            "message": "could not get modification mass for modification {}" % mod,
-                            "id": mod["id"]
-                        })
+                        #seq_ref_prot_map['errors'].append({
+                        #     "type": "mzidParseError",
+                        #     "message": "could not get modification mass for modification {}" % mod,
+                        #     "id": mod["id"]
+                        # })
                         continue
 
                 # link_index = 0  # TODO: multilink support
@@ -344,7 +501,6 @@ def parse_sequence_collection(mzid_reader, cur, con, unimod_masses):
         else:
             data.append(-1)
 
-        #annoyingly, this seems to be where we get decoy info
         if "isDecoy" in peptide_evidence:
             data.append(peptide_evidence["isDecoy"])  # isDecoy att, optional
         else:
@@ -357,309 +513,7 @@ def parse_sequence_collection(mzid_reader, cur, con, unimod_masses):
     con.commit()
     mzid_reader.reset()
 
-    # takes more processing time but uses less memory ~15 Mb difference from memory snapshots on large Tmuris example
-    # this might not be accurate way to measure memory...
-    # for db_sequence_id in mzid_reader._offset_index["DBSequence"].keys():
-    #     db_sequence = mzid_reader.get_by_id(db_sequence_id)
-    #     try:
-    #         seq_ref_prot_map[db_sequence_id] = db_sequence['accession']
-    #     except KeyError:
-    #         seq_ref_prot_map[db_sequence_id] = db_sequence['name']
-
-    return seq_ref_prot_map
-
-
-def get_cross_link_identifier(sid_item):
-    # For reporting the evidence associated with the identification, within a given <SpectrumIdentificationResult>,
-    # a pair of cross-linked peptides MUST be reported as two instances of <SpectrumIdentificationItem> through having
-    # a shared local unique identifier as the value for the CV term "cross-link spectrum identification item" MS:1002511
-    # The two instances of <SpectrumIdentificationItem> MUST also share the same value for the rank attribute.
-    #
-    # If a cross-linked pair of peptides has been identified, there MUST be two
-    # <SpectrumIdentificationItem> elements with the same rank value. Both MUST have the
-    # "cross-link spectrum identification item" cvParam, and the value acts as a local identifier
-    # within the <SpectrumIdentificationResult> to group these two elements together. The
-    # experimentalMassToCharge, calculateMassToCharge and chargeState MUST be identical
-    # over both SII elements, indicating the overall values for the pair.
-
-    # cl_id_item = str(int(sid_item['cross-link spectrum identification item']))
-    # rank = str(sid_item['rank'])
-
-    return sid_item['cross-link spectrum identification item']
-    # return '_'.join([cl_id_item, rank])
-
-
-def add_to_modlist(mod, modlist):
-    # modlist_test = [
-    #     {'name': "bs3nh2", 'monoisotopicMassDelta': 123, 'residues': ["A"]}
-    # ]
-    # mod1_test = {'name': "unknown_modification", 'monoisotopicMassDelta': 123, 'residues': ["B"]}
-    # mod2_test = {'name': "bs3nh2", 'monoisotopicMassDelta': 1232, 'residues': ["B"]}
-    # mod3_test = {'name': "bs3nh2", 'monoisotopicMassDelta': 12323, 'residues': ["A"]}
-    # print add_to_modlist(mod1_test, modlist_test)
-    # print modlist_test
-    # print add_to_modlist(mod2_test, modlist_test)
-    # print modlist_test
-    # print add_to_modlist(mod3_test, modlist_test)
-    # print modlist_test
-
-    if mod['name'] == "unknown_modification":
-        mod['name'] = "({0:.2f})".format(mod['monoisotopicMassDelta'])
-
-    mod['monoisotopicMassDelta'] = round(float(mod['monoisotopicMassDelta']), 6)
-
-    mod['residues'] = [aa for aa in mod['residues']]
-
-    if mod['name'] in [m['name'] for m in modlist]:
-        old_mod = modlist[[m['name'] for m in modlist].index(mod['name'])]
-        # check if modname with different mass exists already
-        if mod['monoisotopicMassDelta'] != old_mod['monoisotopicMassDelta']:
-            mod['name'] += "*"
-            add_to_modlist(mod, modlist)
-        else:
-            for res in mod['residues']:
-                if res not in old_mod['residues']:
-                    old_mod['residues'].append(res)
-    else:
-        modlist.append(mod)
-
-    return mod['name']
-
-
-def get_peptide_info(sid_items, mzid_reader, unimod_masses, seq_ref_protein_map, logger):
-
-    return_dict = {
-        'peptides': [],
-        'linkSites': [],
-        'annotation': {'modifications': []},
-        'cross-linker modMass': 0,
-        'errors': []
-    }
-
-    all_mods = []  # Modifications list
-    mod_aliases = {
-        # "amidated_bs3": "bs3nh2",
-        # "carbamidomethyl": "cm",
-        # "hydrolyzed_bs3": "bs3oh",
-        # "oxidation": "ox"
-    }
-
-    proteins = []
-
-    pep_index = 0
-    target_decoy = []
-    for sid_item in sid_items:  # len = 1 for linear
-
-        # Target-Decoy
-        peptide_evidences = [mzid_reader.get_by_id(s['peptideEvidence_ref'], tag_id='PeptideEvidence') for s in sid_item['PeptideEvidenceRef']]
-        # ToDo: isDecoy might not be defined. How to handle? (could make use of pyteomics.mzid.is_decoy())
-        try:
-            decoy = peptide_evidences[0]['isDecoy']
-        except KeyError:
-            decoy = None
-        target_decoy.append({"peptideId": pep_index, 'isDecoy': decoy})  # TODO: multiple PeptideEvidenceRefs TD?
-
-        # proteins
-        proteins.append(seq_ref_protein_map[peptide_evidences[0]['dBSequence_ref']])
-
-        # convert pepsequence to dict
-        pepId = sid_item['peptide_ref']
-        peptide = mzid_reader.get_by_id(pepId, tag_id='Peptide', detailed=True)
-
-        pep_seq_dict = []
-        for aa in peptide['PeptideSequence']:
-            pep_seq_dict.append({"Modification": "", "aminoAcid": aa})
-
-        # add in modifications
-        if 'Modification' in peptide.keys():
-            for mod in peptide['Modification']:
-
-                if 'monoisotopicMassDelta' not in mod.keys():
-                    try:
-                        mod['monoisotopicMassDelta'] = unimod_masses[mod['accession']]
-
-                    except KeyError:
-                        return_dict['errors'].append({
-                            "type": "mzidParseError",
-                            "message": "could not get modification mass for modification {}" % mod,
-                            "id": sid_item
-                        })
-                        continue
-
-                # link_index = 0  # TODO: multilink support
-
-                if mod['location'] == 0:
-                    mod_location = 0
-                    n_terminal_mod = True
-                elif mod['location'] == len(peptide['PeptideSequence']) + 1:
-                    mod_location = mod['location'] - 2
-                    c_terminal_mod = True
-                else:
-                    mod_location = mod['location'] - 1
-                    n_terminal_mod = False
-                    c_terminal_mod = False
-                if 'residues' not in mod:
-                    mod['residues'] = peptide['PeptideSequence'][mod_location]
-
-                if 'name' in mod.keys():
-                    # fix mod names
-                    mod['name'] = mod['name'].lower()
-                    mod['name'] = mod['name'].replace(" ", "_")
-                    if mod['name'] in mod_aliases.keys():
-                        mod['name'] = mod_aliases[mod['name']]
-                    if 'cross-link donor' not in mod.keys() and 'cross-link acceptor' not in mod.keys():
-                        cur_mod = pep_seq_dict[mod_location]
-                        # join modifications into one for multiple modifications on the same aa
-                        if not cur_mod['Modification'] == '':
-                            mod['name'] = '_'.join(sorted([cur_mod['Modification'], mod['name']], key=str.lower))
-                            cur_mod_mass = [x['monoisotopicMassDelta'] for x in all_mods if x['name'] == cur_mod['Modification']][0]
-                            mod['monoisotopicMassDelta'] += cur_mod_mass
-
-                        mod['name'] = add_to_modlist(mod, all_mods)  # save to all mods list and get back new_name
-                        cur_mod['Modification'] = mod['name']
-
-                # error handling for mod without name
-                else:
-                    # cross-link acceptor doesn't have a name
-                    if 'cross-link acceptor' not in mod.keys():
-                        logger.error('modification without name!')
-                        logger.error(mod)
-
-                # add CL locations
-                if 'cross-link donor' in mod.keys() or 'cross-link acceptor' in mod.keys():
-                    return_dict['linkSites'].append(mod_location - 1)
-                    # return_dict['linkSites'].append(
-                    #     {"id": link_index, "peptideId": pep_index, "linkSite": mod_location - 1})
-                if 'cross-link donor' in mod.keys():
-                    return_dict["cross-linker modMass"] = round(mod['monoisotopicMassDelta'], 6)
-
-        pep_index += 1
-
-        peptide_seq_with_mods = ''.join([''.join([x['aminoAcid'], x['Modification']]) for x in pep_seq_dict])
-        return_dict['peptides'].append(peptide_seq_with_mods)
-
-        # ToDo: use searchDatabase_ref
-        try:
-            protein_accessions = proteins
-            #protein_accessions = [p['accession'] for p in proteins]
-        except KeyError:
-            return_dict['errors'].append({
-                "type": "mzidParseError",
-                "message": "could not get protein",
-                "id": sid_item
-            })
-            protein_accessions = ['']
-
-        # other parameters - should be the same for each paired sid
-        return_dict['precursorCharge'] = sid_item['chargeState']
-        return_dict['isDecoy'] = target_decoy
-        return_dict['protein1'] = protein_accessions[0]
-        try:
-            return_dict['protein2'] = protein_accessions[1]
-        except IndexError:
-            return_dict['protein2'] = ''
-        return_dict['passThreshold'] = sid_item['passThreshold']
-        return_dict['scores'] = {
-            k: v for k, v in sid_item.iteritems()
-            if 'score' in k.lower() or
-             'pvalue' in k.lower() or
-             'evalue' in k.lower() or
-             'sequest' in k.lower() or
-             'scaffold' in k.lower()
-        }
-        for mod in all_mods:
-            try:
-                mod_accession = mod['accession']
-            except KeyError:
-                mod_accession = ''
-            return_dict['annotation']['modifications'].append({
-                'aminoAcids': mod['residues'],
-                'id': mod['name'],
-                'mass': mod['monoisotopicMassDelta'],
-                'accession': mod_accession
-            })
-
-    return return_dict
-
-
-def get_unimod_masses(unimod_path):
-    masses = {}
-    mod_id = -1
-
-    with open(unimod_path) as f:
-        for line in f:
-            if line.startswith('id: '):
-                mod_id = ''.join(line.replace('id: ', '').split())
-
-            elif line.startswith('xref: delta_mono_mass ') and not mod_id == -1:
-                mass = float(line.replace('xref: delta_mono_mass ', '').replace('"', ''))
-                masses[mod_id] = mass
-
-    return masses
-
-
-def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
-    logger.info('reading mzid - start')
-    mzid_start_time = time()
-
-    # ToDo: move to function
-    if mzid_file.endswith('gz'):
-        in_f = gzip.open(mzid_file, 'rb')
-        mzid_file = mzid_file.replace(".gz", "")
-        out_f = open(mzid_file, 'wb')
-        out_f.write(in_f.read())
-        in_f.close()
-        out_f.close()
-
-    return_json = {
-        "response": "",
-        "modifications": [],
-        "errors": [],
-        "warnings": []
-    }
-
-    # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
-    try:
-        mzid_reader = py_mzid.MzIdentML(mzid_file)
-    except Exception as e:
-        return_json['errors'].append({
-            "type": "mzidParseError",
-            "message": e
-        })
-        return return_json
-
-    logger.info('reading mzid - done. Time: ' + str(round(time() - mzid_start_time, 2)) + " sec")
-
-    # see https://groups.google.com/forum/#!topic/pyteomics/Mw4eUHmicyU
-    mzid_reader.schema_info['lists'].add("AnalysisSoftware")
-    analysis_software_list = mzid_reader.iterfind('AnalysisSoftwareList').next()
-    mzid_reader.reset()
-    return_json["analysis_software"] = analysis_software_list['AnalysisSoftware']
-
-    analysis_collection = mzid_reader.iterfind('AnalysisCollection').next()
-    mzid_reader.reset()
-    return_json["spectrum_identification"] = analysis_collection['SpectrumIdentification']
-
-    # analysis_protocol_collection = mzid_reader.iterfind('AnalysisProtocolCollection').next()
-    # mzid_reader.reset()
-    # return_json["spectrum_identification_protocol"] = analysis_protocol_collection['SpectrumIdentificationProtocol']
-
-    # might be stuff in pyteomics lib for this
-    unimod_masses = get_unimod_masses(unimod_path)
-
-    spectra_map_start_time = time()
-    logger.info('generating spectra data protocol map - start')
-    spectra_data_protocol_map = map_spectra_data_to_protocol(mzid_reader)
-    return_json['errors'] += spectra_data_protocol_map['errors']
-    # ToDo: save FragmentTolerance to annotationsTable
-    logger.info('generating spectraData_ProtocolMap - done. Time: ' + str(round(time() - spectra_map_start_time, 2)) + " sec")
-
-    protein_map_start_time = time()
-    logger.info('generating dBSequence to protein map - start')
-    seq_ref_protein_map = parse_sequence_collection(mzid_reader, cur, con, unimod_masses)
-    return_json['errors'] += seq_ref_protein_map['errors']
-    # ToDo: save FragmentTolerance to annotationsTable
-    logger.info('generating dBSequence to protein map - done. Time: ' + str(round(time() - protein_map_start_time, 2)) + " sec")
+    logger.info('getting sequences, peptides, peptide evidences, modifications - done. Time: ' + str(round(time() - sequences_start_time, 2)) + " sec")
 
     mzid_item_index = 0
     spec_id_item_index = 0
@@ -682,22 +536,22 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     logger.info('main loop - start')
 
     spectrum_results = []
-    spectrum_identifications = []
+    spectrum_identifications = list()
 
     for sid_result in mzid_reader:
 
         # make_spec_id_pairs(sid_result['SpectrumIdentificationItem'])
-        spec_id_set = set()
-        linear_index = -1  # negative index values for linear peptides
-
-        for specIdItem in sid_result['SpectrumIdentificationItem']:
-            if 'cross-link spectrum identification item' in specIdItem.keys():
-                spec_id_set.add(get_cross_link_identifier(specIdItem))
-            else:  # assuming linear
-                # misusing 'cross-link spectrum identification item' for linear peptides with negative index
-                specIdItem['cross-link spectrum identification item'] = linear_index
-                spec_id_set.add(get_cross_link_identifier(specIdItem))
-                linear_index -= 1
+        # spec_id_set = set()
+        # linear_index = -1  # negative index values for linear peptides
+        #
+        # for specIdItem in sid_result['SpectrumIdentificationItem']:
+        #     if 'cross-link spectrum identification item' in specIdItem.keys():
+        #         spec_id_set.add(get_cross_link_identifier(specIdItem))
+        #     else:  # assuming linear
+        #         # misusing 'cross-link spectrum identification item' for linear peptides with negative index
+        #         specIdItem['cross-link spectrum identification item'] = linear_index
+        #         spec_id_set.add(get_cross_link_identifier(specIdItem))
+        #         linear_index -= 1
 
         # get spectra data
         try:
@@ -778,54 +632,67 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         # ms2_tol = spectra_data_protocol_map[sid_result['spectraData_ref']]['fragmentTolerance']
         protocol = spectra_data_protocol_map[sid_result['spectraData_ref']]
 
-        spectrum_results.append([mzid_item_index, peak_list, raw_file_name, scan_id, protocol, json.dumps(sid_result)])
+        spectrum_results.append([mzid_item_index, upload_id, peak_list, raw_file_name, scan_id,
+                                 protocol['fragmentTolerance']])
 
-        # alternatives = []
-        for SpecId in spec_id_set:
-            paired_spec_id_items = [sid_item for sid_item in sid_result['SpectrumIdentificationItem'] if
-                                    sid_item['cross-link spectrum identification item'] == SpecId]
+        spectrum_ident_dict = dict()
+        linear_index = -1  # negative index values for linear peptides
 
-            # if len(paired_specIdItems) > 2:
-            #     returnJSON['errors'].append({
-            #         "type": "PeptideParseError",
-            #         "message": "more than 2 peptides with the same cross-link id found",
-            #         'id': mzidItem['id']
-            #     })
-            #     continue
+        for specIdItem in sid_result['SpectrumIdentificationItem']:
+            # get suitable id
+            if 'cross-link spectrum identification item' in specIdItem.keys():
+                id = get_cross_link_identifier(specIdItem)
+            else:  # assuming linear
+                # misusing 'cross-link spectrum identification item' for linear peptides with negative index
+                #specIdItem['cross-link spectrum identification item'] = linear_index
+                #spec_id_set.add(get_cross_link_identifier(specIdItem))
 
-            # pep_info = get_peptide_info(paired_spec_id_items, mzid_reader, unimod_masses, seq_ref_protein_map, logger)
-            #
-            # # fragmentation ions
-            ions = get_ion_types_mzid(paired_spec_id_items[0], logger)
-            # # if no ion types are specified in the id file check the mzML file
-            # if len(pep_info['ions']) == 0 and peak_list_reader['fileType'] == 'mzml':
-            #     pep_info['ions'] = peakListParser.get_ion_types_mzml(scan)
-            #
-            # pep_info['ions'] = list(set(pep_info['ions']))
-            #
-            # if len(pep_info['ions']) == 0:
-            #     pep_info['ions'] = ['peptide', 'b', 'y']
-            #     # ToDo: better error handling for general errors - bundling together of same type errors
-            #     fragment_parsing_error_scans.append(sid_result['id'])
-            #
-            # pep_info['ions'] = ';'.join(pep_info['ions'])
+                id = linear_index
+                linear_index -= 1
 
-            # extract other useful info to display
-            rank = paired_spec_id_items[0]['rank']
+            # check if seen it before
+            if id in spectrum_ident_dict.keys():
+                # do crosslink specific stuff
+                ident_data = spectrum_ident_dict.get(id)
+                ident_data[4] = 'pep2'
+            else:
+                #do stuff common to linears and crosslinks
+                # pep_info = get_peptide_info(paired_spec_id_items, mzid_reader, unimod_masses, seq_ref_protein_map, logger)
+                #
+                # # fragmentation ions
+                ions = get_ion_types_mzid(specIdItem, logger)
+                # # if no ion types are specified in the id file check the mzML file
+                # if len(pep_info['ions']) == 0 and peak_list_reader['fileType'] == 'mzml':
+                #     pep_info['ions'] = peakListParser.get_ion_types_mzml(scan)
+                #
+                # pep_info['ions'] = list(set(pep_info['ions']))
+                #
+                # if len(pep_info['ions']) == 0:
+                #     pep_info['ions'] = ['peptide', 'b', 'y']
+                #     # ToDo: better error handling for general errors - bundling together of same type errors
+                #     fragment_parsing_error_scans.append(sid_result['id'])
+                #
+                # pep_info['ions'] = ';'.join(pep_info['ions'])
 
-            spectrum_identifications.append(
-                [spec_id_item_index,
-                 sid_result['id'],
-                 'pep1',
-                 'pep2',
-                 'pass_threshold',
-                 rank,
-                 json.dumps(ions),
-                 'scores',
-                 mzid_item_index]
-            )
+                # extract other useful info to display
+                rank = specIdItem['rank']
+
+                ident_data = [spec_id_item_index,
+                         upload_id,
+                         sid_result['id'],
+                         'pep1',
+                         '',
+                         'pass_threshold',
+                         rank,
+                         json.dumps(ions),
+                         'scores',
+                         mzid_item_index];
+
+                spectrum_ident_dict[id] = ident_data
 
             spec_id_item_index += 1
+
+        spectrum_identifications.append(np.asarray(spectrum_ident_dict.values()))
 
         mzid_item_index += 1
 
@@ -837,7 +704,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     logger.info('write remaining entries and modifications to DB - start')
     try:
         db.write_spectrum_results(spectrum_results, cur, con)
-        db.write_spectrum_identifications(spectrum_identifications, cur, con)
+        db.write_spectrum_identifications(np.asarray(spectrum_identifications), cur, con)
 
         # modifications
         # mod_index = 0

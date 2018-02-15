@@ -17,6 +17,8 @@ def connect(dbname):
 def create_tables(cur, con):
     try:
         cur.execute("DROP TABLE IF EXISTS uploads")
+        # 'filename', 'raw_files',
+        # analysis_software, provider, audits, samples, analyses, protocols, bib
         cur.execute(
             "CREATE TABLE uploads("
             "id INT PRIMARY KEY, "
@@ -80,7 +82,6 @@ def create_tables(cur, con):
             "start int, "
             "is_decoy BOOLEAN)"
         )
-        # [mzid_item_index, peak_list, raw_file_name, scan_id, protocol, json.dumps(sid_result)]
         cur.execute("DROP TABLE IF EXISTS spectrum")
         cur.execute(
             "CREATE TABLE spectrum("
@@ -89,28 +90,18 @@ def create_tables(cur, con):
             "peak_list text, "
             "raw_file_name text, "
             "scan_id INT, "
-            "protocol_ref text,"
-            "result JSON)"
+            "frag_tol)"
         )
-
-        # [spec_id_item_index,
-        #  sid_result['id'],
-        #  'pep1',
-        #  'pep2',
-        #  'pass_threshold',
-        #  rank,
-        #  json.dumps(ions),
-        #  'scores',
-        #  mzid_item_index]
         cur.execute("DROP TABLE IF EXISTS spectrum_identification")
         cur.execute(
             "CREATE TABLE spectrum_identification("
             "id INT, "
             "upload_id INT,"
             "spectrum_id INT, "
-            "pep1_ref text, "
-            "pep2_ref text, "
+            "pep1_id text, "
+            "pep2_id text, "
             "pass_threshold text, "
+            "rank int,"
             "ions JSON, "
             "scores JSON)"
         )
@@ -201,6 +192,18 @@ def write_peptides(inj_list, cur, con):
 
     return True
 
+
+def write_modifications(inj_list, cur, con):
+    try:
+        cur.executemany("""INSERT INTO modifications ('id', 'name', 'mass', 'residues', 'accession') VALUES (?, ?, ?, ?, ?)""",
+                        inj_list)
+        con.commit()
+    except sqlite3.Error as e:
+        raise DBException(e.message)
+
+    return True
+
+
 def write_peptide_evidences(inj_list, cur, con):
     try:
         cur.executemany("""
@@ -220,50 +223,28 @@ def write_peptide_evidences(inj_list, cur, con):
 
 
 def write_spectrum_results(inj_list, cur, con):
-    # [mzid_item_index, peak_list, raw_file_name, scan_id, protocol, json.dumps(sid_result)]
+    try:
+        cur.executemany("""INSERT INTO spectrum ('id', 'upload_id', 'peak_list', 'raw_file_name', 'scan_id', 'frag_tol')
+                        VALUES (?, ?, ?, ?, ?, ?)""", inj_list)
+        con.commit()
 
-    # try:
-    #     cur.executemany("""INSERT INTO peakLists ('id', 'peaklist') VALUES (?, ?)""",
-    #                     inj_list)
-    #     con.commit()
-    #
-    # except sqlite3.Error as e:
-    #     raise DBException(e.message)
+    except sqlite3.Error as e:
+        raise DBException(e.message)
 
     return True
 
 
 def write_spectrum_identifications(inj_list, cur, con):
-    # [spec_id_item_index,
-    #  sid_result['id'],
-    #  'pep1',
-    #  'pep2',
-    #  'pass_threshold',
-    #  rank,
-    #  json.dumps(ions),
-    #  'scores',
-    #  mzid_item_index]
-
-    # try:
-    #     cur.executemany("""INSERT INTO peakLists ('id', 'peaklist') VALUES (?, ?)""",
-    #                     inj_list)
-    #     con.commit()
-    #
-    # except sqlite3.Error as e:
-    #     raise DBException(e.message)
-
-    return True
-
-
-def write_modifications(inj_list, cur, con):
     try:
-        cur.executemany("""INSERT INTO modifications ('id', 'name', 'mass', 'residues', 'accession') VALUES (?, ?, ?, ?, ?)""",
-                        inj_list)
+        cur.executemany("""INSERT INTO spectrum_identification ('id', 'upload_id', 'spectrum_id', 'pep1_id', 'pep2_id',
+                            'pass_threshold', 'ions', 'scores') VALUES (?, ?, ?, ?, ?, ?, ? ,?)""", inj_list)
         con.commit()
+
     except sqlite3.Error as e:
         raise DBException(e.message)
 
     return True
+
 
 # con = connect('/home/lars/Xi/xiSPEC_ms_parser/dbs/saved/Tmuris_exosomes1.db')
 # cur = con.cursor()
