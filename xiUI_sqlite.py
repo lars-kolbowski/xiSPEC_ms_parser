@@ -237,7 +237,7 @@ def write_spectrum_results(inj_list, cur, con):
 def write_spectrum_identifications(inj_list, cur, con):
     try:
         cur.executemany("""INSERT INTO spectrum_identification ('id', 'upload_id', 'spectrum_id', 'pep1_id', 'pep2_id',
-                            'pass_threshold', 'ions', 'scores') VALUES (?, ?, ?, ?, ?, ?, ? ,?)""", inj_list)
+                            rank, 'pass_threshold', 'ions', 'scores') VALUES (?, ?, ?, ?, ?, ?, ? , ?, ?)""", inj_list)
         con.commit()
 
     except sqlite3.Error as e:

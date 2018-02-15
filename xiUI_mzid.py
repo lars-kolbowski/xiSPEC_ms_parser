@@ -8,7 +8,7 @@ import xiSPEC_peakList as peakListParser
 import zipfile
 import gzip
 import os
-import numpy as np
+#import numpy as np
 
 
 try:
@@ -653,7 +653,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             # check if seen it before
             if id in spectrum_ident_dict.keys():
                 # do crosslink specific stuff
-                ident_data = spectrum_ident_dict.get(id)
+                #ident_data = spectrum_ident_dict.get(id)
                 ident_data[4] = 'pep2'
             else:
                 #do stuff common to linears and crosslinks
@@ -685,14 +685,19 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
                          'pass_threshold',
                          rank,
                          json.dumps(ions),
-                         'scores',
-                         mzid_item_index];
+                         'scores']
+                         #mzid_item_index];
 
                 spectrum_ident_dict[id] = ident_data
 
             spec_id_item_index += 1
 
-        spectrum_identifications.append(np.asarray(spectrum_ident_dict.values()))
+        #dict_values = spectrum_ident_dict.values()
+        #values_arr = np.asarray(dict_values)
+        #dict0 = dict_values[0]
+        #ToDO: better way to concat arrays, numpy?
+        for spec_ident in spectrum_ident_dict.values():
+            spectrum_identifications.append(spec_ident)
 
         mzid_item_index += 1
 
@@ -704,7 +709,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     logger.info('write remaining entries and modifications to DB - start')
     try:
         db.write_spectrum_results(spectrum_results, cur, con)
-        db.write_spectrum_identifications(np.asarray(spectrum_identifications), cur, con)
+        db.write_spectrum_identifications(spectrum_identifications, cur, con)
 
         # modifications
         # mod_index = 0
