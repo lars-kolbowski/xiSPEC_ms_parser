@@ -550,36 +550,45 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
 
 def parse_upload_info(mzid_reader, cur, con, user_id):
-    # AnalysisSoftwareList
+    # AnalysisSoftwareList - optional element
     # see https://groups.google.com/forum/#!topic/pyteomics/Mw4eUHmicyU
     mzid_reader.schema_info['lists'].add("AnalysisSoftware")
-    analysis_software = json.dumps(mzid_reader.iterfind('AnalysisSoftwareList').next()['AnalysisSoftware'])
+    try:
+        analysis_software = json.dumps(mzid_reader.iterfind('AnalysisSoftwareList').next()['AnalysisSoftware'])
+    except StopIteration:
+        analysis_software = '{}'
     mzid_reader.reset()
 
-    # Provider
-    provider = json.dumps(mzid_reader.iterfind('Provider').next())
+    # Provider - optional element
+    try:
+        provider = json.dumps(mzid_reader.iterfind('Provider').next())
+    except StopIteration:
+        provider = '{}'
     mzid_reader.reset()
 
-    # AuditCollection
-    audits = json.dumps(mzid_reader.iterfind('AuditCollection').next())
+    # AuditCollection - optional element
+    try:
+        audits = json.dumps(mzid_reader.iterfind('AuditCollection').next())
+    except StopIteration:
+        audits = '{}'
     mzid_reader.reset()
 
-    # AnalysisSampleCollection
-    samples = ''
-    sample_collection = mzid_reader.iterfind('AnalysisSampleCollection')
-        #.next()
-    # samples = sample_collection['Sample']
-    # mzid_reader.reset()
+    # AnalysisSampleCollection - optional element
+    try:
+        samples = json.dumps(mzid_reader.iterfind('AnalysisSampleCollection').next()['Sample'])
+    except StopIteration:
+        samples = '{}'
+    mzid_reader.reset()
 
-    # AnalysisCollection
+    # AnalysisCollection - required element
     analyses = json.dumps(mzid_reader.iterfind('AnalysisCollection').next()['SpectrumIdentification'])
     mzid_reader.reset()
 
-    # AnalysisProtocolCollection
+    # AnalysisProtocolCollection - required element
     protocols = json.dumps(mzid_reader.iterfind('AnalysisProtocolCollection').next()['SpectrumIdentificationProtocol'])
     mzid_reader.reset()
 
-    # BibliographicReference
+    # BibliographicReference - optional element
     bib = ''
     # bib = mzid_reader.iterfind('BibliographicReference').next()
     # mzid_reader.reset()
