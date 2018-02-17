@@ -4,6 +4,16 @@ import json
 class DBException(Exception):
     pass
 
+# to get table as it was previously going to be something like:
+'''
+SELECT si.id, si.spectrum_id AS mzid, si.pass_threshold, si.rank, si.ions, si.scores, "TOL" AS fragTolerance, "CHARGE" AS fragTolerance, 
+pep1.seq_mods AS pep1, pep2.seq_mods AS pep2, pep1.link_site AS linkpos1, pep2.link_site AS linkpos2, 
+pep1.crosslinker_modmass AS modmass1, pep2.crosslinker_modmass AS modmass2 
+FROM spectrum_identifications AS si 
+INNER JOIN peptides AS pep1 ON (pep1.id = si.pep1_id) 
+INNER JOIN peptides AS pep2 ON (pep2.id = si.pep2_id);
+'''
+
 
 def connect(dbname):
     try:
@@ -22,7 +32,7 @@ def create_tables(cur, con):
             "id INT PRIMARY KEY, "
             "user_id INT,"
             "filename TEXT, "
-            "raw_file_names TEXT, "
+            "peak_list_file_names TEXT, "
             "analysis_software JSON,"
             "provider JSON,"
             "audits JSON,"
@@ -32,7 +42,9 @@ def create_tables(cur, con):
             "bib JSON,"
             "upload_time DATE, "
             "upload_loc TEXT,"          
-            "default_pdb TEXT)"
+            "default_pdb TEXT,"
+            "contains_crosslink BOOLEAN,"
+            "upload_errors JSON)"
         )
         cur.execute("DROP TABLE IF EXISTS protocols")
         cur.execute(
@@ -83,13 +95,13 @@ def create_tables(cur, con):
             "start int, "
             "is_decoy BOOLEAN)"
         )
-        cur.execute("DROP TABLE IF EXISTS spectrum")
+        cur.execute("DROP TABLE IF EXISTS spectra")
         cur.execute(
-            "CREATE TABLE spectrum("
+            "CREATE TABLE spectra("
             "id INT, "
             "upload_id INT,"
             "peak_list text, "
-            "raw_file_name text, "
+            "peak_list_file_name text, "
             "scan_id INT, "
             "frag_tol)"
         )
@@ -101,6 +113,7 @@ def create_tables(cur, con):
             "spectrum_id INT, "
             "pep1_id text, "
             "pep2_id text, "
+            "charge_state int, "
             "pass_threshold text, "
             "rank int,"
             "ions JSON, "
@@ -119,6 +132,7 @@ def write_upload(inj_list, cur, con):
     INSERT INTO uploads (
         'user_id',
         'filename',
+        'peak_list_file_names',
         'analysis_software',
         'provider',
         'audits',
@@ -129,7 +143,7 @@ def write_upload(inj_list, cur, con):
         'upload_time',
         'upload_loc'
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", inj_list)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)""", inj_list)
         con.commit()
 
     except sqlite3.Error as e:
@@ -168,7 +182,7 @@ def write_db_sequences(inj_list, cur, con):
         'name',
         'description',
         'sequence',
-        'is_decoy'
+        'upload_id'
     )
     VALUES (?, ?, ?, ?, ?, ?)""", inj_list)
         con.commit()
@@ -187,9 +201,10 @@ def write_peptides(inj_list, cur, con):
         'sequence',
         'seq_mods',
         'link_site',
-        'crosslinker_modmass'
+        'crosslinker_modmass',
+        'upload_id'
     )
-    VALUES (?, ?, ?, ?, ?)""", inj_list)
+    VALUES (?, ?, ?, ?, ?, ?)""", inj_list)
         con.commit()
 
     except sqlite3.Error as e:
@@ -216,9 +231,10 @@ def write_peptide_evidences(inj_list, cur, con):
         'peptide_ref',
         'dbsequence_ref',
         'start',
-        'is_decoy'
+        'is_decoy',
+        'upload_id'
     )
-    VALUES (?, ?, ?, ?)""", inj_list)
+    VALUES (?, ?, ?, ?, ?)""", inj_list)
         con.commit()
 
     except sqlite3.Error as e:
@@ -229,7 +245,7 @@ def write_peptide_evidences(inj_list, cur, con):
 
 def write_spectra(inj_list, cur, con):
     try:
-        cur.executemany("""INSERT INTO spectrum ('id', 'upload_id', 'peak_list', 'raw_file_name', 'scan_id', 'frag_tol')
+        cur.executemany("""INSERT INTO spectra ('id', 'peak_list', 'peak_list_file_name', 'scan_id', 'frag_tol', 'upload_id')
                         VALUES (?, ?, ?, ?, ?, ?)""", inj_list)
         con.commit()
 
@@ -242,7 +258,7 @@ def write_spectra(inj_list, cur, con):
 def write_spectrum_identifications(inj_list, cur, con):
     try:
         cur.executemany("""INSERT INTO spectrum_identifications ('id', 'upload_id', 'spectrum_id', 'pep1_id', 'pep2_id',
-                            rank, 'pass_threshold', 'ions', 'scores') VALUES (?, ?, ?, ?, ?, ?, ? , ?, ?)""", inj_list)
+                            'charge_state', 'rank', 'pass_threshold', 'ions', 'scores') VALUES (?, ?, ?, ?, ?, ?, ?, ? , ?, ?)""", inj_list)
         con.commit()
 
     except sqlite3.Error as e:
