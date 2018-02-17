@@ -293,7 +293,13 @@ def parse_sequence_collection (mzid_reader, cur, con, upload_id, unimod_path):
 
     #PEPTIDES
     inj_list = []
-    for peptide in sequence_collection['Peptide']:
+    #following not working
+    # for peptide in sequence_collection['Peptide']:
+
+    for pep_id in mzid_reader._offset_index["Peptide"].keys():
+        peptide = mzid_reader.get_by_id(pep_id, tag_id='Peptide', detailed=True)
+
+        # peptide = mzid_reader.get_by_id('1712126853_1712127183_5_13_p1', tag_id='Peptide', detailed=True)
         data = []  # id, sequence
         data.append(peptide["id"])  # id, required
         data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
@@ -382,10 +388,34 @@ def parse_sequence_collection (mzid_reader, cur, con, upload_id, unimod_path):
 
     db.write_peptides(inj_list, cur, con)
 
-    # modifications
+    # modifications - ToDo: problems here?
+    # modifications = []
+    # for mod in all_mods:
+    #     try:
+    #         mod_accession = mod['accession']
+    #     except KeyError:
+    #         mod_accession = ''
+    #         modifications.append({
+    #         'aminoAcids': mod['residues'],
+    #         'id': mod['name'],
+    #         'mass': mod['monoisotopicMassDelta'],
+    #         'accession': mod_accession
+    #     })
+
+    # add mods to global modList
+    # for mod in pep_info['annotation']['modifications']:
+    #     if mod['id'] not in [m['id'] for m in modifications]:
+    #         modifications.append(mod)
+    #     else:
+    #         old_mod = modifications[[m['id'] for m in modifications].index(mod['id'])]
+    #         # check if modname with different mass exists already
+    #         for res in mod['aminoAcids']:
+    #             if res not in old_mod['aminoAcids']:
+    #                 old_mod['aminoAcids'].append(res)
+    #
     # mod_index = 0
     # multiple_inj_list_modifications = []
-    # for mod in modifications:
+    # for mod in all_mods:
     #     multiple_inj_list_modifications.append([
     #         mod_index,
     #         mod['id'],
@@ -394,6 +424,7 @@ def parse_sequence_collection (mzid_reader, cur, con, upload_id, unimod_path):
     #         mod['accession']
     #     ])
     #     mod_index += 1
+    #
     # db.write_modifications(multiple_inj_list_modifications, cur, con)
 
     #PEPTIDE EVIDENCES
@@ -410,7 +441,7 @@ def parse_sequence_collection (mzid_reader, cur, con, upload_id, unimod_path):
         if "isDecoy" in peptide_evidence:
             data.append(peptide_evidence["isDecoy"])  # isDecoy att, optional
         else:
-            data.append("false")  # hmm, not right ToDo: fix , thers comments in Lars' code about it
+            data.append("false")  # hmm, not right ToDo: fix , there's comments in Lars' code about it
 
         data.append(upload_id)
 

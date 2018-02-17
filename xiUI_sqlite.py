@@ -272,38 +272,38 @@ def write_spectrum_identifications(inj_list, cur, con):
 
 
 def fill_in_missing_scores(cur, con):
-    # try:
-    #     cur.execute("""
-    #   SELECT DISTINCT scoresJSON.key as scoreKey
-    #   FROM identifications, json_each(identifications.allScores) AS scoresJSON""")
-    #
-    #     all_scores = cur.fetchall()
-    #     all_scores = set([str(x[0]) for x in all_scores])
-    #
-    #     multiple_inj_list = []
-    #
-    #     cur.execute('SELECT id, allScores FROM identifications')
-    #     res = cur.fetchall()
-    #
-    #     for row in res:
-    #         row_scores = json.loads(row[1])
-    #         missing = all_scores - set(row_scores.keys())
-    #         missing_dict = {key: -1 for key in missing}
-    #
-    #         if len(missing) > 0:
-    #             row_scores.update(missing_dict)
-    #             multiple_inj_list.append([json.dumps(row_scores), row[0]])
-    #             # cur.execute('UPDATE identifications SET allScores=? WHERE id = row[0]', json.dumps(row_scores))
-    #
-    #     cur.executemany("""
-    #     UPDATE identifications
-    #     SET `allScores` = ?
-    #     WHERE `id` = ?""", multiple_inj_list)
-    #
-    #     con.commit()
-    #
-    # except sqlite3.Error as e:
-    #     raise DBException(e.message)
+    try:
+        cur.execute("""
+      SELECT DISTINCT scoresJSON.key as scoreKey
+      FROM spectrum_identifications, json_each(spectrum_identifications.scores) AS scoresJSON""")
+
+        all_scores = cur.fetchall()
+        all_scores = set([str(x[0]) for x in all_scores])
+
+        multiple_inj_list = []
+
+        cur.execute('SELECT id, allScores FROM identifications')
+        res = cur.fetchall()
+
+        for row in res:
+            row_scores = json.loads(row[1])
+            missing = all_scores - set(row_scores.keys())
+            missing_dict = {key: -1 for key in missing}
+
+            if len(missing) > 0:
+                row_scores.update(missing_dict)
+                multiple_inj_list.append([json.dumps(row_scores), row[0]])
+                # cur.execute('UPDATE identifications SET allScores=? WHERE id = row[0]', json.dumps(row_scores))
+
+        cur.executemany("""
+        UPDATE identifications
+        SET `allScores` = ?
+        WHERE `id` = ?""", multiple_inj_list)
+
+        con.commit()
+
+    except sqlite3.Error as e:
+        raise DBException(e.message)
     pass
 
 
