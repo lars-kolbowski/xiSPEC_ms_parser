@@ -20,7 +20,7 @@ def create_tables(cur, con):
         cur.execute(
             "CREATE TABLE identifications("
             "id INT PRIMARY KEY, "
-            "mzid TEXT, "
+            "sid TEXT, "
             "pep1 TEXT, "
             "pep2 TEXT, "
             "linkpos1 INT, "
@@ -67,7 +67,7 @@ def write_identifications(inj_list, cur, con):
         cur.executemany("""
     INSERT INTO identifications (
         'id',
-        'mzid',
+        'sid',
         'pep1',
         'pep2',
         'linkpos1',
