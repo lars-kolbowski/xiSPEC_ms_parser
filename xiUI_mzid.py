@@ -302,7 +302,7 @@ def parse_sequence_collection (mzid_reader, cur, con, upload_id, unimod_path):
         # peptide = mzid_reader.get_by_id('1712126853_1712127183_5_13_p1', tag_id='Peptide', detailed=True)
         data = []  # id, sequence
         data.append(peptide["id"])  # id, required
-        data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
+        #data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
 
         pep_seq_dict = []
         for aa in peptide['PeptideSequence']:
@@ -504,13 +504,15 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     #
     # upload info
     #
-    upload_info_start_time = time()
-    logger.info('getting upload info (provider, etc) - start')
-    #temp
-    user_id = -1
-    upload_id = parse_upload_info(mzid_reader, cur, con, user_id, mzid_file, peak_list_file_list)
-    logger.info(
-        'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
+    # upload_info_start_time = time()
+    # logger.info('getting upload info (provider, etc) - start')
+    # #temp
+    # user_id = -1
+    # upload_id = parse_upload_info(mzid_reader, cur, con, user_id, mzid_file, peak_list_file_list)
+    # logger.info(
+    #     'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
+    upload_id = -1
+
 
     #
     # Sequences, Peptides, Peptide Evidences (inc. peptide positions), Modifications
@@ -530,7 +532,6 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     # ToDo: save FragmentTolerance to annotationsTable
     logger.info('generating spectraData_ProtocolMap - done. Time: ' + str(round(time() - spectra_map_start_time, 2)) + " sec")
 
-    #ToDo: we might want to restore the numeric index for spectra, its missing at moment, mzid_item_index lets us put it back
     mzid_item_index = 0
     spec_id_item_index = 0
     spectra =[]
@@ -637,8 +638,8 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
         # 'id', 'peak_list', 'peak_list_file_name', 'scan_id', 'frag_tol', 'upload_id'
 
-        spectra.append([sid_result['id'], peak_list, raw_file_name, scan_id,
-                        protocol['fragmentTolerance'], upload_id])
+        spectra.append([mzid_item_index, peak_list, raw_file_name, scan_id,
+                        protocol['fragmentTolerance'], upload_id, sid_result['id']])
 
         spectrum_ident_dict = dict()
         linear_index = -1  # negative index values for linear peptides
@@ -694,7 +695,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
                 ident_data = [spec_id_item_index,
                               upload_id,
-                              sid_result['id'],
+                              mzid_item_index,
                               specIdItem['peptide_ref'],
                               '',
                               charge_state,

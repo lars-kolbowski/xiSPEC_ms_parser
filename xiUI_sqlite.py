@@ -4,16 +4,6 @@ import json
 class DBException(Exception):
     pass
 
-# to get table as it was previously going to be something like:
-'''
-SELECT si.id, si.spectrum_id AS mzid, si.pass_threshold, si.rank, si.ions, si.scores, "TOL" AS fragTolerance, "CHARGE" AS fragTolerance, 
-pep1.seq_mods AS pep1, pep2.seq_mods AS pep2, pep1.link_site AS linkpos1, pep2.link_site AS linkpos2, 
-pep1.crosslinker_modmass AS modmass1, pep2.crosslinker_modmass AS modmass2 
-FROM spectrum_identifications AS si 
-INNER JOIN peptides AS pep1 ON (pep1.id = si.pep1_id) 
-INNER JOIN peptides AS pep2 ON (pep2.id = si.pep2_id);
-'''
-
 
 def connect(dbname):
     try:
@@ -70,7 +60,7 @@ def create_tables(cur, con):
             "CREATE TABLE peptides("
             "id text PRIMARY KEY, "
             "upload_id INT,"
-            "sequence TEXT,"
+            #"sequence TEXT,"
             "seq_mods TEXT,"
             "link_site int,"
             "crosslinker_modmass FLOAT)"
@@ -103,7 +93,8 @@ def create_tables(cur, con):
             "peak_list text, "
             "peak_list_file_name text, "
             "scan_id INT, "
-            "frag_tol)"
+            "frag_tol,"
+            "spectrum_id)"
         )
         cur.execute("DROP TABLE IF EXISTS spectrum_identifications")
         cur.execute(
@@ -198,13 +189,13 @@ def write_peptides(inj_list, cur, con):
         cur.executemany("""
     INSERT INTO peptides (
         'id',
-        'sequence',
+        /*'sequence',*/
         'seq_mods',
         'link_site',
         'crosslinker_modmass',
         'upload_id'
     )
-    VALUES (?, ?, ?, ?, ?, ?)""", inj_list)
+    VALUES (?, ?, ?, ?, ?)""", inj_list)
         con.commit()
 
     except sqlite3.Error as e:
@@ -245,8 +236,8 @@ def write_peptide_evidences(inj_list, cur, con):
 
 def write_spectra(inj_list, cur, con):
     try:
-        cur.executemany("""INSERT INTO spectra ('id', 'peak_list', 'peak_list_file_name', 'scan_id', 'frag_tol', 'upload_id')
-                        VALUES (?, ?, ?, ?, ?, ?)""", inj_list)
+        cur.executemany("""INSERT INTO spectra ('id', 'peak_list', 'peak_list_file_name', 'scan_id', 'frag_tol', 'upload_id', 'spectrum_id')
+                        VALUES (?, ?, ?, ?, ?, ?, ?)""", inj_list)
         con.commit()
 
     except sqlite3.Error as e:
