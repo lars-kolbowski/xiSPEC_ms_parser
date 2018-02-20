@@ -22,7 +22,7 @@ def create_tables(cur, con):
         cur.execute("DROP TABLE IF EXISTS uploads")
         cur.execute(
             "CREATE TABLE uploads("
-            "id INT PRIMARY KEY, "
+            "id SERIAL PRIMARY KEY, "
             "user_id INT,"
             "filename TEXT, "
             "peak_list_file_names TEXT, "
@@ -122,7 +122,7 @@ def create_tables(cur, con):
 
 def write_upload(inj_list, cur, con):
     try:
-        cur.executemany("""
+        cur.execute("""
     INSERT INTO uploads (
         user_id,
         filename,
@@ -137,13 +137,13 @@ def write_upload(inj_list, cur, con):
         upload_time,
         upload_loc
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s)""", inj_list)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s) RETURNING id AS upload_id""", inj_list)
         con.commit()
 
     except psycopg2.Error as e:
         raise DBException(e.message)
-
-    return True
+    rows = cur.fetchall()
+    return rows[0]
 
 
 def write_protocols(inj_list, cur, con):
@@ -178,7 +178,7 @@ def write_db_sequences(inj_list, cur, con):
         sequence,
         upload_id
     )
-    VALUES (%s, %s, %s, %s, %s, %s)""", inj_list)
+    VALUES (%s, %s, %s, %s, %s, %s) """, inj_list)
         con.commit()
 
     except psycopg2.Error as e:

@@ -251,6 +251,16 @@ def parse_sequence_collection (mzid_reader, cur, con, upload_id, unimod_path):
         # "oxidation": "ox"
     }
 
+    # first get search databases? - maybe not necessary, gonna read all the FASTA files we receive anyway
+    # search_databases = {}
+    #
+    # try:
+    #     for search_database in mzid_reader.iterfind("Inputs").next()["SearchDatabase"]:
+    #         print(json.dumps(search_database))
+    # except StopIteration:
+    #     pass
+    # mzid_reader.reset()
+
     sequence_collection = mzid_reader.iterfind('SequenceCollection').next()
 
     #DBSEQUENCES
@@ -504,14 +514,13 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     #
     # upload info
     #
-    # upload_info_start_time = time()
-    # logger.info('getting upload info (provider, etc) - start')
-    # #temp
-    # user_id = -1
-    # upload_id = parse_upload_info(mzid_reader, cur, con, user_id, mzid_file, peak_list_file_list)
-    # logger.info(
-    #     'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
-    upload_id = -1
+    upload_info_start_time = time()
+    logger.info('getting upload info (provider, etc) - start')
+    #temp
+    user_id = -1
+    upload_id = parse_upload_info(mzid_reader, cur, con, user_id, mzid_file, peak_list_file_list)
+    logger.info(
+        'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
 
 
     #
@@ -811,10 +820,10 @@ def parse_upload_info(mzid_reader, cur, con, user_id, filename, peak_list_file_n
     mzid_reader.reset()
 
     #ToDo: pass in upload geo info (country of origin guessed from IP address, its for our usage stats)
-    db.write_upload([[user_id, filename, json.dumps(peak_list_file_names),
-                     analysis_software, provider, audits, samples, analyses, protocols, bibRefs, 'country']],
+    upload_id = db.write_upload([user_id, filename, json.dumps(peak_list_file_names),
+                     analysis_software, provider, audits, samples, analyses, protocols, bibRefs, 'country'],
                     cur, con,
                     )
 
-    return 1  # temp, this would need to come back from db for all-uploads-in-one db
+    return upload_id  # temp, this would need to come back from db for all-uploads-in-one db
 
