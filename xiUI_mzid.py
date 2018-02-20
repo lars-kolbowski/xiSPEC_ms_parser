@@ -16,7 +16,7 @@ try:
     else:
         import xiSPEC_sqlite as db
 except IndexError:
-    import xiUI_sqlite as db
+    import xiUI_pg as db
 
 
 def path_leaf(path):
@@ -737,10 +737,10 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
                 + str(round(time() - db_wrap_up_start_time, 2)) + " sec")
 
     # fill in missing score information
-    score_fill_start_time = time()
-    logger.info('fill in missing scores - start')
-    db.fill_in_missing_scores(cur, con)
-    logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
+    # score_fill_start_time = time()
+    # logger.info('fill in missing scores - start')
+    # db.fill_in_missing_scores(cur, con)
+    # logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
 
     # multi error handler
     if len(fragment_parsing_error_scans) > 0:

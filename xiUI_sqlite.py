@@ -93,8 +93,8 @@ def create_tables(cur, con):
             "peak_list text, "
             "peak_list_file_name text, "
             "scan_id INT, "
-            "frag_tol,"
-            "spectrum_id)"
+            "frag_tol TEXT,"
+            "spectrum_id TEXT)"
         )
         cur.execute("DROP TABLE IF EXISTS spectrum_identifications")
         cur.execute(

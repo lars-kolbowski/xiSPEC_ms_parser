@@ -59,7 +59,7 @@ try:
     else:
         import xiSPEC_sqlite as db
 except IndexError:
-    import xiUI_sqlite as db
+    import xiUI_pg as db
 
 # paths and file names
 try:
