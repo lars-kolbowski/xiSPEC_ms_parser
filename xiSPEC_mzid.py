@@ -370,8 +370,10 @@ def get_peptide_info(sid_items, mzid_reader, unimod_masses, seq_ref_protein_map,
                         logger.error('modification without name!')
                         logger.error(mod)
 
-                # add CL locations
-                if 'cross-link donor' in mod.keys() or 'cross-link acceptor' in mod.keys():
+                # add CL locations ToDo: change to cvParam accession lookup
+                if 'cross-link donor' in mod.keys() \
+                        or 'cross-link acceptor' in mod.keys() \
+                        or 'cross-link receiver' in mod.keys():     # tmp fix
                     return_dict['linkSites'].append(mod_location - 1)
                     # return_dict['linkSites'].append(
                     #     {"id": link_index, "peptideId": pep_index, "linkSite": mod_location - 1})
@@ -423,6 +425,15 @@ def get_peptide_info(sid_items, mzid_reader, unimod_masses, seq_ref_protein_map,
                 'mass': mod['monoisotopicMassDelta'],
                 'accession': mod_accession
             })
+
+
+    #ToDo: more elaborate sanity check
+    if len(return_dict['linkSites']) == 1 and len(return_dict['peptides']) == 2:
+        return_dict['errors'].append({
+            "type": "mzidParseError",
+            "message": "incomplete cross-linking information",
+            "id": sid_item
+        })
 
     return return_dict
 
@@ -633,84 +644,91 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
             pep_info = get_peptide_info(paired_spec_id_items, mzid_reader, unimod_masses, seq_ref_protein_map, logger)
 
-            # fragmentation ions
-            pep_info['ions'] = get_ion_types_mzid(paired_spec_id_items[0], logger)
-            # if no ion types are specified in the id file check the mzML file
-            if len(pep_info['ions']) == 0 and peak_list_reader['fileType'] == 'mzml':
-                pep_info['ions'] = peakListParser.get_ion_types_mzml(scan)
-
-            pep_info['ions'] = list(set(pep_info['ions']))
-
-            if len(pep_info['ions']) == 0:
-                pep_info['ions'] = ['peptide', 'b', 'y']
-                # ToDo: better error handling for general errors - bundling together of same type errors
-                fragment_parsing_error_scans.append(sid_result['id'])
-
-            pep_info['ions'] = ';'.join(pep_info['ions'])
-
-            # extract other useful info to display
-            rank = paired_spec_id_items[0]['rank']
-
-            # ToDo: handling for mzid that don't include isDecoy
-            is_decoy = any([pep['isDecoy'] for pep in pep_info['isDecoy']])
-            # accessions = ";".join(pep_info['proteins'])
-            protein1 = pep_info['protein1']
-            protein2 = pep_info['protein2']
-
-            # passThreshold
-            if pep_info['passThreshold']:
-                pass_threshold = 1
+            if len(pep_info['errors']) > 0:
+                return_json['errors'] += pep_info['errors']
+            # ToDo: not write to database if there were errors?
             else:
-                pass_threshold = 0
+                # fragmentation ions
+                pep_info['ions'] = get_ion_types_mzid(paired_spec_id_items[0], logger)
+                # if no ion types are specified in the id file check the mzML file
+                if len(pep_info['ions']) == 0 and peak_list_reader['fileType'] == 'mzml':
+                    pep_info['ions'] = peakListParser.get_ion_types_mzml(scan)
 
-            # peptides and linker position
-            pep1 = pep_info['peptides'][0]
+                pep_info['ions'] = list(set(pep_info['ions']))
 
-            if len(pep_info['peptides']) > 1:
-                link_pos1 = pep_info['linkSites'][0]
-                pep2 = pep_info['peptides'][1]
-                link_pos2 = pep_info['linkSites'][1]
+                if len(pep_info['ions']) == 0:
+                    pep_info['ions'] = ['peptide', 'b', 'y']
+                    # ToDo: better error handling for general errors - bundling together of same type errors
+                    fragment_parsing_error_scans.append(sid_result['id'])
 
-            else:
-                pep2 = ""
-                link_pos1 = -1
-                link_pos2 = -1
+                pep_info['ions'] = ';'.join(pep_info['ions'])
 
-            multiple_inj_list_identifications.append(
-                [spec_id_item_index,
-                 sid_result['id'],
-                 pep1,
-                 pep2,
-                 link_pos1,
-                 link_pos2,
-                 pep_info['precursorCharge'],
-                 pass_threshold,
-                 ms2_tol,
-                 pep_info['ions'],
-                 pep_info["cross-linker modMass"],
-                 rank,
-                 # score,
-                 json.dumps(pep_info['scores']),
-                 is_decoy,
-                 protein1,
-                 protein2,
-                 raw_file_name,
-                 scan_id,
-                 mzid_item_index]
-            )
+                # extract other useful info to display
+                rank = paired_spec_id_items[0]['rank']
 
-            # add mods to global modList
-            for mod in pep_info['annotation']['modifications']:
-                if mod['id'] not in [m['id'] for m in modifications]:
-                    modifications.append(mod)
+                # ToDo: handling for mzid that don't include isDecoy
+                is_decoy = any([pep['isDecoy'] for pep in pep_info['isDecoy']])
+                # accessions = ";".join(pep_info['proteins'])
+                protein1 = pep_info['protein1']
+                protein2 = pep_info['protein2']
+
+                # passThreshold
+                if pep_info['passThreshold']:
+                    pass_threshold = 1
                 else:
-                    old_mod = modifications[[m['id'] for m in modifications].index(mod['id'])]
-                    # check if modname with different mass exists already
-                    for res in mod['aminoAcids']:
-                        if res not in old_mod['aminoAcids']:
-                            old_mod['aminoAcids'].append(res)
+                    pass_threshold = 0
 
-            spec_id_item_index += 1
+                # peptides and linker position
+                pep1 = pep_info['peptides'][0]
+
+                try:
+                    pep2 = pep_info['peptides'][1]
+                except IndexError:
+                    pep2 = ""
+                try:
+                    link_pos1 = pep_info['linkSites'][0]
+                except IndexError:
+                    link_pos1 = -1
+                try:
+                    link_pos2 = pep_info['linkSites'][1]
+                except IndexError:
+                    link_pos2 = -1
+
+                multiple_inj_list_identifications.append(
+                    [spec_id_item_index,
+                     sid_result['id'],
+                     pep1,
+                     pep2,
+                     link_pos1,
+                     link_pos2,
+                     pep_info['precursorCharge'],
+                     pass_threshold,
+                     ms2_tol,
+                     pep_info['ions'],
+                     pep_info["cross-linker modMass"],
+                     rank,
+                     # score,
+                     json.dumps(pep_info['scores']),
+                     is_decoy,
+                     protein1,
+                     protein2,
+                     raw_file_name,
+                     scan_id,
+                     mzid_item_index]
+                )
+
+                # add mods to global modList
+                for mod in pep_info['annotation']['modifications']:
+                    if mod['id'] not in [m['id'] for m in modifications]:
+                        modifications.append(mod)
+                    else:
+                        old_mod = modifications[[m['id'] for m in modifications].index(mod['id'])]
+                        # check if modname with different mass exists already
+                        for res in mod['aminoAcids']:
+                            if res not in old_mod['aminoAcids']:
+                                old_mod['aminoAcids'].append(res)
+
+                spec_id_item_index += 1
 
         mzid_item_index += 1
 

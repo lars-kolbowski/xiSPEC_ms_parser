@@ -61,6 +61,16 @@ try:
 except IndexError:
     import xiUI_pg as db
 
+
+returnJSON = {
+    "response": "",
+    "modifications": [],
+    "errors": [],
+    "warnings": [],
+    "log": logFile.split('/')[-1]
+}
+
+
 # paths and file names
 try:
 
@@ -68,7 +78,7 @@ try:
 
     # development testfiles
     if dev:
-        baseDir = "/media/data/work/xiSPEC_test_files/"
+        baseDir = "~/xiSPEC_test_files/"
         # identifications_file = baseDir + 'OpenxQuest_example_added_annotations.mzid'
         # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
         # peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf"
@@ -87,6 +97,22 @@ try:
         # large mzid dataset
         # identifications_file = baseDir + "Tmuris_exo/Tmuris_exosomes1.mzid"
         # peakList_file = baseDir + "Tmuris_exo/20171027_DDA_JC1.zip"
+
+        # PXD006574
+        # identifications_file = baseDir + "PXD006574/monomerResults.mzid.gz"
+        # peakList_file = baseDir + "PXD006574/monomerResults-specId.pride.mgf.gz"
+        # identifications_file = baseDir + "PXD006574/dimerResultsToPRIDE.mzid.gz"
+        # peakList_file = baseDir + "PXD006574/dimerResultsToPRIDE-specId.pride.mgf.gz"
+
+        # PXD001677 - ?
+        # identifications_file = baseDir + "PXD001677/result_DynamicDBReduction.mzid"
+        # peakList_file = baseDir + "PXD001677/result_DynamicDBReduction-specId.pride.mgf.gz"
+        # identifications_file = baseDir + "PXD001677/result_NormalMode.mzid"
+        # peakList_file = baseDir + "PXD001677/result_NormalMode-specId.pride.mgf.gz"
+
+        # PXD007836 - mzid 1.1.0
+        # identifications_file = baseDir + "PXD007836/data.mzid"
+        # peakList_file = baseDir + "PXD007836/c.zip"
 
         #csv file
         # identifications_file = baseDir + "example.csv"
@@ -115,11 +141,33 @@ try:
 
             ftp = ftplib.FTP('ftp.pride.ebi.ac.uk')
             ftp.login()
-            ftp.cwd(id_file_path)
-            ftp.retrbinary("RETR " + id_file_name, open(identifications_file, 'wb').write)
-            ftp.cwd(pl_file_path)
-            ftp.retrbinary("RETR " + pl_file_name, open(peakList_file, 'wb').write)
-            ftp.quit()
+
+            try:
+                ftp.cwd(id_file_path)
+                ftp.retrbinary("RETR " + id_file_name, open(identifications_file, 'wb').write)
+            except ftplib.error_perm as e:
+                error_msg = "%s: %s" % (id_file_name, e.args[0])
+                logger.error(error_msg)
+                returnJSON['errors'].append({
+                    "type": "ftpError",
+                    "message": error_msg,
+                })
+                print(json.dumps(returnJSON))
+                sys.exit(1)
+
+            try:
+                ftp.cwd(pl_file_path)
+                ftp.retrbinary("RETR " + pl_file_name, open(peakList_file, 'wb').write)
+                ftp.quit()
+            except ftplib.error_perm as e:
+                error_msg = "%s: %s" % (pl_file_name, e.args[0])
+                logger.error(error_msg)
+                returnJSON['errors'].append({
+                    "type": "ftpError",
+                    "message": error_msg,
+                })
+                print(json.dumps(returnJSON))
+                sys.exit(1)
         else:
 
             identifications_file = args[0]
@@ -154,14 +202,6 @@ except db.DBException as e:
     logger.error(e)
     print(e)
     sys.exit(1)
-
-
-returnJSON = {
-    "response": "",
-    "modifications": [],
-    "errors": [],
-    "warnings": []
-}
 
 # parsing
 startTime = time()
@@ -219,13 +259,12 @@ except Exception as e:
         {"type": "Error", "message": e.args[0]})
 
 
-if len(returnJSON["errors"]) > 0 or len(returnJSON["errors"]) > 0:
+if len(returnJSON["errors"]) > 0 or len(returnJSON["warnings"]) > 0:
     returnJSON['response'] = "%i warning(s) and %i error(s) occurred!" % (len(returnJSON['warnings']), len(returnJSON['errors']))
     for warn in returnJSON['warnings']:
         logger.error(warn)
     for err in returnJSON['errors']:
         logger.error(err)
-    returnJSON["log"] = logFile.split('/')[-1]
 
 else:
     returnJSON['response'] = "No errors, smooth sailing!"

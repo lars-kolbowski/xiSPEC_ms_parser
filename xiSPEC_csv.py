@@ -4,6 +4,8 @@ import json
 import sys
 from time import time
 import xiSPEC_peakList as peakListParser
+
+
 try:
     if sys.argv[4] == "pg":
         import xiUI_pg as db
@@ -18,16 +20,17 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
     return_json = {
         "response": "",
         "modifications": [],
-        "errors": []
+        "errors": [],
+        "warnings": []
     }
 
     csv_start_time = time()
     logger.info('reading csv - start')
     # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
     id_df = pd.read_csv(csv_file)
-    id_df.columns = [x.lower() for x in id_df.columns]
+    id_df.columns = [x.lower().replace(" ", "") for x in id_df.columns]
 
-    required_cols = ['id', 'scannumber', 'charge', 'pepseq 1', 'protein 1']
+    required_cols = ['id', 'scannumber', 'charge', 'pepseq1', 'protein1']
 
     for header in required_cols:
         if header not in id_df.columns:
@@ -106,14 +109,14 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
             rank = 1
 
         # peptides and link positions
-        pep1 = id_item['pepseq 1']
+        pep1 = id_item['pepseq1']
         try:
             # ToDo: improve error handling for cl peptides
-            pep2 = str(id_item['pepseq 2'])
+            pep2 = str(id_item['pepseq2'])
             if pep2 == 'nan':
                 pep2 = ''
-            link_pos1 = id_item['linkpos 1'] - 1
-            link_pos2 = id_item['linkpos 2'] - 1
+            link_pos1 = id_item['linkpos1'] - 1
+            link_pos2 = id_item['linkpos2'] - 1
             cl_mod_mass = id_item['crosslinkermodmass']
         except KeyError:
             # linear
@@ -170,9 +173,9 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
             is_decoy = 0
 
         # protein
-        protein1 = id_item['protein 1']
+        protein1 = id_item['protein1']
         try:
-            protein2 = id_item['protein 2']
+            protein2 = id_item['protein2']
         except KeyError:
             protein2 = ''
 
@@ -200,7 +203,11 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
              id_item_index]
         )
 
-        modifications = re.search('([^A-Z]+)', ''.join([pep1, pep2])).groups()
+        try:
+            modifications = re.search('([^A-Z]+)', ''.join([pep1, pep2])).groups()
+        except AttributeError:
+            modifications = []
+
         for mod in modifications:
             if mod not in return_json['modifications']:
                 return_json['modifications'].append(mod)
