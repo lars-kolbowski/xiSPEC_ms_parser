@@ -243,7 +243,7 @@ except Exception as e:
         {"type": "Error", "message": e.args[0]})
 
 
-if len(returnJSON["errors"]) > 0 or len(returnJSON["errors"]) > 0:
+if len(returnJSON["errors"]) > 0 or len(returnJSON["warnings"]) > 0:
     returnJSON['response'] = "%i warning(s) and %i error(s) occurred!" % (len(returnJSON['warnings']), len(returnJSON['errors']))
     for warn in returnJSON['warnings']:
         logger.error(warn)
