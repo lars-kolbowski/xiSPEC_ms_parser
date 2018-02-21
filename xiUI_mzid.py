@@ -306,13 +306,11 @@ def parse_sequence_collection (mzid_reader, cur, con, upload_id, unimod_path):
     #following not working
     # for peptide in sequence_collection['Peptide']:
 
+    peptides = {}
+    peptide_ref_map = {}
     for pep_id in mzid_reader._offset_index["Peptide"].keys():
-        peptide = mzid_reader.get_by_id(pep_id, tag_id='Peptide', detailed=True)
-
         # peptide = mzid_reader.get_by_id('1712126853_1712127183_5_13_p1', tag_id='Peptide', detailed=True)
-        data = []  # id, sequence
-        data.append(peptide["id"])  # id, required
-        #data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
+        peptide = mzid_reader.get_by_id(pep_id, tag_id='Peptide', detailed=True)
 
         pep_seq_dict = []
         for aa in peptide['PeptideSequence']:
@@ -386,16 +384,24 @@ def parse_sequence_collection (mzid_reader, cur, con, upload_id, unimod_path):
                 if 'cross-link donor' in mod.keys():
                     crosslinker_modmass = round(mod['monoisotopicMassDelta'], 6)
 
-        # we should consider swapping these over because modX format has modification before AA, Lutz has noticed same thing
+        # we should consider swapping these over because modX format has modification before AA
         peptide_seq_with_mods = ''.join([''.join([x['aminoAcid'], x['Modification']]) for x in pep_seq_dict])
 
+        # pep_key = peptide_seq_with_mods + ":" + link_site
+        # if pep_key not in peptides.keys():
+        data = []
+        data.append(peptide["id"])  # id, required
+        # data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
         data.append(peptide_seq_with_mods)
         data.append(link_site)
         data.append(crosslinker_modmass)
         data.append(upload_id)
 
+        # peptides[pep_key] = data
+
         inj_list.append(data)
 
+    # inj_list = peptides.values()
     db.write_peptides(inj_list, cur, con)
 
     # modifications - ToDo: problems here?
