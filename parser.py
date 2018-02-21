@@ -78,7 +78,7 @@ try:
 
     # development testfiles
     if dev:
-        baseDir = "~/xiSPEC_test_files/"
+        baseDir = "/home/col/xiSPEC_test_files/"
         # identifications_file = baseDir + 'OpenxQuest_example_added_annotations.mzid'
         # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
         # peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf"
