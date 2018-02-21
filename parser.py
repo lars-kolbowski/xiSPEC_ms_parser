@@ -61,6 +61,16 @@ try:
 except IndexError:
     import xiSPEC_sqlite as db
 
+
+returnJSON = {
+    "response": "",
+    "modifications": [],
+    "errors": [],
+    "warnings": [],
+    "log": logFile.split('/')[-1]
+}
+
+
 # paths and file names
 try:
 
@@ -115,11 +125,33 @@ try:
 
             ftp = ftplib.FTP('ftp.pride.ebi.ac.uk')
             ftp.login()
-            ftp.cwd(id_file_path)
-            ftp.retrbinary("RETR " + id_file_name, open(identifications_file, 'wb').write)
-            ftp.cwd(pl_file_path)
-            ftp.retrbinary("RETR " + pl_file_name, open(peakList_file, 'wb').write)
-            ftp.quit()
+
+            try:
+                ftp.cwd(id_file_path)
+                ftp.retrbinary("RETR " + id_file_name, open(identifications_file, 'wb').write)
+            except ftplib.error_perm as e:
+                error_msg = "%s: %s" % (id_file_name, e.args[0])
+                logger.error(error_msg)
+                returnJSON['errors'].append({
+                    "type": "ftpError",
+                    "message": error_msg,
+                })
+                print(json.dumps(returnJSON))
+                sys.exit(1)
+
+            try:
+                ftp.cwd(pl_file_path)
+                ftp.retrbinary("RETR " + pl_file_name, open(peakList_file, 'wb').write)
+                ftp.quit()
+            except ftplib.error_perm as e:
+                error_msg = "%s: %s" % (pl_file_name, e.args[0])
+                logger.error(error_msg)
+                returnJSON['errors'].append({
+                    "type": "ftpError",
+                    "message": error_msg,
+                })
+                print(json.dumps(returnJSON))
+                sys.exit(1)
         else:
 
             identifications_file = args[0]
@@ -154,14 +186,6 @@ except db.DBException as e:
     logger.error(e)
     print(e)
     sys.exit(1)
-
-
-returnJSON = {
-    "response": "",
-    "modifications": [],
-    "errors": [],
-    "warnings": []
-}
 
 # parsing
 startTime = time()
@@ -225,7 +249,6 @@ if len(returnJSON["errors"]) > 0 or len(returnJSON["errors"]) > 0:
         logger.error(warn)
     for err in returnJSON['errors']:
         logger.error(err)
-    returnJSON["log"] = logFile.split('/')[-1]
 
 else:
     returnJSON['response'] = "No errors, smooth sailing!"
