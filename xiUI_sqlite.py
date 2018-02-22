@@ -1,17 +1,14 @@
-import psycopg2
+import sqlite3
 import json
-
 
 class DBException(Exception):
     pass
 
 
 def connect(dbname):
-    import credentials
     try:
-        con = psycopg2.connect(host=credentials.hostname, user=credentials.username, password=credentials.password,
-                               dbname=credentials.database)
-    except psycopg2.Error as e:
+        con = sqlite3.connect(dbname)
+    except sqlite3.Error as e:
         raise DBException(e.message)
 
     return con
@@ -22,7 +19,7 @@ def create_tables(cur, con):
         cur.execute("DROP TABLE IF EXISTS uploads")
         cur.execute(
             "CREATE TABLE uploads("
-            "id SERIAL PRIMARY KEY, "
+            "id INT PRIMARY KEY, "
             "user_id INT,"
             "filename TEXT, "
             "peak_list_file_names TEXT, "
@@ -115,35 +112,35 @@ def create_tables(cur, con):
         )
         con.commit()
 
-    except psycopg2.Error as e:
+    except sqlite3.Error as e:
         raise DBException(e.message)
     return True
 
 
 def write_upload(inj_list, cur, con):
     try:
-        cur.execute("""
+        cur.executemany("""
     INSERT INTO uploads (
-        user_id,
-        filename,
-        peak_list_file_names,
-        analysis_software,
-        provider,
-        audits,
-        samples,
-        analyses,
-        protocol,
-        bib,
-        upload_time,
-        upload_loc
+        'user_id',
+        'filename',
+        'peak_list_file_names',
+        'analysis_software',
+        'provider',
+        'audits',
+        'samples',
+        'analyses',
+        'protocol',
+        'bib',
+        'upload_time',
+        'upload_loc'
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s) RETURNING id AS upload_id""", inj_list)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)""", inj_list)
         con.commit()
 
-    except psycopg2.Error as e:
+    except sqlite3.Error as e:
         raise DBException(e.message)
-    rows = cur.fetchall()
-    return rows[0]
+
+    return True
 
 
 def write_protocols(inj_list, cur, con):
@@ -151,17 +148,17 @@ def write_protocols(inj_list, cur, con):
     # try:
     #     cur.executemany("""
     # INSERT INTO db_sequences (
-    #     id,
-    #     accession,
-    #     name,
-    #     description,
-    #     sequence,
-    #     is_decoy
+    #     'id',
+    #     'accession',
+    #     'name',
+    #     'description',
+    #     'sequence',
+    #     'is_decoy'
     # )
-    # VALUES (%s, %s, %s, %s, %s, %s)""", inj_list)
+    # VALUES (?, ?, ?, ?, ?, ?)""", inj_list)
     #     con.commit()
     #
-    # except psycopg2.Error as e:
+    # except sqlite3.Error as e:
     #     raise DBException(e.message)
 
     return True
@@ -171,17 +168,17 @@ def write_db_sequences(inj_list, cur, con):
     try:
         cur.executemany("""
     INSERT INTO db_sequences (
-        id,
-        accession,
-        name,
-        description,
-        sequence,
-        upload_id
+        'id',
+        'accession',
+        'name',
+        'description',
+        'sequence',
+        'upload_id'
     )
-    VALUES (%s, %s, %s, %s, %s, %s) """, inj_list)
+    VALUES (?, ?, ?, ?, ?, ?)""", inj_list)
         con.commit()
 
-    except psycopg2.Error as e:
+    except sqlite3.Error as e:
         raise DBException(e.message)
 
     return True
@@ -191,17 +188,17 @@ def write_peptides(inj_list, cur, con):
     try:
         cur.executemany("""
     INSERT INTO peptides (
-        id,
-        /*sequence,*/
-        seq_mods,
-        link_site,
-        crosslinker_modmass,
-        upload_id
+        'id',
+        /*'sequence',*/
+        'seq_mods',
+        'link_site',
+        'crosslinker_modmass',
+        'upload_id'
     )
-    VALUES (%s, %s, %s, %s, %s)""", inj_list)
+    VALUES (?, ?, ?, ?, ?)""", inj_list)
         con.commit()
 
-    except psycopg2.Error as e:
+    except sqlite3.Error as e:
         raise DBException(e.message)
 
     return True
@@ -209,10 +206,10 @@ def write_peptides(inj_list, cur, con):
 
 def write_modifications(inj_list, cur, con):
     try:
-        cur.executemany("""INSERT INTO modifications (id, name, mass, residues, accession) VALUES (%s, %s, %s, %s, %s)""",
+        cur.executemany("""INSERT INTO modifications ('id', 'name', 'mass', 'residues', 'accession') VALUES (?, ?, ?, ?, ?)""",
                         inj_list)
         con.commit()
-    except psycopg2.Error as e:
+    except sqlite3.Error as e:
         raise DBException(e.message)
 
     return True
@@ -222,16 +219,16 @@ def write_peptide_evidences(inj_list, cur, con):
     try:
         cur.executemany("""
     INSERT INTO peptide_evidences (
-        peptide_ref,
-        dbsequence_ref,
-        start,
-        is_decoy,
-        upload_id
+        'peptide_ref',
+        'dbsequence_ref',
+        'start',
+        'is_decoy',
+        'upload_id'
     )
-    VALUES (%s, %s, %s, %s, %s)""", inj_list)
+    VALUES (?, ?, ?, ?, ?)""", inj_list)
         con.commit()
 
-    except psycopg2.Error as e:
+    except sqlite3.Error as e:
         raise DBException(e.message)
 
     return True
@@ -239,11 +236,11 @@ def write_peptide_evidences(inj_list, cur, con):
 
 def write_spectra(inj_list, cur, con):
     try:
-        cur.executemany("""INSERT INTO spectra (id, peak_list, peak_list_file_name, scan_id, frag_tol, upload_id, spectrum_id)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)""", inj_list)
+        cur.executemany("""INSERT INTO spectra ('id', 'peak_list', 'peak_list_file_name', 'scan_id', 'frag_tol', 'upload_id', 'spectrum_id')
+                        VALUES (?, ?, ?, ?, ?, ?, ?)""", inj_list)
         con.commit()
 
-    except psycopg2.Error as e:
+    except sqlite3.Error as e:
         raise DBException(e.message)
 
     return True
@@ -251,17 +248,17 @@ def write_spectra(inj_list, cur, con):
 
 def write_spectrum_identifications(inj_list, cur, con):
     try:
-        cur.executemany("""INSERT INTO spectrum_identifications (id, upload_id, spectrum_id, pep1_id, pep2_id,
-                            charge_state, rank, pass_threshold, ions, scores) VALUES (%s, %s, %s, %s, %s, %s, %s, %s , %s, %s)""", inj_list)
+        cur.executemany("""INSERT INTO spectrum_identifications ('id', 'upload_id', 'spectrum_id', 'pep1_id', 'pep2_id',
+                            'charge_state', 'rank', 'pass_threshold', 'ions', 'scores') VALUES (?, ?, ?, ?, ?, ?, ?, ? , ?, ?)""", inj_list)
         con.commit()
 
-    except psycopg2.Error as e:
+    except sqlite3.Error as e:
         raise DBException(e.message)
 
     return True
 
 
-# con = connect(/home/lars/Xi/xiSPEC_ms_parser/dbs/saved/Tmuris_exosomes1.db)
+# con = connect('/home/lars/Xi/xiSPEC_ms_parser/dbs/saved/Tmuris_exosomes1.db')
 # cur = con.cursor()
 
 
@@ -276,7 +273,7 @@ def fill_in_missing_scores(cur, con):
 
         multiple_inj_list = []
 
-        cur.execute('SELECT id, scores FROM spectrum_identifications')
+        cur.execute('SELECT id, allScores FROM identifications')
         res = cur.fetchall()
 
         for row in res:
@@ -287,15 +284,19 @@ def fill_in_missing_scores(cur, con):
             if len(missing) > 0:
                 row_scores.update(missing_dict)
                 multiple_inj_list.append([json.dumps(row_scores), row[0]])
-                # cur.execute('UPDATE identifications SET allScores=%s WHERE id = row[0]', json.dumps(row_scores))
+                # cur.execute('UPDATE identifications SET allScores=? WHERE id = row[0]', json.dumps(row_scores))
 
         cur.executemany("""
-        UPDATE spectrum_identifications
-        SET `allScores` = %s
-        WHERE `id` = %s""", multiple_inj_list)
+        UPDATE identifications
+        SET `allScores` = ?
+        WHERE `id` = ?""", multiple_inj_list)
 
         con.commit()
 
-    except psycopg2.Error as e:
+    except sqlite3.Error as e:
         raise DBException(e.message)
     pass
+
+
+
+

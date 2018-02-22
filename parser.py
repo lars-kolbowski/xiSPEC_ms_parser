@@ -98,6 +98,22 @@ try:
         # identifications_file = baseDir + "Tmuris_exo/Tmuris_exosomes1.mzid"
         # peakList_file = baseDir + "Tmuris_exo/20171027_DDA_JC1.zip"
 
+        # PXD006574
+        # identifications_file = baseDir + "PXD006574/monomerResults.mzid.gz"
+        # peakList_file = baseDir + "PXD006574/monomerResults-specId.pride.mgf.gz"
+        # identifications_file = baseDir + "PXD006574/dimerResultsToPRIDE.mzid.gz"
+        # peakList_file = baseDir + "PXD006574/dimerResultsToPRIDE-specId.pride.mgf.gz"
+
+        # PXD001677 - ?
+        # identifications_file = baseDir + "PXD001677/result_DynamicDBReduction.mzid"
+        # peakList_file = baseDir + "PXD001677/result_DynamicDBReduction-specId.pride.mgf.gz"
+        # identifications_file = baseDir + "PXD001677/result_NormalMode.mzid"
+        # peakList_file = baseDir + "PXD001677/result_NormalMode-specId.pride.mgf.gz"
+
+        # PXD007836 - mzid 1.1.0
+        # identifications_file = baseDir + "PXD007836/data.mzid"
+        # peakList_file = baseDir + "PXD007836/c.zip"
+
         #csv file
         # identifications_file = baseDir + "example.csv"
 
@@ -256,7 +272,7 @@ else:
 if len(returnJSON["errors"]) > 100:
     returnJSON["errors"] = returnJSON["errors"][:100]
 
-print(json.dumps(returnJSON))
+print(json.dumps(returnJSON, indent=4))
 
 if con:
     con.close()
