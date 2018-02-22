@@ -44,7 +44,7 @@ def get_ion_types_mzid(sid_item, logger):
     return ion_types
 
 
-# split into two functions
+# split into two functions?
 def extract_mzid(archive):
     if archive.endswith('zip'):
         zip_ref = zipfile.ZipFile(archive, 'r')
@@ -69,9 +69,18 @@ def extract_mzid(archive):
 
         return return_file_list[0]
 
-    # elif archive.endswith('gz'):
-    # with gzip.open(archive, 'wb') as f:
-    #     f.write(archive[])
+    elif archive.endswith('gz'):
+        in_f = gzip.open(archive, 'rb')
+        archive = archive.replace(".gz", "")
+        out_f = open(archive, 'wb')
+        out_f.write(in_f.read())
+        in_f.close()
+        out_f.close()
+
+        return archive
+
+    else:
+        raise StandardError('unsupported file type: %s' % archive)
 
 
 # ToDo: clear confusion about 0 & 1 based formats
@@ -459,13 +468,8 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     mzid_start_time = time()
 
     # ToDo: move to function
-    if mzid_file.endswith('gz'):
-        in_f = gzip.open(mzid_file, 'rb')
-        mzid_file = mzid_file.replace(".gz", "")
-        out_f = open(mzid_file, 'wb')
-        out_f.write(in_f.read())
-        in_f.close()
-        out_f.close()
+    if mzid_file.endswith('.gz') or mzid_file.endswith('.zip'):
+        mzid_file = extract_mzid(mzid_file)
 
     return_json = {
         "response": "",
@@ -629,7 +633,6 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         # ms2 tolerance
         ms2_tol = spectra_data_protocol_map[sid_result['spectraData_ref']]['fragmentTolerance']
 
-        # alternatives = []
         for SpecId in spec_id_set:
             paired_spec_id_items = [sid_item for sid_item in sid_result['SpectrumIdentificationItem'] if
                                     sid_item['cross-link spectrum identification item'] == SpecId]
