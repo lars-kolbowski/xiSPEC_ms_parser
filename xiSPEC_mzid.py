@@ -383,7 +383,7 @@ def get_peptide_info(sid_items, mzid_reader, unimod_masses, seq_ref_protein_map,
                 if 'cross-link donor' in mod.keys() \
                         or 'cross-link acceptor' in mod.keys() \
                         or 'cross-link receiver' in mod.keys():     # tmp fix
-                    return_dict['linkSites'].append(mod_location - 1)
+                    return_dict['linkSites'].append(mod['location'])
                     # return_dict['linkSites'].append(
                     #     {"id": link_index, "peptideId": pep_index, "linkSite": mod_location - 1})
                 if 'cross-link donor' in mod.keys():
@@ -467,7 +467,6 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     logger.info('reading mzid - start')
     mzid_start_time = time()
 
-    # ToDo: move to function
     if mzid_file.endswith('.gz') or mzid_file.endswith('.zip'):
         mzid_file = extract_mzid(mzid_file)
 

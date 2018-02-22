@@ -115,8 +115,8 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
             pep2 = str(id_item['pepseq2'])
             if pep2 == 'nan':
                 pep2 = ''
-            link_pos1 = id_item['linkpos1'] - 1
-            link_pos2 = id_item['linkpos2'] - 1
+            link_pos1 = id_item['linkpos1']
+            link_pos2 = id_item['linkpos2']
             cl_mod_mass = id_item['crosslinkermodmass']
         except KeyError:
             # linear
