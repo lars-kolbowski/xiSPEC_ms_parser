@@ -91,16 +91,117 @@ def get_reader(readers, file_name):
     return reader
 
 
-def get_scan(reader, scan_id):
-    try:
-        if reader['fileType'] == 'mgf':
-            scan = reader['reader'][scan_id+1]
-        elif reader['fileType'] == 'mzml':
-            scan = reader['reader'][scan_id]
-    except (IndexError, KeyError):
-        raise ParseError("requested scanID %i not found in peakList file" % scan_id)
+def get_scan(reader, spec_id, file_id_format=None):
 
-    return scan
+
+    # file_id_format_accession = file_id_format['accession']
+    # #
+    # # if (fileIdFormat == Constants.SpecIdFormat.MASCOT_QUERY_NUM) {
+    # #     String rValueStr = spectrumID.replaceAll("query=", "");
+    # #     String id = null;
+    # #     if(rValueStr.matches(Constants.INTEGER)){
+    # #         id = Integer.toString(Integer.parseInt(rValueStr) + 1);
+    # #     }
+    # #     return id;
+    # # } else if (fileIdFormat == Constants.SpecIdFormat.MULTI_PEAK_LIST_NATIVE_ID) {
+    # #     String rValueStr = spectrumID.replaceAll("index=", "");
+    # #     String id;
+    # #     if(rValueStr.matches(Constants.INTEGER)){
+    # #         id = Integer.toString(Integer.parseInt(rValueStr) + 1);
+    # #         return id;
+    # #     }
+    # #     return spectrumID;
+    # # } else if (fileIdFormat == Constants.SpecIdFormat.SINGLE_PEAK_LIST_NATIVE_ID) {
+    # #     return spectrumID.replaceAll("file=", "");
+    # # } else if (fileIdFormat == Constants.SpecIdFormat.MZML_ID) {
+    # #     return spectrumID.replaceAll("mzMLid=", "");
+    # # } else if (fileIdFormat == Constants.SpecIdFormat.SCAN_NUMBER_NATIVE_ID) {
+    # #     return spectrumID.replaceAll("scan=", "");
+    # # } else {
+    # #     return spectrumID;
+    # # }
+    #
+    # if file_id_format == :
+    #     rValueStr = scan_id.replaceAll("query=", "")
+    #     id = null
+    #     if(rValueStr.matches(Constants.INTEGER))
+    #         id = Integer.toString(Integer.parseInt(rValueStr) + 1)
+    #     return id
+    # elif file_id_format == Constants.SpecIdFormat.MULTI_PEAK_LIST_NATIVE_ID:
+    #     rValueStr = scan_id.replaceAll("index=", "")
+    # if rValueStr.matches(Constants.INTEGER):
+    #         id = Integer.toString(Integer.parseInt(rValueStr) + 1)
+    #         return id
+    #     return scan_id
+    # elif file_id_format == Constants.SpecIdFormat.SINGLE_PEAK_LIST_NATIVE_ID:
+    #     return spectrumID.replaceAll("file=", "")
+    # elif file_id_format == Constants.SpecIdFormat.MZML_ID:
+    #     return spectrumID.replaceAll("mzMLid=", "")
+    # elif file_id_format == Constants.SpecIdFormat.SCAN_NUMBER_NATIVE_ID:
+    #     return spectrumID.replaceAll("scan=", "")
+    # else:
+    #     return spectrumID;
+    #
+    #
+    # # e.g.: MS:1000768(Thermo        nativeID        format)
+    # # e.g.: MS:1000769(Waters        nativeID        format)
+    # # e.g.: MS:1000770(WIFF        nativeID        format)
+    # # e.g.: MS:1000771(Bruker / Agilent        YEP        nativeID        format)
+    # # e.g.: MS:1000772(Bruker        BAF        nativeID        format)
+    # # e.g.: MS:1000773(Bruker        FID        nativeID        format)
+    # # e.g.: MS:1000774(multiple       peak        list        nativeID        format)
+    # # e.g.: MS:1000775(single        peak        list        nativeID        format)
+    # # e.g.: MS:1000776(scan        number        only        nativeID        format)
+    # # e.g.: MS:1000777(spectrum        identifier        nativeID        format)
+
+    if file_id_format is not None:
+
+        if file_id_format['accession'] == 'MS:1000774':  # (multiple peak list nativeID format - zero based)
+            matches = re.findall("index=([0-9]+)", spec_id)
+            spec_id = int(matches[0])
+
+        # MS:1000775
+        # The nativeID must be the same as the source file ID.
+        # Used for referencing peak list files with one spectrum per file,
+        # typically in a folder of PKL or DTAs, where each sourceFileRef is different.
+        elif file_id_format['accession'] == 'MS:1000775':
+            spec_id = 0
+
+        # MS:1000776
+        # Used for referencing mzXML, or a DTA folder where native scan numbers can be derived.
+        elif file_id_format['accession'] == 'MS:1000776':
+            matches = re.findall("scan=([0-9]+)", spec_id)
+            spec_id = int(matches[0])
+
+        else:
+            matches = re.findall("([0-9]+)", spec_id)
+
+            if len(matches) == 1:
+                spec_id = int(matches[0])
+            else:
+                raise ParseError("failed to parse spectrumID from %s" % spec_id)
+
+        if reader['fileType'] == 'mgf':
+            try:
+                return reader['reader'].get_by_id(spec_id, ignore_dict_index=True)
+            except (IndexError, KeyError):
+                raise ParseError("requested scanID %s not found in peakList file" % spec_id)
+
+    try:
+        return reader['reader'][spec_id]
+    except (IndexError, KeyError):
+        raise ParseError("requested scanID %s not found in peakList file" % spec_id)
+
+
+    # try:
+    #     if reader['fileType'] == 'mgf':
+    #         scan = reader['reader'][scan_id+1]  # ToDo: clear up 0/1 confusion
+    #     elif reader['fileType'] == 'mzml':
+    #         scan = reader['reader'][scan_id]
+    # except (IndexError, KeyError):
+    #     raise ParseError("requested scanID %i not found in peakList file" % scan_id)
+    #
+    # return scan
 
 
 def create_peak_list_readers(pl_file_list):
