@@ -239,12 +239,14 @@ try:
     if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
         logger.info('parsing mzid start')
         identifications_fileType = 'mzid'
-        returnJSON = mzidParser.parse(identifications_file, peakList_fileList, unimodPath, cur,  con, logger)
+        id_returnJSON = mzidParser.parse(identifications_file, peakList_fileList, unimodPath, cur,  con, logger)
+        returnJSON.update(id_returnJSON)
 
     elif identifications_fileName.endswith('.csv'):
         logger.info('parsing csv start')
         identifications_fileType = 'csv'
-        returnJSON = csvParser.parse(identifications_file, peakList_fileList, cur, con, logger)
+        id_returnJSON = csvParser.parse(identifications_file, peakList_fileList, cur, con, logger)
+        returnJSON.update(id_returnJSON)
         # mgfReader = py_mgf.read(peak_list_file)
         # peakListArr = [pl for pl in mgfReader]
 

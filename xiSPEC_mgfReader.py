@@ -212,39 +212,39 @@ class Reader(object):
 
         return
 
-    def __getitem__(self, scan_id):
+    def get_by_id(self, scan_id, ignore_dict_index=False):
         """"
-        Random access to spectrum peak list in mgf by scanId
+         Random access to spectrum peak list in mgf by scanId
+         ignore_dict_index: if set to True accessing files by listIndex
 
-        """
+         """
         peak_list = None
         params = {}
-        scan_id = str(scan_id)
 
-        if str(scan_id) in self.info['offsets']:
+        if ignore_dict_index:
+            start_pos = self.info['offsetList'][scan_id]
+            end_pos_index = scan_id+1
+
+        else:
+            scan_id = str(scan_id)
             start_pos = self.info['offsets'][scan_id]
             end_pos_index = bisect.bisect_right(
                 self.info['offsetList'],
                 self.info['offsets'][scan_id]
             )
-            if end_pos_index == len(self.info['offsetList']):
-                end_pos = os.path.getsize(self.info['filename'])
-            else:
-                end_pos = self.info['offsetList'][end_pos_index]
 
-            self.seeker.seek(start_pos, 0)
-            data = self.seeker.read(end_pos - self.info['offsets'][scan_id])
-            try:
-                # for m in RegexPatterns.params_pattern.finditer(data):
-                #     params[m.groups()[0]] = m.groups()[1]
+        if end_pos_index == len(self.info['offsetList']):
+            end_pos = os.path.getsize(self.info['filename'])
+        else:
+            end_pos = self.info['offsetList'][end_pos_index]
 
-                # for m in RegexPatterns.peak_list_pattern.finditer(data):
-                #     if float(m.groups()[1]) > 0:
-                # peak_list.append(m.groups())
-                peak_list = RegexPatterns.peak_list_pattern.search(data).groups()[0]
+        self.seeker.seek(start_pos, 0)
+        data = self.seeker.read(end_pos - start_pos)
+        try:
+            peak_list = RegexPatterns.peak_list_pattern.search(data).groups()[0]
 
-            except:
-                raise ParseError()
+        except:
+            raise ParseError()
 
         if peak_list is None:
             raise KeyError("MGF file does not contain a spectrum with id {0}".format(scan_id))
@@ -252,4 +252,12 @@ class Reader(object):
             self.spectrum['peaks'] = peak_list
             self.spectrum['params'] = params
             return self.spectrum
+
+    def __getitem__(self, scan_id):
+        """"
+        Random access to spectrum peak list in mgf by scanId
+
+        """
+        return self.get_by_id(scan_id)
+
 
