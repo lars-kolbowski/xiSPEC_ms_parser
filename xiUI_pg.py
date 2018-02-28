@@ -95,7 +95,7 @@ def create_tables(cur, con):
             "upload_id INT,"
             "peak_list text, "
             "peak_list_file_name text, "
-            "scan_id INT, "
+            "scan_id TEXT, "
             "frag_tol TEXT,"
             "spectrum_id TEXT)"
         )

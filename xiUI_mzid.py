@@ -69,13 +69,22 @@ def extract_mzid(archive):
 
         return return_file_list[0]
 
-    # elif archive.endswith('gz'):
-    # with gzip.open(archive, 'wb') as f:
-    #     f.write(archive[])
+    elif archive.endswith('gz'):
+        in_f = gzip.open(archive, 'rb')
+        archive = archive.replace(".gz", "")
+        out_f = open(archive, 'wb')
+        out_f.write(in_f.read())
+        in_f.close()
+        out_f.close()
+
+        return archive
+
+    else:
+        raise StandardError('unsupported file type: %s' % archive)
 
 
 # ToDo: clear confusion about 0 & 1 based formats
-def get_scan_id(spec_id, spec_id_format):
+def get_scan(spec_id, spec_id_format):
     # mzml 0 based
 
     #
@@ -103,6 +112,7 @@ def get_scan_id(spec_id, spec_id_format):
     # } else {
     #     return spectrumID;
     # }
+
 
     # e.g.: MS:1000768(Thermo        nativeID        format)
     # e.g.: MS:1000769(Waters        nativeID        format)
@@ -489,14 +499,8 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     logger.info('reading mzid - start')
     mzid_start_time = time()
 
-    # ToDo: move to function
-    if mzid_file.endswith('gz'):
-        in_f = gzip.open(mzid_file, 'rb')
-        mzid_file = mzid_file.replace(".gz", "")
-        out_f = open(mzid_file, 'wb')
-        out_f.write(in_f.read())
-        in_f.close()
-        out_f.close()
+    if mzid_file.endswith('.gz') or mzid_file.endswith('.zip'):
+        mzid_file = extract_mzid(mzid_file)
 
     return_json = {
         "response": "",
@@ -562,7 +566,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
     # ToDo: better error handling for general errors - bundling errors of same type errors together
     fragment_parsing_error_scans = []
-    scan_not_found_error = {}
+    spec_not_found_error = {}
 
     #
     # main loop
@@ -586,49 +590,50 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             })
 
         # get scan id ToDo: clear up 1/0-based confusion
-        # scan_id = get_scan_id(id_item["spectrumID"], spectra_data['SpectrumIDFormat'])
-        try:
-            scan_id = int(sid_result['peak list scans'])
-        except KeyError:
-            matches = re.findall("([0-9]+)", sid_result["spectrumID"])
-            if len(matches) > 1:
-                # ToDo: this might not work for all mzids. Check more file formats. 0 vs 1 based mess
-                matches = re.findall("(?:scan|index|query|mzMLid)?=?([0-9]+)", sid_result["spectrumID"])
-            if len(matches) > 0:
-                # ToDo: handle multiple scans? Is this standard compliant?
-                # found in https://github.com/HUPO-PSI/mzIdentML/blob/master/examples/1_2examples/crosslinking/OpenxQuest_example_added_annotations.mzid
-                scan_ids = [int(m) for m in matches]
-                if len(scan_ids) > 1:
-                    return_json['errors'].append(
-                        {"type": "mzidParseError",
-                         "message": "More than one scan found for SpectrumIdentificationItem: %s"
-                                    % sid_result["spectrumID"],
-                         'id': sid_result['id']
-                         })
-                    continue
-                else:
-                    scan_id = scan_ids[0]
-            else:
-                return_json['errors'].append({
-                    "type": "mzidParseError",
-                    "message": "Error parsing scanID from mzidentml: %s" % sid_result["spectrumID"],
-                    "id": sid_result['id']
-                })
-                continue
+        # scan_id = get_scan(sid_result["spectrumID"], spectra_data['SpectrumIDFormat'])
 
-        # raw file name ToDO: rename peak_list_file_name?
+        # try:
+        #     scan_id = int(sid_result['peak list scans'])
+        # except KeyError:
+        #     matches = re.findall("([0-9]+)", sid_result["spectrumID"])
+        #     if len(matches) > 1:
+        #         # ToDo: this might not work for all mzids. Check more file formats. 0 vs 1 based mess
+        #         matches = re.findall("(?:scan|index|query|mzMLid)?=?([0-9]+)", sid_result["spectrumID"])
+        #     if len(matches) > 0:
+        #         # ToDo: handle multiple scans? Is this standard compliant?
+        #         # found in https://github.com/HUPO-PSI/mzIdentML/blob/master/examples/1_2examples/crosslinking/OpenxQuest_example_added_annotations.mzid
+        #         scan_ids = [int(m) for m in matches]
+        #         if len(scan_ids) > 1:
+        #             return_json['errors'].append(
+        #                 {"type": "mzidParseError",
+        #                  "message": "More than one scan found for SpectrumIdentificationItem: %s"
+        #                             % sid_result["spectrumID"],
+        #                  'id': sid_result['id']
+        #                  })
+        #             continue
+        #         else:
+        #             scan_id = scan_ids[0]
+        #     else:
+        #         return_json['errors'].append({
+        #             "type": "mzidParseError",
+        #             "message": "Error parsing scanID from mzidentml: %s" % sid_result["spectrumID"],
+        #             "id": sid_result['id']
+        #         })
+        #         continue
+
+        # peak list file name
         if 'name' in spectra_data.keys():
-            raw_file_name = spectra_data['name']
+            peak_list_file_name = spectra_data['name']
         elif 'location' in spectra_data.keys():
-            raw_file_name = spectra_data['location'].split('/')[-1]
+            peak_list_file_name = spectra_data['location'].split('/')[-1]
         else:
-            raw_file_name = sid_result['spectraData_ref'].split('/')[-1]
+            peak_list_file_name = sid_result['spectraData_ref'].split('/')[-1]
 
-        raw_file_name = re.sub('\.(mgf|mzml)', '', raw_file_name, flags=re.IGNORECASE)
+        peak_list_file_name = re.sub('\.(mgf|mzml)', '', peak_list_file_name, flags=re.IGNORECASE)
 
         # peak list
         try:
-            peak_list_reader = peakListParser.get_reader(peak_list_readers, raw_file_name)
+            peak_list_reader = peakListParser.get_reader(peak_list_readers, peak_list_file_name)
         except peakListParser.ParseError as e:
             return_json['errors'].append({
                 "type": "peakListParseError",
@@ -637,12 +642,12 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             })
             continue
         try:
-            scan = peakListParser.get_scan(peak_list_reader, scan_id)
+            scan = peakListParser.get_scan(peak_list_reader, sid_result["spectrumID"], spectra_data['SpectrumIDFormat'])
         except peakListParser.ParseError:
             try:
-                scan_not_found_error[raw_file_name].append(scan_id)
+                spec_not_found_error[peak_list_file_name].append(sid_result["spectrumID"])
             except KeyError:
-                scan_not_found_error[raw_file_name] = [scan_id]
+                spec_not_found_error[peak_list_file_name] = [sid_result["spectrumID"]]
             continue
 
         peak_list = peakListParser.get_peak_list(scan, peak_list_reader['fileType'])
@@ -653,7 +658,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
         # 'id', 'peak_list', 'peak_list_file_name', 'scan_id', 'frag_tol', 'upload_id'
 
-        spectra.append([mzid_item_index, peak_list, raw_file_name, scan_id,
+        spectra.append([mzid_item_index, peak_list, peak_list_file_name, sid_result["spectrumID"],
                         protocol['fragmentTolerance'], upload_id, sid_result['id']])
 
         spectrum_ident_dict = dict()
@@ -769,7 +774,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             'id': id_string
         })
 
-    for pl_file, scan_id_list in scan_not_found_error.iteritems():
+    for pl_file, scan_id_list in spec_not_found_error.iteritems():
         return_json['errors'].append({
             "type": "",
             "message": "requested scanID(s) not found in peakList file %s" % pl_file,
