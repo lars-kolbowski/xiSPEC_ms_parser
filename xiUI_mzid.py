@@ -10,6 +10,7 @@ import zipfile
 import gzip
 import os
 import psycopg2
+import ftplib
 
 class MzIdParseException(Exception):
     pass
@@ -596,36 +597,64 @@ def parse(mzid_file, base_dir, unimod_path, cur, con, logger):
         # peak_list_file_name = re.sub('\.(mgf|mzml)', '', peak_list_file_name, flags=re.IGNORECASE)
 
 
-        print('* ' + peak_list_file_name + ' *')
+        # print('* ' + peak_list_file_name + ' *')
+
+        if peak_list_readers.has_key(peak_list_file_name):
+            try:
+                peak_list_reader = peakListParser.get_reader(peak_list_readers, peak_list_file_name)
+            except peakListParser.ParseError as e:
+                return_json['errors'].append({
+                    "type": "peakListParseError",
+                    "message": e.args[0],
+                    'id': sid_result['id']
+                })
+                continue
+        else:
+            path = "/home/col/parser_temp" + '/' + peak_list_file_name
+
+            ftp = ftplib.FTP("193.62.192.9")
+            ftp.login()  # Username: anonymous password: anonymous@
+
+            try:
+                ftp.cwd(base_dir)
+                ftp.retrbinary("RETR " + peak_list_file_name, open(path, 'wb').write)
+            except ftplib.error_perm as e:
+                error_msg = "%s: %s" % (f, e.args[0])
+                logger.error(error_msg)
+                # returnJSON['errors'].append({
+                #     "type": "ftpError",
+                #     "message": error_msg,
+                # })
+                # print(json.dumps(returnJSON))
+                sys.exit(1)
+
+            peakListParser.add_peak_list_reader(path, peak_list_readers, peak_list_file_name)
+            try:
+                peak_list_reader = peakListParser.get_reader(peak_list_readers, peak_list_file_name)
+            except peakListParser.ParseError as e:
+                return_json['errors'].append({
+                    "type": "peakListParseError",
+                    "message": e.args[0],
+                    'id': sid_result['id']
+                })
+                continue
 
         # # peak list
-        # try:
-        #     peak_list_reader = peakListParser.get_reader(peak_list_readers, peak_list_file_name)
-        # except peakListParser.ParseError as e:
-        #     return_json['errors'].append({
-        #         "type": "peakListParseError",
-        #         "message": e.args[0],
-        #         'id': sid_result['id']
-        #     })
-        #     continue
-        # try:
-        #     scan = peakListParser.get_scan(peak_list_reader, sid_result["spectrumID"], spectra_data['SpectrumIDFormat'])
-        # except peakListParser.ParseError:
-        #     try:
-        #         spec_not_found_error[peak_list_file_name].append(sid_result["spectrumID"])
-        #     except KeyError:
-        #         spec_not_found_error[peak_list_file_name] = [sid_result["spectrumID"]]
-        #     continue
-        #
-        # peak_list = peakListParser.get_peak_list(scan, peak_list_reader['fileType'])
 
-        # ms2 tolerance
-        # ms2_tol = spectra_data_protocol_map[sid_result['spectraData_ref']]['fragmentTolerance']
+        try:
+            scan = peakListParser.get_scan(peak_list_reader, sid_result["spectrumID"], spectra_data['SpectrumIDFormat'])
+        except peakListParser.ParseError:
+            try:
+                spec_not_found_error[peak_list_file_name].append(sid_result["spectrumID"])
+            except KeyError:
+                spec_not_found_error[peak_list_file_name] = [sid_result["spectrumID"]]
+            continue
+
+        peak_list = peakListParser.get_peak_list(scan, peak_list_reader['fileType'])
+
         protocol = spectra_data_protocol_map[sid_result['spectraData_ref']]
 
-        # 'id', 'peak_list', 'peak_list_file_name', 'scan_id', 'frag_tol', 'upload_id'
-
-        spectra.append([mzid_item_index, "", peak_list_file_name, sid_result["spectrumID"],
+        spectra.append([mzid_item_index, peak_list, peak_list_file_name, sid_result["spectrumID"],
                         protocol['fragmentTolerance'], upload_id, sid_result['id']])
 
         spectrum_ident_dict = dict()
