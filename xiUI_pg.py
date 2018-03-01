@@ -37,7 +37,10 @@ def create_tables(cur, con):
             "upload_loc TEXT,"          
             "default_pdb TEXT,"
             "contains_crosslink BOOLEAN,"
-            "upload_errors JSON)"
+            "upload_error TEXT,"
+            "error_type TEXT,"
+            "upload_warnings JSON,"
+            "base_dir TEXT)"
         )
         cur.execute("DROP TABLE IF EXISTS protocols")
         cur.execute(

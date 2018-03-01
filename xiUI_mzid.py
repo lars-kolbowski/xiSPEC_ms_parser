@@ -3,6 +3,7 @@ import re
 import ntpath
 import json
 import sys
+import numpy as np
 from time import time
 import xiSPEC_peakList as peakListParser
 import zipfile
@@ -10,6 +11,8 @@ import gzip
 import os
 import psycopg2
 
+class MzIdParseException(Exception):
+    pass
 
 class DBException(Exception):
     pass
@@ -509,11 +512,12 @@ def parse(mzid_file, base_dir, unimod_path, cur, con, logger):
     try:
         mzid_reader = py_mzid.MzIdentML(mzid_file)
     except Exception as e:
-        return_json['errors'].append({
-            "type": "mzidParseError",
-            "message": e.message
-        })
-        return return_json
+        raise MzIdParseException(str(type(e)) + ':' + e.message)
+        # return_json['errors'].append({
+        #     "type": "mzidParseError",
+        #     "message": e.message
+        # })
+        # return return_json
 
     logger.info('reading mzid - done. Time: ' + str(round(time() - mzid_start_time, 2)) + " sec")
 
@@ -555,10 +559,10 @@ def parse(mzid_file, base_dir, unimod_path, cur, con, logger):
     #
     # peakList readers
     #
-    peak_list_start_time = time()
-    logger.info('reading peakList files - start')
-    # peak_list_readers = peakListParser.create_peak_list_readers(peak_list_file_list)
-    logger.info('reading peakList files - done. Time: ' + str(round(time() - peak_list_start_time, 2)) + " sec")
+    # peak_list_start_time = time()
+    # logger.info('reading peakList files - start')
+    peak_list_readers = {}  # peakListParser.create_peak_list_readers(peak_list_file_list)
+    # logger.info('reading peakList files - done. Time: ' + str(round(time() - peak_list_start_time, 2)) + " sec")
 
     # ToDo: better error handling for general errors - bundling errors of same type errors together
     fragment_parsing_error_scans = []
@@ -579,53 +583,20 @@ def parse(mzid_file, base_dir, unimod_path, cur, con, logger):
             # raw_file_name = re.sub('\.(mgf|mzml)', '', raw_file_name, flags=re.IGNORECASE)
 
         except KeyError:
-            return_json['errors'].append({
-                "type": "mzidParseError",
-                "message": "no spectraData_ref specified",
-                'id': sid_result['id']
-            })
-
-        # get scan id ToDo: clear up 1/0-based confusion
-        # scan_id = get_scan(sid_result["spectrumID"], spectra_data['SpectrumIDFormat'])
-
-        # try:
-        #     scan_id = int(sid_result['peak list scans'])
-        # except KeyError:
-        #     matches = re.findall("([0-9]+)", sid_result["spectrumID"])
-        #     if len(matches) > 1:
-        #         # ToDo: this might not work for all mzids. Check more file formats. 0 vs 1 based mess
-        #         matches = re.findall("(?:scan|index|query|mzMLid)?=?([0-9]+)", sid_result["spectrumID"])
-        #     if len(matches) > 0:
-        #         # ToDo: handle multiple scans? Is this standard compliant?
-        #         # found in https://github.com/HUPO-PSI/mzIdentML/blob/master/examples/1_2examples/crosslinking/OpenxQuest_example_added_annotations.mzid
-        #         scan_ids = [int(m) for m in matches]
-        #         if len(scan_ids) > 1:
-        #             return_json['errors'].append(
-        #                 {"type": "mzidParseError",
-        #                  "message": "More than one scan found for SpectrumIdentificationItem: %s"
-        #                             % sid_result["spectrumID"],
-        #                  'id': sid_result['id']
-        #                  })
-        #             continue
-        #         else:
-        #             scan_id = scan_ids[0]
-        #     else:
-        #         return_json['errors'].append({
-        #             "type": "mzidParseError",
-        #             "message": "Error parsing scanID from mzidentml: %s" % sid_result["spectrumID"],
-        #             "id": sid_result['id']
-        #         })
-        #         continue
+            raise MzIdParseException("no spectraData_ref specified: " + sid_result['id'])
 
         # peak list file name
         if 'name' in spectra_data.keys():
             peak_list_file_name = spectra_data['name']
         elif 'location' in spectra_data.keys():
-            peak_list_file_name = spectra_data['location'].split('/')[-1]
+            peak_list_file_name = spectra_data['location']  # .split('/')[-1]
         else:
-            peak_list_file_name = sid_result['spectraData_ref'].split('/')[-1]
+            peak_list_file_name = sid_result['spectraData_ref']  # .split('/')[-1]
 
-        peak_list_file_name = re.sub('\.(mgf|mzml)', '', peak_list_file_name, flags=re.IGNORECASE)
+        # peak_list_file_name = re.sub('\.(mgf|mzml)', '', peak_list_file_name, flags=re.IGNORECASE)
+
+
+        print('* ' + peak_list_file_name + ' *')
 
         # # peak list
         # try:
@@ -781,6 +752,7 @@ def parse(mzid_file, base_dir, unimod_path, cur, con, logger):
             'id': '; '.join([str(scan_id) for scan_id in scan_id_list])
         })
 
+    logger.info('all done! Total time: ' + str(round(time() - mzid_start_time, 2)) + " sec")
     return return_json
 
 
@@ -795,40 +767,45 @@ def parse_upload_info(mzid_reader, cur, con, user_id, filename, peak_list_file_n
     mzid_reader.reset()
 
     # Provider - optional element
-    try:
-        provider = json.dumps(mzid_reader.iterfind('Provider').next())
-    except StopIteration:
-        provider = '{}'
-    mzid_reader.reset()
+    provider = '{}'
+    # try:
+    #     provider = json.dumps(mzid_reader.iterfind('Provider').next())
+    # except StopIteration:
+    #     pass
+    # mzid_reader.reset()
 
     # AuditCollection - optional element
-    try:
-        audits = json.dumps(mzid_reader.iterfind('AuditCollection').next())
-    except StopIteration:
-        audits = '{}'
-    mzid_reader.reset()
+    audits = '{}'
+    # try:
+    #     audits = json.dumps(mzid_reader.iterfind('AuditCollection').next())
+    # except StopIteration:
+    #     audits = '{}'
+    # mzid_reader.reset()
 
     # AnalysisSampleCollection - optional element
-    try:
-        samples = json.dumps(mzid_reader.iterfind('AnalysisSampleCollection').next()['Sample'])
-    except StopIteration:
-        samples = '{}'
-    mzid_reader.reset()
+    samples = '{}'
+    # try:
+    #     samples = json.dumps(mzid_reader.iterfind('AnalysisSampleCollection').next()['Sample'])
+    # except StopIteration:
+    #     samples = '{}'
+    # mzid_reader.reset()
 
     # AnalysisCollection - required element
     analyses = json.dumps(mzid_reader.iterfind('AnalysisCollection').next()['SpectrumIdentification'])
     mzid_reader.reset()
 
     # AnalysisProtocolCollection - required element
-    protocols = json.dumps(mzid_reader.iterfind('AnalysisProtocolCollection').next()['SpectrumIdentificationProtocol'])
+    protocol_collection = mzid_reader.iterfind('AnalysisProtocolCollection').next()
+    protocols = protocol_collection['SpectrumIdentificationProtocol']
+    protocols = json.dumps(protocols, cls=NumpyEncoder)
     mzid_reader.reset()
 
     # BibliographicReference - optional element
     bibRefs = []
-    for bib in mzid_reader.iterfind('BibliographicReference'):
-        bibRefs.append(bib)
-    bibRefs = json.dumps(bibRefs)
-    mzid_reader.reset()
+    # for bib in mzid_reader.iterfind('BibliographicReference'):
+    #     bibRefs.append(bib)
+    # bibRefs = json.dumps(bibRefs)
+    # mzid_reader.reset()
 
 
     # # AnalysisSoftwareList - optional element
@@ -880,3 +857,8 @@ def parse_upload_info(mzid_reader, cur, con, user_id, filename, peak_list_file_n
 
     return upload_id  # temp, this would need to come back from db for all-uploads-in-one db
 
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)

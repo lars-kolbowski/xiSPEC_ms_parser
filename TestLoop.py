@@ -1,11 +1,8 @@
 import ftplib
 import sys
-import os
 import json
 import logging
-import gzip
-import StringIO
-import tempfile
+import psycopg2
 
 import xiUI_mzid as mzidParser
 import xiUI_pg as db
@@ -170,9 +167,26 @@ class TestLoop:
                     # print(json.dumps(returnJSON))
                     sys.exit(1)
 
+                returned_json = {}
+                try:
+                    returned_json = mzidParser.parse(path, target_dir, self.unimod_path, self.cur, self.con, self.logger)
+                except mzidParser.MzIdParseException as mzId_error:
+                    self.logger.exception(mzId_error.message)
+                    try:
+                        self.cur.execute("""
+                    INSERT INTO uploads (
+                        base_dir,
+                        filename,
+                        upload_error,
+                        error_type                        
+                    )
+                    VALUES (%s, %s, %s, %s)""",
+                                    [ymp, f, 'MzIdParseException', mzId_error.message])
+                        self.con.commit()
 
+                    except psycopg2.Error as e:
+                        raise db.DBException(e.message)
 
-                returned_json = mzidParser.parse(path, target_dir, self.unimod_path, self.cur, self.con, self.logger)
                 print(json.dumps(returned_json, indent=4))
                 # try:
                 #     os.remove(filename)
@@ -192,6 +206,6 @@ test_loop = TestLoop()
 # test_loop.year('2017')
 # test_loop.year('2018')
 
-# test_loop.month('2018/01')
-test_loop.project('2018/01/PXD004723')
+# test_loop.month('2017/03')
+test_loop.project('2017/03/PXD004025')
 print("mzId count:" + str(test_loop.mzId_count))
