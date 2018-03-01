@@ -25,7 +25,7 @@ try:
         dname = ''
 
     # import local files
-    import xiUI_mzid as mzidParser
+    import xiSPEC_mzid as mzidParser
     import xiSPEC_csv as csvParser
     from xiSPEC_peakList import unzip_peak_lists
 
@@ -38,11 +38,11 @@ try:
         dev = True
         logFile = "log/parser_%s.log" % int(time())
 
-    # try:
-    #     os.remove(logFile)
-    # except OSError:
-    #     pass
-    # os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
+    try:
+        os.remove(logFile)
+    except OSError:
+        pass
+    os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
 
     # create logger
     logging.basicConfig(level=logging.DEBUG,
@@ -59,7 +59,7 @@ try:
     else:
         import xiSPEC_sqlite as db
 except IndexError:
-    import xiUI_pg as db
+    import xiSPEC_sqlite as db
 
 
 returnJSON = {

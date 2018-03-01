@@ -8,6 +8,11 @@ import xiSPEC_peakList as peakListParser
 import zipfile
 import gzip
 import os
+import psycopg2
+
+
+class DBException(Exception):
+    pass
 
 
 try:
@@ -229,7 +234,7 @@ def add_to_modlist(mod, modlist):
     if mod['name'] == "unknown_modification":
         mod['name'] = "({0:.2f})".format(mod['monoisotopicMassDelta'])
 
-    mod['monoisotopicMassDelta'] = round(float(mod['monoisotopicMassDelta']), 6)
+    mod['monoisotopicMassDelta'] = float(mod['monoisotopicMassDelta'])
 
     mod['residues'] = [aa for aa in mod['residues']]
 
@@ -277,9 +282,7 @@ def parse_sequence_collection (mzid_reader, cur, con, upload_id, unimod_path):
     inj_list = []
     for db_sequence in sequence_collection['DBSequence']:
 
-        data = []; #id, accession, name, description, sequence, is_decoy
-        data.append(db_sequence["id"]) #id, required
-        data.append(db_sequence["accession"]) #accession, required
+        data = [db_sequence["id"], db_sequence["accession"]];
 
         # name, optional elem att
         if "name" in db_sequence :
@@ -296,8 +299,9 @@ def parse_sequence_collection (mzid_reader, cur, con, upload_id, unimod_path):
         #searchDatabase_ref
 
         # sequence
-        if "Seq" in db_sequence : # Seq is optional child elem of DBSequence
-            data.append(db_sequence["Seq"])
+        if "Seq" in db_sequence and isinstance(db_sequence["Seq"], basestring):  # Seq is optional child elem of DBSequence
+            seq = db_sequence["Seq"]
+            data.append(seq)
         else:
             # todo: get sequence
             data.append("no sequence")
@@ -313,11 +317,6 @@ def parse_sequence_collection (mzid_reader, cur, con, upload_id, unimod_path):
 
     #PEPTIDES
     inj_list = []
-    #following not working
-    # for peptide in sequence_collection['Peptide']:
-
-    peptides = {}
-    peptide_ref_map = {}
     for pep_id in mzid_reader._offset_index["Peptide"].keys():
         # peptide = mzid_reader.get_by_id('1712126853_1712127183_5_13_p1', tag_id='Peptide', detailed=True)
         peptide = mzid_reader.get_by_id(pep_id, tag_id='Peptide', detailed=True)
@@ -328,6 +327,8 @@ def parse_sequence_collection (mzid_reader, cur, con, upload_id, unimod_path):
 
         link_site = -1
         crosslinker_modmass = -1
+
+        value = -1
 
         #MODIFICATIONS
         # add in modifications
@@ -387,27 +388,22 @@ def parse_sequence_collection (mzid_reader, cur, con, upload_id, unimod_path):
                         # logger.error(mod)
 
                 # add CL locations
-                if 'cross-link donor' in mod.keys() or 'cross-link acceptor' in mod.keys():
-                    link_site = mod_location - 1
+                if 'cross-link donor' in mod.keys() or 'cross-link acceptor' in mod.keys() or 'cross-link receiver' in mod.keys():
+                    link_site = mod_location
                     # return_dict['linkSites'].append(
                     #     {"id": link_index, "peptideId": pep_index, "linkSite": mod_location - 1})
+                if 'cross-link acceptor' in mod.keys():
+                    crosslinker_modmass = mod['monoisotopicMassDelta']
+                    value = mod['cross-link acceptor']['value']
                 if 'cross-link donor' in mod.keys():
-                    crosslinker_modmass = round(mod['monoisotopicMassDelta'], 6)
+                    crosslinker_modmass = mod['monoisotopicMassDelta']
+                    value = mod['cross-link donor']['value']
 
         # we should consider swapping these over because modX format has modification before AA
         peptide_seq_with_mods = ''.join([''.join([x['aminoAcid'], x['Modification']]) for x in pep_seq_dict])
 
-        # pep_key = peptide_seq_with_mods + ":" + link_site
-        # if pep_key not in peptides.keys():
-        data = []
-        data.append(peptide["id"])  # id, required
         # data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
-        data.append(peptide_seq_with_mods)
-        data.append(link_site)
-        data.append(crosslinker_modmass)
-        data.append(upload_id)
-
-        # peptides[pep_key] = data
+        data = [peptide["id"], peptide_seq_with_mods, link_site, crosslinker_modmass, upload_id, value]
 
         inj_list.append(data)
 
@@ -495,7 +491,7 @@ def get_unimod_masses(unimod_path):
     return masses
 
 
-def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
+def parse(mzid_file, base_dir, unimod_path, cur, con, logger):
     logger.info('reading mzid - start')
     mzid_start_time = time()
 
@@ -515,7 +511,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     except Exception as e:
         return_json['errors'].append({
             "type": "mzidParseError",
-            "message": e
+            "message": e.message
         })
         return return_json
 
@@ -528,7 +524,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     logger.info('getting upload info (provider, etc) - start')
     #temp
     user_id = -1
-    upload_id = parse_upload_info(mzid_reader, cur, con, user_id, mzid_file, peak_list_file_list)
+    upload_id = parse_upload_info(mzid_reader, cur, con, user_id, mzid_file, "")  # peak_list_file_list)
     logger.info(
         'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
 
@@ -561,7 +557,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     #
     peak_list_start_time = time()
     logger.info('reading peakList files - start')
-    peak_list_readers = peakListParser.create_peak_list_readers(peak_list_file_list)
+    # peak_list_readers = peakListParser.create_peak_list_readers(peak_list_file_list)
     logger.info('reading peakList files - done. Time: ' + str(round(time() - peak_list_start_time, 2)) + " sec")
 
     # ToDo: better error handling for general errors - bundling errors of same type errors together
@@ -631,26 +627,26 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
         peak_list_file_name = re.sub('\.(mgf|mzml)', '', peak_list_file_name, flags=re.IGNORECASE)
 
-        # peak list
-        try:
-            peak_list_reader = peakListParser.get_reader(peak_list_readers, peak_list_file_name)
-        except peakListParser.ParseError as e:
-            return_json['errors'].append({
-                "type": "peakListParseError",
-                "message": e.args[0],
-                'id': sid_result['id']
-            })
-            continue
-        try:
-            scan = peakListParser.get_scan(peak_list_reader, sid_result["spectrumID"], spectra_data['SpectrumIDFormat'])
-        except peakListParser.ParseError:
-            try:
-                spec_not_found_error[peak_list_file_name].append(sid_result["spectrumID"])
-            except KeyError:
-                spec_not_found_error[peak_list_file_name] = [sid_result["spectrumID"]]
-            continue
-
-        peak_list = peakListParser.get_peak_list(scan, peak_list_reader['fileType'])
+        # # peak list
+        # try:
+        #     peak_list_reader = peakListParser.get_reader(peak_list_readers, peak_list_file_name)
+        # except peakListParser.ParseError as e:
+        #     return_json['errors'].append({
+        #         "type": "peakListParseError",
+        #         "message": e.args[0],
+        #         'id': sid_result['id']
+        #     })
+        #     continue
+        # try:
+        #     scan = peakListParser.get_scan(peak_list_reader, sid_result["spectrumID"], spectra_data['SpectrumIDFormat'])
+        # except peakListParser.ParseError:
+        #     try:
+        #         spec_not_found_error[peak_list_file_name].append(sid_result["spectrumID"])
+        #     except KeyError:
+        #         spec_not_found_error[peak_list_file_name] = [sid_result["spectrumID"]]
+        #     continue
+        #
+        # peak_list = peakListParser.get_peak_list(scan, peak_list_reader['fileType'])
 
         # ms2 tolerance
         # ms2_tol = spectra_data_protocol_map[sid_result['spectraData_ref']]['fragmentTolerance']
@@ -658,7 +654,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
         # 'id', 'peak_list', 'peak_list_file_name', 'scan_id', 'frag_tol', 'upload_id'
 
-        spectra.append([mzid_item_index, peak_list, peak_list_file_name, sid_result["spectrumID"],
+        spectra.append([mzid_item_index, "", peak_list_file_name, sid_result["spectrumID"],
                         protocol['fragmentTolerance'], upload_id, sid_result['id']])
 
         spectrum_ident_dict = dict()
@@ -698,8 +694,8 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
                 # # fragmentation ions ToDO
                 ions = get_ion_types_mzid(specIdItem, logger)
                 # if no ion types are specified in the id file check the mzML file
-                if len(ions) == 0 and peak_list_reader['fileType'] == 'mzml':
-                    ions = peakListParser.get_ion_types_mzml(scan)
+                # if len(ions) == 0 and peak_list_reader['fileType'] == 'mzml':
+                #     ions = peakListParser.get_ion_types_mzml(scan)
 
                 ions = list(set(ions))
 
@@ -752,6 +748,10 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
              "id": spec_id_item_index
              })
         return return_json
+    try:
+        con.commit()
+    except psycopg2.Error as e:
+        raise DBException(e.message)
 
     logger.info('write remaining entries and modifications to DB - done. Time: '
                 + str(round(time() - db_wrap_up_start_time, 2)) + " sec")
@@ -829,6 +829,48 @@ def parse_upload_info(mzid_reader, cur, con, user_id, filename, peak_list_file_n
         bibRefs.append(bib)
     bibRefs = json.dumps(bibRefs)
     mzid_reader.reset()
+
+
+    # # AnalysisSoftwareList - optional element
+    # # see https://groups.google.com/forum/#!topic/pyteomics/Mw4eUHmicyU
+    # mzid_reader.schema_info['lists'].add("AnalysisSoftware")
+    # analysis_software = {}
+    # for analysis_software_list_id in mzid_reader._offset_index["AnalysisSoftwareList"].keys():
+    #     analysis_software = mzid_reader.get_by_id(analysis_software_list_id, tag_id='AnalysisSoftwareList',
+    #                                               detailed=True)['AnalysisSoftware']
+    # analysis_software = json.dumps(analysis_software)
+    #
+    # # try:
+    # #     analysis_software = json.dumps(mzid_reader.iterfind('AnalysisSoftwareList').next()['AnalysisSoftware'])
+    # # except StopIteration:
+    # #     analysis_software = '{}'
+    # # mzid_reader.reset()
+    #
+    # # Provider - optional element
+    # try:
+    #     provider = json.dumps(mzid_reader.iterfind('Provider').next())
+    # except StopIteration:
+    #     provider = '{}'
+    # mzid_reader.reset()
+    # analysis_software = {}
+    # for analysis_software_list_id in mzid_reader._offset_index["AnalysisSoftwareList"].keys():
+    #     analysis_software = mzid_reader.get_by_id(analysis_software_list_id, tag_id='AnalysisSoftwareList',
+    #                                               detailed=True)['AnalysisSoftware']
+    # analysis_software = json.dumps(analysis_software)
+    #
+    # # AuditCollection - optional element
+    # # try:
+    # #     audits = json.dumps(mzid_reader.iterfind('AuditCollection').next())
+    # # except StopIteration:
+    # #     audits = '{}'
+    # # mzid_reader.reset()
+    # 
+    # audits = {}
+    # for audit_collection_id in mzid_reader._offset_index["AuditCollection"].keys():
+    #     audits = mzid_reader.get_by_id(audit_collection_id, tag_id='AuditCollection',
+    #                                               detailed=True)
+    # audits = json.dumps(audits)
+    #
 
     #ToDo: pass in upload geo info (country of origin guessed from IP address, its for our usage stats)
     upload_id = db.write_upload([user_id, filename, json.dumps(peak_list_file_names),
