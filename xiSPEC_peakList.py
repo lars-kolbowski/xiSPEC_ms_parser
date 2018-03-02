@@ -158,7 +158,15 @@ def get_scan(reader, spec_id, file_id_format=None):
 
         if file_id_format['accession'] == 'MS:1000774':  # (multiple peak list nativeID format - zero based)
             matches = re.findall("index=([0-9]+)", spec_id)
-            spec_id = int(matches[0])
+            try:
+                spec_id = int(matches[0])
+
+            # try to cast spec_id to int if re doesn't match -> PXD006767 has this format
+            except IndexError:
+                try:
+                    spec_id = int(spec_id)
+                except ValueError:
+                    raise ParseError("invalid spectrum ID format!")
 
         # MS:1000775
         # The nativeID must be the same as the source file ID.
