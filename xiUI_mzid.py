@@ -513,12 +513,7 @@ def parse(mzid_file, base_dir, unimod_path, cur, con, logger):
     try:
         mzid_reader = py_mzid.MzIdentML(mzid_file)
     except Exception as e:
-        raise MzIdParseException(str(type(e)) + ':' + e.message)
-        # return_json['errors'].append({
-        #     "type": "mzidParseError",
-        #     "message": e.message
-        # })
-        # return return_json
+        raise MzIdParseException([type(e).__name__, e.args])
 
     logger.info('reading mzid - done. Time: ' + str(round(time() - mzid_start_time, 2)) + " sec")
 
@@ -533,6 +528,7 @@ def parse(mzid_file, base_dir, unimod_path, cur, con, logger):
     logger.info(
         'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
 
+    return
 
     #
     # Sequences, Peptides, Peptide Evidences (inc. peptide positions), Modifications
@@ -599,62 +595,62 @@ def parse(mzid_file, base_dir, unimod_path, cur, con, logger):
 
         # print('* ' + peak_list_file_name + ' *')
 
-        if peak_list_readers.has_key(peak_list_file_name):
-            try:
-                peak_list_reader = peakListParser.get_reader(peak_list_readers, peak_list_file_name)
-            except peakListParser.ParseError as e:
-                return_json['errors'].append({
-                    "type": "peakListParseError",
-                    "message": e.args[0],
-                    'id': sid_result['id']
-                })
-                continue
-        else:
-            path = "/home/col/parser_temp" + '/' + peak_list_file_name
-
-            ftp = ftplib.FTP("193.62.192.9")
-            ftp.login()  # Username: anonymous password: anonymous@
-
-            try:
-                ftp.cwd(base_dir)
-                ftp.retrbinary("RETR " + peak_list_file_name, open(path, 'wb').write)
-            except ftplib.error_perm as e:
-                error_msg = "%s: %s" % (f, e.args[0])
-                logger.error(error_msg)
-                # returnJSON['errors'].append({
-                #     "type": "ftpError",
-                #     "message": error_msg,
-                # })
-                # print(json.dumps(returnJSON))
-                sys.exit(1)
-
-            peakListParser.add_peak_list_reader(path, peak_list_readers, peak_list_file_name)
-            try:
-                peak_list_reader = peakListParser.get_reader(peak_list_readers, peak_list_file_name)
-            except peakListParser.ParseError as e:
-                return_json['errors'].append({
-                    "type": "peakListParseError",
-                    "message": e.args[0],
-                    'id': sid_result['id']
-                })
-                continue
-
-        # # peak list
-
-        try:
-            scan = peakListParser.get_scan(peak_list_reader, sid_result["spectrumID"], spectra_data['SpectrumIDFormat'])
-        except peakListParser.ParseError:
-            try:
-                spec_not_found_error[peak_list_file_name].append(sid_result["spectrumID"])
-            except KeyError:
-                spec_not_found_error[peak_list_file_name] = [sid_result["spectrumID"]]
-            continue
-
-        peak_list = peakListParser.get_peak_list(scan, peak_list_reader['fileType'])
+        # if peak_list_readers.has_key(peak_list_file_name):
+        #     try:
+        #         peak_list_reader = peakListParser.get_reader(peak_list_readers, peak_list_file_name)
+        #     except peakListParser.ParseError as e:
+        #         return_json['errors'].append({
+        #             "type": "peakListParseError",
+        #             "message": e.args[0],
+        #             'id': sid_result['id']
+        #         })
+        #         continue
+        # else:
+        #     path = "/home/col/parser_temp" + '/' + peak_list_file_name
+        #
+        #     ftp = ftplib.FTP("193.62.192.9")
+        #     ftp.login()  # Username: anonymous password: anonymous@
+        #
+        #     try:
+        #         ftp.cwd(base_dir)
+        #         ftp.retrbinary("RETR " + peak_list_file_name, open(path, 'wb').write)
+        #     except ftplib.error_perm as e:
+        #         error_msg = "%s: %s" % (f, e.args[0])
+        #         logger.error(error_msg)
+        #         # returnJSON['errors'].append({
+        #         #     "type": "ftpError",
+        #         #     "message": error_msg,
+        #         # })
+        #         # print(json.dumps(returnJSON))
+        #         sys.exit(1)
+        #
+        #     peakListParser.add_peak_list_reader(path, peak_list_readers, peak_list_file_name)
+        #     try:
+        #         peak_list_reader = peakListParser.get_reader(peak_list_readers, peak_list_file_name)
+        #     except peakListParser.ParseError as e:
+        #         return_json['errors'].append({
+        #             "type": "peakListParseError",
+        #             "message": e.args[0],
+        #             'id': sid_result['id']
+        #         })
+        #         continue
+        #
+        # # # peak list
+        #
+        # try:
+        #     scan = peakListParser.get_scan(peak_list_reader, sid_result["spectrumID"], spectra_data['SpectrumIDFormat'])
+        # except peakListParser.ParseError:
+        #     try:
+        #         spec_not_found_error[peak_list_file_name].append(sid_result["spectrumID"])
+        #     except KeyError:
+        #         spec_not_found_error[peak_list_file_name] = [sid_result["spectrumID"]]
+        #     continue
+        #
+        # peak_list = peakListParser.get_peak_list(scan, peak_list_reader['fileType'])
 
         protocol = spectra_data_protocol_map[sid_result['spectraData_ref']]
 
-        spectra.append([mzid_item_index, peak_list, peak_list_file_name, sid_result["spectrumID"],
+        spectra.append([mzid_item_index, "", peak_list_file_name, sid_result["spectrumID"],
                         protocol['fragmentTolerance'], upload_id, sid_result['id']])
 
         spectrum_ident_dict = dict()
@@ -820,14 +816,16 @@ def parse_upload_info(mzid_reader, cur, con, user_id, filename, peak_list_file_n
     # mzid_reader.reset()
 
     # AnalysisCollection - required element
-    analyses = json.dumps(mzid_reader.iterfind('AnalysisCollection').next()['SpectrumIdentification'])
-    mzid_reader.reset()
+    analyses = '{}'
+    # analyses = json.dumps(mzid_reader.iterfind('AnalysisCollection').next()['SpectrumIdentification'])
+    # mzid_reader.reset()
 
     # AnalysisProtocolCollection - required element
-    protocol_collection = mzid_reader.iterfind('AnalysisProtocolCollection').next()
-    protocols = protocol_collection['SpectrumIdentificationProtocol']
+    protocols ='{}'
+    # protocol_collection = mzid_reader.iterfind('AnalysisProtocolCollection').next()
+    # protocols = protocol_collection['SpectrumIdentificationProtocol']
     protocols = json.dumps(protocols, cls=NumpyEncoder)
-    mzid_reader.reset()
+    # mzid_reader.reset()
 
     # BibliographicReference - optional element
     bibRefs = []
