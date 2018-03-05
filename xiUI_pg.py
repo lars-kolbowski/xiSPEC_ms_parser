@@ -40,7 +40,10 @@ def create_tables(cur, con):
             "upload_error TEXT,"
             "error_type TEXT,"
             "upload_warnings JSON,"
-            "base_dir TEXT)"
+            "base_dir TEXT,"
+            "origin TEXT,"
+            "xml_version TEXT,"
+            "filesize INT)"
         )
         cur.execute("DROP TABLE IF EXISTS protocols")
         cur.execute(

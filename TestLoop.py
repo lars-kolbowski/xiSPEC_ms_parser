@@ -6,7 +6,7 @@ import psycopg2
 import os
 import gc
 
-import xiUI_mzid as mzidParser
+from xiUI_mzid import MzIdParser
 import xiUI_pg as db
 
 
@@ -16,6 +16,20 @@ class TestLoop:
 
         #exclusion list
 
+        # logging
+        # try:
+        #     dev = False
+        #     logFile = dname + "/log/%s_%s.log" % (args[2], int(time()))
+        #
+        # except IndexError:
+        #     dev = True
+        #     logFile = "log/parser_%s.log" % int(time())
+        #
+        # try:
+        #     os.remove(logFile)
+        # except OSError:
+        #     pass
+        # os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
         # create logger
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s %(levelname)s %(name)s %(message)s')
@@ -26,12 +40,12 @@ class TestLoop:
         self.mzId_count = 0
         self.unimod_path = 'obo/unimod.obo'
 
-        self.temp_dir = "/home/col/parser_temp"
+        self.temp_dir = os.path.expanduser('~') + "/parser_temp"
 
         # connect to DB
         try:
-            self.con = db.connect('')
-            self.cur = self.con.cursor()
+            con = db.connect('')
+            cur = con.cursor()
 
         except db.DBException as e:
             self.logger.error(e)
@@ -40,11 +54,13 @@ class TestLoop:
 
         # create Database tables
         try:
-            db.create_tables(self.cur, self.con)
+            db.create_tables(cur, con)
         except db.DBException as e:
             self.logger.error(e)
             print(e)
             sys.exit(1)
+
+        con.close
 
     def all_years(self):
         files = self.get_file_list(self.base)
@@ -91,24 +107,26 @@ class TestLoop:
                     # print(json.dumps(returnJSON))
                     sys.exit(1)
 
+                mzId_parser = MzIdParser(path, target_dir, ymp, db, self.logger)
                 returned_json = {}
-                try:
-                    returned_json = mzidParser.parse(path, target_dir, self.unimod_path, self.cur, self.con, self.logger)
-                except Exception as mzId_error:
-                    self.logger.exception(mzId_error)
-                    try:
-                        self.cur.execute("""
-                    INSERT INTO uploads (
-                        base_dir,
-                        filename,
-                        error_type,                        
-                        upload_error
-                    )
-                    VALUES (%s, %s, %s, %s)""", [ymp + '/' + f, f, type(mzId_error).__name__, json.dumps(mzId_error.args)])
-                        self.con.commit()
-
-                    except psycopg2.Error as e:
-                        raise db.DBException(e.message)
+                # try:
+                #
+                #     # returned_json = mzId_parser.parse()
+                # except Exception as mzId_error:
+                #     self.logger.exception(mzId_error)
+                #     try:
+                #         self.cur.execute("""
+                #     INSERT INTO uploads (
+                #         base_dir,
+                #         filename,
+                #         error_type,
+                #         upload_error
+                #     )
+                #     VALUES (%s, %s, %s, %s)""", [ymp + '/' + f, f, type(mzId_error).__name__, json.dumps(mzId_error.args)])
+                #         self.con.commit()
+                #
+                #     except psycopg2.Error as e:
+                #         raise db.DBException(e.message)
 
                 print(json.dumps(returned_json, indent=4))
                 try:
@@ -147,15 +165,16 @@ class TestLoop:
 test_loop = TestLoop()
 # test_loop.allYears()  # no point, starts 2012/12
 
-test_loop.month('2012/12')
-test_loop.year('2013')
-test_loop.year('2014')
-test_loop.year('2015')
-test_loop.year('2016')
-test_loop.year('2017')
-test_loop.year('2018')
+# test_loop.month('2012/12')
+# test_loop.year('2013')
+# test_loop.year('2014')
+# test_loop.year('2015')
+# test_loop.year('2016')
+# test_loop.year('2017')
+# test_loop.year('2018')
 
-# test_loop.month('2017/04')
+test_loop.month('2017/05')
+
 # test_loop.project('2017/04/PXD004748')
 # test_loop.project('2012/12/PXD000039')
 # test_loop.project('2013/09/PRD000647')
