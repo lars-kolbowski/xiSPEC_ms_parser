@@ -243,8 +243,8 @@ class Reader(object):
         try:
             peak_list = RegexPatterns.peak_list_pattern.search(data).groups()[0]
 
-        except:
-            raise ParseError()
+        except (AttributeError, IndexError) as e:
+            raise KeyError("MGF file does not contain a spectrum with id {0}".format(scan_id))
 
         if peak_list is None:
             raise KeyError("MGF file does not contain a spectrum with id {0}".format(scan_id))
