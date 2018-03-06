@@ -25,7 +25,7 @@ def create_tables(cur, con):
             "id SERIAL PRIMARY KEY, "
             "user_id INT,"
             "filename TEXT, "
-            "peak_list_file_names TEXT, "
+            "peak_list_file_names JSON, "
             "analysis_software JSON,"
             "provider JSON,"
             "audits JSON,"
@@ -34,16 +34,16 @@ def create_tables(cur, con):
             "protocol JSON,"
             "bib JSON,"
             "upload_time DATE, "
-            "upload_loc TEXT,"          
             "default_pdb TEXT,"
-            "contains_crosslink BOOLEAN,"
+            "contains_crosslinks BOOLEAN,"
             "upload_error TEXT,"
             "error_type TEXT,"
             "upload_warnings JSON,"
-            "base_dir TEXT,"
             "origin TEXT,"
             "xml_version TEXT,"
-            "file_size INT)"
+            "file_size BIGINT,"
+            "spectrum_id_format JSON,"
+            "parse_time FLOAT)"
         )
         cur.execute("DROP TABLE IF EXISTS protocols")
         cur.execute(
@@ -79,7 +79,7 @@ def create_tables(cur, con):
         cur.execute("DROP TABLE IF EXISTS modifications")
         cur.execute(
             "CREATE TABLE modifications("
-            "id INT PRIMARY KEY, "
+            "id BIGINT PRIMARY KEY, "
             "upload_id INT,"
             "name TEXT, "
             "mass FLOAT, "
@@ -98,7 +98,7 @@ def create_tables(cur, con):
         cur.execute("DROP TABLE IF EXISTS spectra")
         cur.execute(
             "CREATE TABLE spectra("
-            "id INT, "
+            "id BIGINT, "
             "upload_id INT,"
             "peak_list text, "
             "peak_list_file_name text, "
@@ -109,9 +109,9 @@ def create_tables(cur, con):
         cur.execute("DROP TABLE IF EXISTS spectrum_identifications")
         cur.execute(
             "CREATE TABLE spectrum_identifications("
-            "id INT, "
+            "id BIGINT, "
             "upload_id INT,"
-            "spectrum_id INT, "
+            "spectrum_id BIGINT, "
             "pep1_id text, "
             "pep2_id text, "
             "charge_state int, "

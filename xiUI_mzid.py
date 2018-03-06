@@ -11,7 +11,6 @@ import gzip
 import os
 import psycopg2
 import ftplib
-import urllib
 
 class MzIdParseException(Exception):
     pass
@@ -19,10 +18,7 @@ class MzIdParseException(Exception):
 class MzIdMissingFileException(Exception):
     pass
 
-class MzIDScanNotFoundException(Exception):
-    pass
-
-class DBException(Exception):
+class MzIdScanNotFoundException(Exception):
     pass
 
 class MzIdParser:
@@ -41,7 +37,7 @@ class MzIdParser:
 
 
         self.peak_list_readers = {}  # peakListParser.create_peak_list_readers(peak_list_file_list)
-        self.spectrum_identifier_formats = set()
+        self.spectrum_id_formats = set([])
         self.contains_crosslinks = False
 
         # connect to DB
@@ -89,7 +85,7 @@ class MzIdParser:
             raise db.DBException(e.message)
 
         rows = self.cur.fetchall()
-        self.upload_id = rows[0]
+        self.upload_id = rows[0][0]
 
     def get_ion_types_mzid(self, sid_item):
         try:
@@ -553,13 +549,6 @@ class MzIdParser:
         self.logger.info('reading mzid - start')
         mzid_start_time = time()
 
-        return_json = {
-            "response": "",
-            "modifications": [],
-            "errors": [],
-            "warnings": []
-        }
-
         # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
         try:
             mzid_reader = py_mzid.MzIdentML(self.mzId_path)
@@ -577,7 +566,6 @@ class MzIdParser:
         # self.logger.info(
         #     'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
 
-
         #
         # Sequences, Peptides, Peptide Evidences (inc. peptide positions), Modifications
         #
@@ -592,7 +580,7 @@ class MzIdParser:
         spectra_map_start_time = time()
         self.logger.info('generating spectra data protocol map - start')
         spectra_data_protocol_map = self.map_spectra_data_to_protocol(mzid_reader)
-        return_json['errors'] += spectra_data_protocol_map['errors']
+        # return_json['errors'] += spectra_data_protocol_map['errors']
         # ToDo: save FragmentTolerance to annotationsTable
         self.logger.info('generating spectraData_ProtocolMap - done. Time: ' + str(round(time() - spectra_map_start_time, 2)) + " sec")
 
@@ -601,10 +589,7 @@ class MzIdParser:
         spectra =[]
         spectrum_identifications = []
 
-
-        # ToDo: better error handling for general errors - bundling errors of same type errors together
         fragment_parsing_error_scans = []
-        spec_not_found_error = {}
 
         #
         # main loop
@@ -631,16 +616,11 @@ class MzIdParser:
             else:
                 peak_list_file_name = ntpath.basename(['spectraData_ref'])
 
+            if peak_list_file_name.endswith('raw'):
+                raise MzIdParseException('.raw files not supported')
+
             if self.peak_list_readers.has_key(peak_list_file_name):
-                # try:
                 peak_list_reader = self.peak_list_readers[peak_list_file_name]
-                # except peakListParser.ParseError as e:
-                #     return_json['errors'].append({
-                #         "type": "peakListParseError",
-                #         "message": e.args[0],
-                #         'id': sid_result['id']
-                #     })
-                #     continue
             else:
                 path = self.temp_dir + '/' + peak_list_file_name
 
@@ -649,43 +629,22 @@ class MzIdParser:
 
                 try:
                     target_dir = '/' + self.base + '/' + self.origin
-                    # target_dir = '/pride/data/archive/2017/06/PXD001683/'
-                    #
-                    # f = '20140218_ML_2139_01.raw(F001303).mzid_20140218_ML_2139_01.raw_(F001303).MGF'
                     ftp.cwd(target_dir)
                     self.logger.info('getting ' + peak_list_file_name)
                     ftp.retrbinary("RETR " + peak_list_file_name, open(self.temp_dir + '/' + peak_list_file_name, 'wb').write)
                 except ftplib.error_perm as e:
-                    raise MzIdMissingFileException(type(e).__name__, e.args)
-                    # returnJSON['errors'].append({
-                    #     "type": "ftpError",
-                    #     "message": error_msg,
-                    # })
-                    # print(json.dumps(returnJSON))
-                    # sys.exit(1)
+                    raise MzIdMissingFileException(type(e).__name__, peak_list_file_name, e.args)
 
                 peak_list_reader = peakListParser.get_peak_list_reader(path)
                 self.peak_list_readers[peak_list_file_name] = peak_list_reader
-                # try:
-                #     peak_list_reader = peakListParser.get_reader(peak_list_readers, peak_list_file_name)
-                # except peakListParser.ParseError as e:
-                #     return_json['errors'].append({
-                #         "type": "peakListParseError",
-                #         "message": e.args[0],
-                #         'id': sid_result['id']
-                #     })
-                #     continue
 
-            # # peak list
-
+            # peak list
+            fstring = str(json.dumps([[spectra_data['SpectrumIDFormat'], spectra_data['FileFormat']]]))
+            self.spectrum_id_formats.add(fstring)
             try:
                 scan = peakListParser.get_scan(peak_list_reader, sid_result["spectrumID"], spectra_data['SpectrumIDFormat'])
-            except peakListParser.ParseError:
-                try:
-                    spec_not_found_error[peak_list_file_name].append(sid_result["spectrumID"])
-                except KeyError:
-                    spec_not_found_error[peak_list_file_name] = [sid_result["spectrumID"]]
-                continue
+            except Exception as e:
+                raise MzIdScanNotFoundException(type(e).__name__, peak_list_file_name, sid_result["spectrumID"], e.args)
 
             peak_list = peakListParser.get_peak_list(scan, peak_list_reader['fileType'])
 
@@ -696,13 +655,12 @@ class MzIdParser:
 
             spectrum_ident_dict = dict()
             linear_index = -1  # negative index values for linear peptides
-            #(camelCase namimg of specIdItem isn't pythonesque?)
 
-            for specIdItem in sid_result['SpectrumIdentificationItem']:
+            for spec_id_item in sid_result['SpectrumIdentificationItem']:
                 # get suitable id
-                if 'cross-link spectrum identification item' in specIdItem.keys():
+                if 'cross-link spectrum identification item' in spec_id_item.keys():
                     self.contains_crosslinks = True
-                    id = MzIdParser.get_cross_link_identifier(specIdItem)
+                    id = MzIdParser.get_cross_link_identifier(spec_id_item)
                 else:  # assuming linear
                     # misusing 'cross-link spectrum identification item' for linear peptides with negative index
                     #specIdItem['cross-link spectrum identification item'] = linear_index
@@ -715,13 +673,13 @@ class MzIdParser:
                 if id in spectrum_ident_dict.keys():
                     # do crosslink specific stuff
                     ident_data = spectrum_ident_dict.get(id)
-                    ident_data[4] = specIdItem['peptide_ref']
+                    ident_data[4] = spec_id_item['peptide_ref']
                 else:
                     # do stuff common to linears and crosslinks
-                    charge_state = specIdItem['chargeState']
-                    pass_threshold = specIdItem['passThreshold']
+                    charge_state = spec_id_item['chargeState']
+                    pass_threshold = spec_id_item['passThreshold']
                     scores = {
-                        k: v for k, v in specIdItem.iteritems()
+                        k: v for k, v in spec_id_item.iteritems()
                         if 'score' in k.lower() or
                            'pvalue' in k.lower() or
                            'evalue' in k.lower() or
@@ -730,7 +688,7 @@ class MzIdParser:
                     }
                     #
                     # # fragmentation ions ToDO
-                    ions = self.get_ion_types_mzid(specIdItem)
+                    ions = self.get_ion_types_mzid(spec_id_item)
                     # if no ion types are specified in the id file check the mzML file
                     # if len(ions) == 0 and peak_list_reader['fileType'] == 'mzml':
                     #     ions = peakListParser.get_ion_types_mzml(scan)
@@ -745,19 +703,18 @@ class MzIdParser:
                     ions = ';'.join(ions)
 
                     # extract other useful info to display
-                    rank = specIdItem['rank']
+                    rank = spec_id_item['rank']
 
                     ident_data = [spec_id_item_index,
                                   self.upload_id,
                                   mzid_item_index,
-                                  specIdItem['peptide_ref'],
+                                  spec_id_item['peptide_ref'],
                                   '',  # pep2
                                   charge_state,
                                   rank,
                                   pass_threshold,
                                   json.dumps(ions),
                                   json.dumps(scores)]
-                                  #mzid_item_index]
 
                     spectrum_ident_dict[id] = ident_data
 
@@ -778,18 +735,9 @@ class MzIdParser:
         try:
             self.db.write_spectra(spectra, self.cur, self.con)
             self.db.write_spectrum_identifications(spectrum_identifications, self.cur, self.con)
-
-        except self.db.DBException as e:
-            return_json['errors'].append(
-                {"type": "dbError",
-                 "message": e.message,
-                 "id": spec_id_item_index
-                 })
-            return return_json
-        try:
             self.con.commit()
         except psycopg2.Error as e:
-            raise DBException(e.message)
+            raise e
 
         self.logger.info('write remaining entries and modifications to DB - done. Time: '
                     + str(round(time() - db_wrap_up_start_time, 2)) + " sec")
@@ -800,30 +748,50 @@ class MzIdParser:
         # db.fill_in_missing_scores(cur, con)
         # logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
 
-        # multi error handler
+        # warnings
+        warnings = []
         if len(fragment_parsing_error_scans) > 0:
             if len(fragment_parsing_error_scans) > 50:
                 id_string = '; '.join(fragment_parsing_error_scans[:50]) + ' ...'
             else:
                 id_string = '; '.join(fragment_parsing_error_scans)
-            return_json['warnings'].append({
-                "type": "IonParsing",
-                "message": "mzidentML file does not specify fragment ions.",
-                'id': id_string
-            })
+                warnings.append({
+                    "type": "IonParsing",
+                    "message": "mzidentML file does not specify fragment ions.",
+                    'id': id_string
+                })
 
-        for pl_file, scan_id_list in spec_not_found_error.iteritems():
-            return_json['errors'].append({
-                "type": "",
-                "message": "requested scanID(s) not found in peakList file %s" % pl_file,
-                'id': '; '.join([str(scan_id) for scan_id in scan_id_list])
-            })
+        parse_time = str(round(time() - mzid_start_time, 2))
+        formats = []
+        for fmat in self.spectrum_id_formats:
+            formats.append(fmat)
+        formats = json.dumps(formats, cls=NumpyEncoder)
+        # store some info on how things went
+        try:
+            self.cur.execute("""
+                UPDATE uploads SET
+                    peak_list_file_names=%s, 
+                    upload_warnings=%s,
+                    spectrum_id_format=%s,
+                    parse_time=%s,
+                    contains_crosslinks=%s
+                 WHERE id = %s""",
+                             [
+                                 json.dumps(self.peak_list_readers.keys(), cls=NumpyEncoder),
+                                 json.dumps(warnings, cls=NumpyEncoder),
+                                 formats,
+                                 parse_time,
+                                 self.contains_crosslinks,
+                                 self.upload_id
+                             ])
+            self.con.commit()
+        except psycopg2.Error as e:
+            raise e
 
         self.logger.info('all done! Total time: ' + str(round(time() - mzid_start_time, 2)) + " sec")
-        return return_json
 
 
-    def parse_upload_info(self, mzid_reader):
+    def upload_info(self, mzid_reader):
         # AnalysisSoftwareList - optional element
         # see https://groups.google.com/forum/#!topic/pyteomics/Mw4eUHmicyU
         mzid_reader.schema_info['lists'].add("AnalysisSoftware")
@@ -918,11 +886,10 @@ class MzIdParser:
         # audits = json.dumps(audits)
         #
 
-        #ToDo: pass in upload geo info (country of origin guessed from IP address, its for our usage stats)
-        # upload_id = self.db.write_upload([self.user_id, filename, json.dumps(peak_list_file_names),
-        #                  analysis_software, provider, audits, samples, analyses, protocols, bibRefs, 'country'],
-        #                 self.cur, self.con,
-        #                 )
+       # upload_id = self.db.write_upload([self.user_id, filename, json.dumps(peak_list_file_names),
+       #                   analysis_software, provider, audits, samples, analyses, protocols, bibRefs, 'country'],
+       #                  self.cur, self.con,
+       #                  )
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):

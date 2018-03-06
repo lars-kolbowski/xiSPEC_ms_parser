@@ -5,8 +5,10 @@ import logging
 import psycopg2
 import os
 import gc
+import shutil
 
 from xiUI_mzid import MzIdParser
+from xiUI_mzid import NumpyEncoder
 import xiUI_pg as db
 
 
@@ -14,8 +16,18 @@ class TestLoop:
 
     def __init__(self):
 
-        #exclusion list
-
+        self.exclusion_list = [
+            '2016/04/PXD003564',
+            '2016/04/PXD003565',
+            '2016/04/PXD003566',
+            '2016/04/PXD003567',
+            '2016/04/PXD003568',
+            '2016/05/PXD002905',
+            '2016/10/PXD003935',
+            '2016/10/PXD004572',
+            '2017/05/PXD005403',
+            '2017/06/PXD001767'  # big zip
+        ]
         # logging
         # try:
         #     dev = False
@@ -30,7 +42,7 @@ class TestLoop:
         # except OSError:
         #     pass
         # os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
-        # create logger
+
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s %(levelname)s %(name)s %(message)s')
         self.logger = logging.getLogger(__name__)
@@ -78,12 +90,21 @@ class TestLoop:
         target_dir = self.base + '/' + ym
         files = self.get_file_list(target_dir)
         for f in files:
-            self.project(ym + '/' + f)
+            ymp = ym + '/' + f
+            if ymp not in self.exclusion_list:
+                self.project(ymp)
+            else:
+                print('skipping ' + ymp)
 
     def project(self, ymp):
         target_dir = self.base + '/' + ymp
         files = self.get_file_list(target_dir)
         print ('>> ' + ymp)
+        try:
+            os.mkdir(self.temp_dir)
+        except OSError:
+            pass
+
         for f in files:
             if f.endswith('mzid') or f.endswith('mzid.gz'):
                 print(f)
@@ -107,32 +128,31 @@ class TestLoop:
                 ftp.quit()
 
                 mzId_parser = MzIdParser(path, self.temp_dir, ymp, db, self.ip, self.base, self.logger)
-                returned_json = {}
                 try:
-                    returned_json = mzId_parser.parse()
+                    mzId_parser.parse()
                 except Exception as mzId_error:
                     self.logger.exception(mzId_error)
+                    formats = []
+                    for fmat in mzId_parser.spectrum_id_formats:
+                        formats.append(fmat)
+                    formats = json.dumps(formats, cls=NumpyEncoder)
                     con = db.connect('')
                     cur = con.cursor()
                     try:
                         cur.execute("""
-                    INSERT INTO uploads (
-                        error_type,
-                        upload_error
-                    )
-                    VALUES (%s, %s)""", [type(mzId_error).__name__, json.dumps(mzId_error.args)])
+                    UPDATE uploads SET
+                        error_type=%s,
+                        upload_error=%s,
+                        spectrum_id_format=%s
+                    WHERE id = %s""", [type(mzId_error).__name__, json.dumps(mzId_error.args), formats, mzId_parser.upload_id])
                         con.commit()
 
                     except psycopg2.Error as e:
                         raise db.DBException(e.message)
                     con.close()
 
-
-                print(json.dumps(returned_json, indent=4))
                 try:
-                    os.remove(path)
-                    if path.endswith('.gz'):
-                        os.remove(path[0:len(path) - 3])
+                    shutil.rmtree(self.temp_dir)
                 except OSError:
                     pass
                 self.mzId_count = self.mzId_count + 1
@@ -166,27 +186,26 @@ class TestLoop:
 test_loop = TestLoop()
 # test_loop.allYears()  # no point, starts 2012/12
 
-# test_loop.month('2012/12')
-# test_loop.year('2013')
-# test_loop.year('2014')
-# test_loop.year('2015')
-# test_loop.year('2016')
-# test_loop.year('2017')
-# test_loop.year('2018')
+test_loop.month('2012/12')
+test_loop.year('2013')
+test_loop.year('2014')
+test_loop.year('2015')
+test_loop.year('2016')
+test_loop.year('2017')
+test_loop.year('2018')
 
-test_loop.month('2017/08')
-# test_loop.month('2017/07')
+# test_loop.month('2017/11')
+# test_loop.month('2017/07') *
 
-# test_loop.project('2017/04/PXD004748') # no id for DataCollection
+# test_loop.project('2017/10/PXD004883')
+# test_loop.project('2017/04/PXD004748') # no id for DataCollection, fixed
 # test_loop.project('2012/12/PXD000039') # 1.0.0
+# test_loop.project('2017/09/PXD005119') # key error:  PeptideEvidence
+# test_loop.project('2017/08/PXD004706') # raw files
+# test_loop.project('2017/06/PXD001683') # windows file paths, fixed
+# test_loop.project('2017/06/PXD001767') massive zip # big zip
 
-# >> 2017/06/PXD001683 # windows file paths
+# 2017/09/PXD007267 xiUI_pg.DBException: integer out of range, should be fixed
 
-# 2016/04/PXD003564 # biggie
-# 2016/04/PXD003565 # big 2016/04/PXD003565 2016/04/PXD003566, "67 "68
-#  2016/05/PXD002905 ?
-# >> 2016/10/PXD003935 ?
-# 2016/10/PXD004572
-# 2017/05/PXD005403 6gb
-# 2017/06/PXD001767 massive zip
+
 print("mzId count:" + str(test_loop.mzId_count))
