@@ -239,7 +239,7 @@ def create_peak_list_readers(pl_file_list):
     return return_dict
 
 
-def add_peak_list_reader(pl_file, return_dict, key):
+def get_peak_list_reader(pl_file):
 
     pl_file_name = ntpath.basename(pl_file)
 
@@ -254,14 +254,11 @@ def add_peak_list_reader(pl_file, return_dict, key):
     else:
         raise ParseError("unsupported peak list file type for: %s" % pl_file_name)
 
-    peak_list_reader_index = key  # re.sub("\.(mzml|mgf)\Z", "", pl_file_name, flags=re.I)
-    return_dict[peak_list_reader_index] = {
+
+
+    # peak_list_reader_index = key  # re.sub("\.(mzml|mgf)\Z", "", pl_file_name, flags=re.I)
+    return {
         'reader': reader,
         'fileType': peak_list_file_type
     }
 
-    return return_dict
-
-
-# def create_peak_list_reader(pl_file_name):
-#     pass

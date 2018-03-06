@@ -85,9 +85,6 @@ class TestLoop:
         files = self.get_file_list(target_dir)
         print ('>> ' + ymp)
         for f in files:
-            # print(f)
-            # regex = r'(.*)mzid'
-            # if re.search(regex, f):
             if f.endswith('mzid') or f.endswith('mzid.gz'):
                 print(f)
                 path = self.temp_dir + '/' + f
@@ -98,6 +95,7 @@ class TestLoop:
                     ftp.cwd(target_dir)
                     ftp.retrbinary("RETR " + f, open(path, 'wb').write)
                 except ftplib.error_perm as e:
+                    ftp.quit()
                     error_msg = "%s: %s" % (f, e.args[0])
                     self.logger.error(error_msg)
                     # returnJSON['errors'].append({
@@ -106,36 +104,39 @@ class TestLoop:
                     # })
                     # print(json.dumps(returnJSON))
                     sys.exit(1)
+                ftp.quit()
 
-                mzId_parser = MzIdParser(path, target_dir, ymp, db, self.logger)
+                mzId_parser = MzIdParser(path, self.temp_dir, ymp, db, self.ip, self.base, self.logger)
                 returned_json = {}
-                # try:
-                #
-                #     # returned_json = mzId_parser.parse()
-                # except Exception as mzId_error:
-                #     self.logger.exception(mzId_error)
-                #     try:
-                #         self.cur.execute("""
-                #     INSERT INTO uploads (
-                #         base_dir,
-                #         filename,
-                #         error_type,
-                #         upload_error
-                #     )
-                #     VALUES (%s, %s, %s, %s)""", [ymp + '/' + f, f, type(mzId_error).__name__, json.dumps(mzId_error.args)])
-                #         self.con.commit()
-                #
-                #     except psycopg2.Error as e:
-                #         raise db.DBException(e.message)
+                try:
+                    returned_json = mzId_parser.parse()
+                except Exception as mzId_error:
+                    self.logger.exception(mzId_error)
+                    con = db.connect('')
+                    cur = con.cursor()
+                    try:
+                        cur.execute("""
+                    INSERT INTO uploads (
+                        error_type,
+                        upload_error
+                    )
+                    VALUES (%s, %s)""", [type(mzId_error).__name__, json.dumps(mzId_error.args)])
+                        con.commit()
+
+                    except psycopg2.Error as e:
+                        raise db.DBException(e.message)
+                    con.close()
+
 
                 print(json.dumps(returned_json, indent=4))
                 try:
                     os.remove(path)
-                    if (path.endswith('.gz')):
+                    if path.endswith('.gz'):
                         os.remove(path[0:len(path) - 3])
                 except OSError:
                     pass
                 self.mzId_count = self.mzId_count + 1
+                mzId_parser = None
                 gc.collect()
                 break
 
@@ -173,15 +174,19 @@ test_loop = TestLoop()
 # test_loop.year('2017')
 # test_loop.year('2018')
 
-test_loop.month('2017/05')
+test_loop.month('2017/08')
+# test_loop.month('2017/07')
 
-# test_loop.project('2017/04/PXD004748')
-# test_loop.project('2012/12/PXD000039')
-# test_loop.project('2013/09/PRD000647')
+# test_loop.project('2017/04/PXD004748') # no id for DataCollection
+# test_loop.project('2012/12/PXD000039') # 1.0.0
+
+# >> 2017/06/PXD001683 # windows file paths
+
 # 2016/04/PXD003564 # biggie
 # 2016/04/PXD003565 # big 2016/04/PXD003565 2016/04/PXD003566, "67 "68
 #  2016/05/PXD002905 ?
 # >> 2016/10/PXD003935 ?
 # 2016/10/PXD004572
 # 2017/05/PXD005403 6gb
+# 2017/06/PXD001767 massive zip
 print("mzId count:" + str(test_loop.mzId_count))

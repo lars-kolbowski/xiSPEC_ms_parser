@@ -43,7 +43,7 @@ def create_tables(cur, con):
             "base_dir TEXT,"
             "origin TEXT,"
             "xml_version TEXT,"
-            "filesize INT)"
+            "file_size INT)"
         )
         cur.execute("DROP TABLE IF EXISTS protocols")
         cur.execute(
@@ -153,11 +153,10 @@ def write_upload(inj_list, cur, con):
     return rows[0]
 
 
-def write_protocols(inj_list, cur, con):
-    return True
+# def write_protocols(inj_list, cur, con):
+#     return True
 
 def write_db_sequences(inj_list, cur, con):
-
     try:
         cur.executemany("""
         INSERT INTO db_sequences (
