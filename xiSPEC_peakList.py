@@ -239,5 +239,26 @@ def create_peak_list_readers(pl_file_list):
     return return_dict
 
 
-# def create_peak_list_reader(pl_file_name):
-#     pass
+def get_peak_list_reader(pl_file):
+
+    pl_file_name = ntpath.basename(pl_file)
+
+    if pl_file_name.lower().endswith('.mzml'):
+        peak_list_file_type = 'mzml'
+        reader = pymzml.run.Reader(pl_file)
+
+    elif pl_file_name.lower().endswith('.mgf'):
+        peak_list_file_type = 'mgf'
+        reader = py_mgf.Reader(pl_file)
+
+    else:
+        raise ParseError("unsupported peak list file type for: %s" % pl_file_name)
+
+
+
+    # peak_list_reader_index = key  # re.sub("\.(mzml|mgf)\Z", "", pl_file_name, flags=re.I)
+    return {
+        'reader': reader,
+        'fileType': peak_list_file_type
+    }
+
