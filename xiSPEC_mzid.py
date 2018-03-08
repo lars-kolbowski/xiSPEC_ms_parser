@@ -598,13 +598,13 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         #         })
         #         continue
 
-        # peak list file name
+        # peak list file name - changed so works with windows file paths also, e.g. 2017/06/PXD001683 - cc
         if 'name' in spectra_data.keys():
             peak_list_file_name = spectra_data['name']
         elif 'location' in spectra_data.keys():
-            peak_list_file_name = spectra_data['location'].split('/')[-1]
+            peak_list_file_name = ntpath.basename(spectra_data['location'])
         else:
-            peak_list_file_name = sid_result['spectraData_ref'].split('/')[-1]
+            peak_list_file_name = ntpath.basename(['spectraData_ref'])
 
         peak_list_file_name = re.sub('\.(mgf|mzml)', '', peak_list_file_name, flags=re.IGNORECASE)
 
