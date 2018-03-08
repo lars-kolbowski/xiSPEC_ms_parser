@@ -192,12 +192,12 @@ def get_scan(reader, spec_id, file_id_format=None):
         if reader['fileType'] == 'mgf':
             try:
                 return reader['reader'].get_by_id(spec_id, ignore_dict_index=True)
-            except (IndexError, KeyError):
+            except (IndexError, KeyError, ParseError):
                 raise ParseError("requested scanID %s not found in peakList file" % spec_id)
 
     try:
         return reader['reader'][spec_id]
-    except (IndexError, KeyError):
+    except (IndexError, KeyError, ParseError):
         raise ParseError("requested scanID %s not found in peakList file" % spec_id)
 
 

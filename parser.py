@@ -45,7 +45,7 @@ try:
     os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
 
     # create logger
-    logging.basicConfig(level=logging.DEBUG,
+    logging.basicConfig(filename=logFile, level=logging.DEBUG,
                         format='%(asctime)s %(levelname)s %(name)s %(message)s')
     logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ try:
 
     # development testfiles
     if dev:
-        baseDir = "/home/col/xiSPEC_test_files/"
+        baseDir = "/media/data/work/xiSPEC_test_files/"
         # identifications_file = baseDir + 'OpenxQuest_example_added_annotations.mzid'
         # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
         # peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf"
@@ -91,8 +91,8 @@ try:
         # peakList_file = "/media/data/work/xiSPEC_test_files/PXD006767/PXD006767.zip"
 
         # small mzid dataset
-        identifications_file = baseDir + "cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzid"
-        peakList_file = baseDir + "cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
+        identifications_file = baseDir + "DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
+        peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
 
         # # large mzid dataset
         # identifications_file = baseDir + "Tmuris_exo/Tmuris_exosomes1.mzid"

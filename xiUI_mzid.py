@@ -647,7 +647,7 @@ class MzIdParser:
                 raise MzIdScanNotFoundException(type(e).__name__, peak_list_file_name, sid_result["spectrumID"], e.args)
 
             peak_list = peakListParser.get_peak_list(scan, peak_list_reader['fileType'])
-
+            print(sid_result["spectrumID"])
             protocol = spectra_data_protocol_map[sid_result['spectraData_ref']]
 
             spectra.append([mzid_item_index, peak_list, peak_list_file_name, sid_result["spectrumID"],
