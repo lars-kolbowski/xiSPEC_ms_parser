@@ -136,65 +136,52 @@ class Reader(object):
     def _build_index_from_scratch(self, seeker):
         """Build an index of spectra data with offsets by parsing the file."""
 
-        def get_data_indices(fh, chunksize=8192, lookback_size=100):
+        def get_data_indices(fh, chunksize=100000000, lookback_size=100):
             """Get a dictionary with binary file indices of spectra in mgf file."""
             spec_positions = {}
 
             # regex patterns
-            scans_pattern = re.compile(b"BEGIN IONS.*?\\nSCANS(?:\[[0-9]*])?=([0-9]+)", re.DOTALL)
-            title_pattern = re.compile(b"BEGIN IONS.*?TITLE=.*?scans?(?:[=:])\s?([0-9]+)", re.DOTALL)
-            std_pattern = re.compile(b"BEGIN IONS.*?")
-
-            found_scans_param = False
-            found_scans_tpp = False
-            std_index = 0
+            scans_pattern = re.compile(b".*?SCANS(?:\[[0-9]*])?=([0-9]+)", re.DOTALL)
+            title_pattern = re.compile(b".*?TITLE=.*?scans?(?:[=:])\s?([0-9]+)", re.DOTALL)
 
             # go to start of file
             fh.seek(0)
-            prev_chunk = ""
-            while True:
-                # read a chunk of data
-                offset = fh.tell()
-                chunk = fh.read(chunksize)
-                if not chunk:
-                    break
 
-                # append a part of the previous chunk since we have cut in the middle
-                # of the text (to make sure we don't miss anything)
-                if len(prev_chunk) > 0:
-                    chunk = prev_chunk[-lookback_size:] + chunk
-                    offset -= lookback_size
-                prev_chunk = chunk
+            pos = 0
+            index_in_file = 0
 
-                # start by trying to find scans or tpp scans
-                if std_index == 0:
-                    # find scan_ids as SCANS parameter
-                    for m in scans_pattern.finditer(chunk):
-                        found_scans_param = True
-                        spec_positions[m.group(1).decode('utf-8')] = offset + m.start()
-
-                    if not found_scans_param:
-                        # find scan_ids as scan(s) parameter in TITLE
-                        for m in title_pattern.finditer(chunk):
-                            found_scans_tpp = True
-                            spec_positions[m.group(1).decode('utf-8')] = offset + m.start()
-
-                # fall back to std indexing the mgf file assuming every scan is present
-                if not found_scans_param and not found_scans_tpp:
-                    for m in std_pattern.finditer(chunk):
-                        # check last position to make sure not to include duplicates
-                        # (necessary cause of lookback)
-                        if std_index == 0:
-                            std_index += 1
-                            spec_positions[str(std_index)] = offset + m.start()
-                        elif not spec_positions[str(std_index)] == offset + m.start():
-                            std_index += 1
-                            spec_positions[str(std_index)] = offset + m.start()
-
-            if not std_index == 0:
-                self.info['indexInfo'] = 'Could not find scanId. Falling back to standard indexing for scans.'
-            else:
-                self.info['indexInfo'] = None
+            # could also be getting charge and rt here
+            # see mgf.py, L194-L203
+            for line in fh:
+                if line.strip() == "BEGIN IONS":
+                    # new spectrum - store info on previous spectrum (if there was one)
+                    peak_list_start_pos = -1
+                    spec_id = -1
+                elif line.strip() == "END IONS":
+                    id_to_use = spec_id
+                    if id_to_use == -1:
+                        id_to_use = index_in_file
+                    print('> ' + str(id_to_use) + ' ' + str(peak_list_start_pos) + ' ' + str(pos))
+                    spec_positions[id_to_use] = (peak_list_start_pos, pos)
+                    index_in_file += 1
+                else:
+                    peak_match = RegexPatterns.peak_list_pattern.search(line)
+                    if peak_match:
+                        # peak
+                        if peak_list_start_pos == -1:
+                            peak_list_start_pos = pos
+                    else:
+                        # id
+                        id_match = scans_pattern.search(line)
+                        if id_match:
+                            g1 = id_match.groups(1)
+                            spec_id = g1[0]
+                        else:
+                            id_match = title_pattern.search(line)
+                            if id_match:
+                                g1 = id_match.groups(1)
+                                spec_id = g1[0]
+                pos = pos + len(line) - 1
 
             if len(spec_positions.keys()) == 0:
                 spec_positions = None
@@ -221,30 +208,18 @@ class Reader(object):
         peak_list = None
         params = {}
 
-        if ignore_dict_index:
-            start_pos = self.info['offsetList'][scan_id]
-            end_pos_index = scan_id+1
-
-        else:
-            scan_id = str(scan_id)
-            start_pos = self.info['offsets'][scan_id]
-            end_pos_index = bisect.bisect_right(
-                self.info['offsetList'],
-                self.info['offsets'][scan_id]
-            )
-
-        if end_pos_index == len(self.info['offsetList']):
-            end_pos = os.path.getsize(self.info['filename'])
-        else:
-            end_pos = self.info['offsetList'][end_pos_index]
+        scan_id = str(scan_id)
+        start_pos = self.info['offsets'][scan_id][0]
+        end_pos = self.info['offsets'][scan_id][1]
 
         self.seeker.seek(start_pos, 0)
         data = self.seeker.read(end_pos - start_pos)
+        # this regex search could (probably/almost) be removed now
         try:
             peak_list = RegexPatterns.peak_list_pattern.search(data).groups()[0]
 
-        except (AttributeError, IndexError) as e:
-            raise KeyError("MGF file does not contain a spectrum with id {0}".format(scan_id))
+        except:
+            raise ParseError("Missing scan? start_pos = "+str(start_pos)+", end_pos = "+str(end_pos)+", data = '"+str(data)+"'")
 
         if peak_list is None:
             raise KeyError("MGF file does not contain a spectrum with id {0}".format(scan_id))
