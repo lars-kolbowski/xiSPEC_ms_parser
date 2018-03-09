@@ -91,10 +91,10 @@ def get_reader(readers, file_name):
     return reader
 
 
-def get_scan(reader, spec_id, file_id_format=None):
+def get_scan(reader, spec_id, spec_id_format=None):
 
 
-    # file_id_format_accession = file_id_format['accession']
+    # file_id_format_accession = spec_id_format['accession']
     # #
     # # if (fileIdFormat == Constants.SpecIdFormat.MASCOT_QUERY_NUM) {
     # #     String rValueStr = spectrumID.replaceAll("query=", "");
@@ -154,9 +154,12 @@ def get_scan(reader, spec_id, file_id_format=None):
     # # e.g.: MS:1000776(scan        number        only        nativeID        format)
     # # e.g.: MS:1000777(spectrum        identifier        nativeID        format)
 
-    if file_id_format is not None:
+    ignore_dict_index = False
 
-        if file_id_format['accession'] == 'MS:1000774':  # (multiple peak list nativeID format - zero based)
+    if spec_id_format is not None:
+
+        if spec_id_format['accession'] == 'MS:1000774':  # (multiple peak list nativeID format - zero based)
+            ignore_dict_index = True
             matches = re.findall("index=([0-9]+)", spec_id)
             try:
                 spec_id = int(matches[0])
@@ -172,12 +175,13 @@ def get_scan(reader, spec_id, file_id_format=None):
         # The nativeID must be the same as the source file ID.
         # Used for referencing peak list files with one spectrum per file,
         # typically in a folder of PKL or DTAs, where each sourceFileRef is different.
-        elif file_id_format['accession'] == 'MS:1000775':
+        elif spec_id_format['accession'] == 'MS:1000775':
+            ignore_dict_index = True
             spec_id = 0
 
         # MS:1000776
         # Used for referencing mzXML, or a DTA folder where native scan numbers can be derived.
-        elif file_id_format['accession'] == 'MS:1000776':
+        elif spec_id_format['accession'] == 'MS:1000776':
             matches = re.findall("scan=([0-9]+)", spec_id)
             spec_id = int(matches[0])
 
@@ -189,16 +193,17 @@ def get_scan(reader, spec_id, file_id_format=None):
             else:
                 raise ParseError("failed to parse spectrumID from %s" % spec_id)
 
-        if reader['fileType'] == 'mgf':
-            try:
-                return reader['reader'].get_by_id(spec_id, ignore_dict_index=True)
-            except (IndexError, KeyError, ParseError):
-                raise ParseError("requested scanID %s not found in peakList file" % spec_id)
+    if reader['fileType'] == 'mgf':
+        try:
+            return reader['reader'].get_by_id(spec_id, ignore_dict_index=ignore_dict_index)
+        except (IndexError, KeyError, ParseError):
+            raise ParseError("requested scanID %s not found in peakList file" % spec_id)
 
-    try:
-        return reader['reader'][spec_id]
-    except (IndexError, KeyError, ParseError):
-        raise ParseError("requested scanID %s not found in peakList file" % spec_id)
+    else:
+        try:
+            return reader['reader'][spec_id]
+        except (IndexError, KeyError, ParseError):
+            raise ParseError("requested scanID %s not found in peakList file" % spec_id)
 
 
     # try:
