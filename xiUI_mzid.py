@@ -548,7 +548,7 @@ class MzIdParser:
     def parse(self):
         self.logger.info('reading mzid - start')
         mzid_start_time = time()
-
+        warnings = []
         # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
         try:
             mzid_reader = py_mzid.MzIdentML(self.mzId_path)
@@ -619,11 +619,15 @@ class MzIdParser:
             if peak_list_file_name.endswith('raw'):
                 raise MzIdParseException('.raw files not supported')
 
+            # missing .mgf file extension?
+            if spectra_data.has_key('FileFormat'):
+                if spectra_data['FileFormat']['accession'] == 'MS:1001062' and not peak_list_file_name.lower().endswith('.mgf'):
+                    warnings.append('missing file name extension: ' + peak_list_file_name)
+                    peak_list_file_name = peak_list_file_name + '.mgf'
+
             if self.peak_list_readers.has_key(peak_list_file_name):
                 peak_list_reader = self.peak_list_readers[peak_list_file_name]
             else:
-                path = self.temp_dir + '/' + peak_list_file_name
-
                 ftp = ftplib.FTP("193.62.192.9")
                 ftp.login()  # Username: anonymous password: anonymous@
 
@@ -635,11 +639,15 @@ class MzIdParser:
                 except ftplib.error_perm as e:
                     raise MzIdMissingFileException(type(e).__name__, peak_list_file_name, e.args)
 
-                peak_list_reader = peakListParser.get_peak_list_reader(path)
+                peak_list_reader = peakListParser.get_peak_list_reader(self.temp_dir + '/' + peak_list_file_name)
                 self.peak_list_readers[peak_list_file_name] = peak_list_reader
 
             # peak list
-            fstring = str(json.dumps([[spectra_data['SpectrumIDFormat'], spectra_data['FileFormat']]]))
+            if spectra_data.has_key('FileFormat'):
+                fstring = str(json.dumps([spectra_data['SpectrumIDFormat'], spectra_data['FileFormat']]))
+            else:
+                fstring = str(json.dumps(spectra_data['SpectrumIDFormat']))
+
             self.spectrum_id_formats.add(fstring)
             try:
                 scan = peakListParser.get_scan(peak_list_reader, sid_result["spectrumID"], spectra_data['SpectrumIDFormat'])
@@ -647,7 +655,7 @@ class MzIdParser:
                 raise MzIdScanNotFoundException(type(e).__name__, peak_list_file_name, sid_result["spectrumID"], e.args)
 
             peak_list = peakListParser.get_peak_list(scan, peak_list_reader['fileType'])
-            print(sid_result["spectrumID"])
+            # print(sid_result["spectrumID"])
             protocol = spectra_data_protocol_map[sid_result['spectraData_ref']]
 
             spectra.append([mzid_item_index, peak_list, peak_list_file_name, sid_result["spectrumID"],
@@ -749,7 +757,6 @@ class MzIdParser:
         # logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
 
         # warnings
-        warnings = []
         if len(fragment_parsing_error_scans) > 0:
             if len(fragment_parsing_error_scans) > 50:
                 id_string = '; '.join(fragment_parsing_error_scans[:50]) + ' ...'

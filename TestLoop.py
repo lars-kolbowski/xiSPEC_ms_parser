@@ -186,49 +186,65 @@ class TestLoop:
 test_loop = TestLoop()
 # test_loop.allYears()  # no point, starts 2012/12
 
-# # test_loop.month('2012/12')
-# # test_loop.year('2013')
-# # test_loop.year('2014')
-# test_loop.year('2015')
-# test_loop.year('2016')
+# test_loop.month('2012/12')
+# test_loop.year('2013')
+# test_loop.year('2014')
+test_loop.month('2014/11')
+test_loop.year('2014/12')
+test_loop.year('2015')
+test_loop.year('2016')
 test_loop.year('2017')
-# test_loop.year('2018')
+test_loop.year('2018')
 
-test_loop.project('2014/09/PXD001054') # contains bib ref
+# test_loop.project('2014/09/PXD001054') # contains bib ref
 # test_loop.project('2015/04/PXD001877')
-# test_loop.project('2015/02/PXD001357') #- missing scan - how did it pass before
+# test_loop.project('2015/02/PXD001357')
 
-# 2014/09/PXD001311
-# 2014/10/PXD001403
+# were missing file errors
+# test_loop.project('2017/01/PXD004764')
+# test_loop.project('2017/01/PXD004778')
+# test_loop.project('2017/01/PXD004788')
+# test_loop.project('2017/01/PXD004796')
+# test_loop.project('2016/01/PXD003445')
+# test_loop.project('2016/03/PXD002759')
+# test_loop.project('2016/03/PXD003132')
+
+# header stuff that can mess up mgf reader
+# test_loop.project('2016/02/PXD001997')
+# test_loop.project('2016/03/PXD002078')
+# test_loop.project('2016/01/PXD002855')
 
 
-# 2014/04/PXD000579
-# 2014/07/PXD000662
-# 2014/07/PXD000710
-# 2012/12/PXD000112
-# 2013/09/PXD000443
-# 2013/12/PXD000623
-# 2014/01/PXD000198
-# 2014/01/PXD000456
-# 2014/04/PXD000521
-# 2014/04/PXD000565
-# 2014/04/PXD000566
-# 2014/04/PXD000567
-# 2014/05/PXD000223
-# 2014/05/PXD000568
-# 2014/09/PXD000966
-# 2014/09/PXD001000
-# 2014/09/PXD001006
-# 2012/12/PXD000039
-
+#test_loop.project('2014/09/PXD001311')
+# test_loop.project('2014/10/PXD001403')
+#
+# test_loop.project('2014/04/PXD000579')
+# test_loop.project('2014/07/PXD000662')
+# test_loop.project('2014/07/PXD000710')
+# test_loop.project('2012/12/PXD000112')
+# test_loop.project('2013/09/PXD000443')
+# test_loop.project('2013/12/PXD000623')
+# test_loop.project('2014/01/PXD000198')
+# test_loop.project('2014/01/PXD000456')
+# test_loop.project('2014/04/PXD000521')
+# test_loop.project('2014/04/PXD000565')
+# test_loop.project('2014/04/PXD000566')
+# test_loop.project('2014/04/PXD000567')
+# test_loop.project('2014/05/PXD000223')
+# test_loop.project('2014/05/PXD000568')
+# test_loop.project('2014/09/PXD000966')
+# test_loop.project('2014/09/PXD001000')
+# test_loop.project('2014/09/PXD001006')
+# test_loop.project('2012/12/PXD000039')
+#
 # test_loop.project('2017/10/PXD004883')
 # test_loop.project('2017/04/PXD004748') # no id for DataCollection
 # test_loop.project('2012/12/PXD000039') # 1.0.0
 # test_loop.project('2017/09/PXD005119') # key error:  PeptideEvidence
 # test_loop.project('2017/08/PXD004706') # raw files
 # test_loop.project('2017/06/PXD001683') # windows file paths
-
-# 2017/09/PXD007267 xiUI_pg.DBException: integer out of range, should be fixed
+#
+# test_loop.project('2017/09/PXD007267') # xiUI_pg.DBException: integer out of range, should be fixed
 
 # >> 2014/10/PXD001390 # loads of big mgf (fails coz missing scan)
 
