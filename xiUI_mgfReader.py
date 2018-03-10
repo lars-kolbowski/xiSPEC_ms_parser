@@ -137,7 +137,7 @@ class Reader(object):
         """Build an index of spectra data with offsets by parsing the file."""
 
         def get_data_indices(fh, chunksize=100000000, lookback_size=100):
-            """Get a *list* with binary file indices of spectra in mgf file."""
+            """Get a list with binary file indices of spectra in mgf file."""
             spec_positions = []
 
             # go to start of file
