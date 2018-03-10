@@ -191,13 +191,13 @@ test_loop = TestLoop()
 # # test_loop.year('2014')
 # test_loop.year('2015')
 # test_loop.year('2016')
-# test_loop.year('2017')
+test_loop.year('2017')
 # test_loop.year('2018')
 
-test_loop.project('2015/04/PXD001877')
-# test_loop.project('2015/02/PXD001357') - missing scan - how did it pass before
+test_loop.project('2014/09/PXD001054') # contains bib ref
+# test_loop.project('2015/04/PXD001877')
+# test_loop.project('2015/02/PXD001357') #- missing scan - how did it pass before
 
-# test_loop.project('2014/09/PXD001054') # - strange one, contains bib ref
 # 2014/09/PXD001311
 # 2014/10/PXD001403
 
