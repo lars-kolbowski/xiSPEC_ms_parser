@@ -191,7 +191,7 @@ class Reader(object):
         peak_list = self.seeker.read(end_pos - start_pos)
 
         if peak_list is None:
-            raise KeyError("MGF file does not contain a spectrum with index {0}. Only contains {1} spectra".format(scan_id).format(len()))
+            raise KeyError("MGF file does not contain a spectrum with index {0}.".format(scan_id))
         else:
             self.spectrum['peaks'] = peak_list
             # self.spectrum['params'] = params
