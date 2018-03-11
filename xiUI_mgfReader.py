@@ -145,6 +145,8 @@ class Reader(object):
             pos = 0
             peak_list_start_pos = None
             for line in fh:
+                if len(spec_positions) == 1935:
+                    pass
                 if line.strip() == "BEGIN IONS":
                     peak_list_start_pos = -1
                 elif line.strip() == "END IONS":
@@ -179,7 +181,7 @@ class Reader(object):
 
          """
 
-        if scan_id == 12798:
+        if scan_id == 1935:
             pass
 
         peak_list = None
@@ -187,11 +189,17 @@ class Reader(object):
         start_pos = position[0]
         end_pos = position[1]
 
+        if (start_pos == -1):  # empty scan
+            self.spectrum['peaks'] = ''
+            # self.spectrum['params'] = params
+            return self.spectrum
+
+
         self.seeker.seek(start_pos, 0)
         peak_list = self.seeker.read(end_pos - start_pos)
 
         if peak_list is None:
-            raise KeyError("MGF file does not contain a spectrum with index {0}. Only contains {1} spectra".format(scan_id).format(len()))
+            raise KeyError("MGF file does not contain a spectrum with index {0}.".format(scan_id))
         else:
             self.spectrum['peaks'] = peak_list
             # self.spectrum['params'] = params
