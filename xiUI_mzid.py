@@ -610,10 +610,10 @@ class MzIdParser:
                 raise MzIdParseException("no spectraData_ref specified: " + sid_result['id'])
 
             # peak list file name
-            if 'name' in spectra_data.keys():
-                peak_list_file_name = spectra_data['name']
-            elif 'location' in spectra_data.keys():
+            if 'location' in spectra_data.keys():
                 peak_list_file_name = ntpath.basename(spectra_data['location'])
+            elif 'name' in spectra_data.keys():
+                    peak_list_file_name = spectra_data['name']
             else:
                 peak_list_file_name = ntpath.basename(['spectraData_ref'])
 

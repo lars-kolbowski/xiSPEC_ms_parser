@@ -205,19 +205,34 @@ test_loop = TestLoop()
 # #got to 15/06, then failed w >> 2015/05/PXD002117 , looks out of memory getting sequences
 #
 # test_loop.year('2015')
-test_loop.year('2016')
+# test_loop.year('2016')
 test_loop.year('2017')
 test_loop.year('2018')
+
+# index=null
+# test_loop.project('2016/02/PXD001376')
+# test_loop.project('2015/02/PXD001213')
+# test_loop.project('2016/02/PXD002963')
+# test_loop.project('2014/10/PXD001034')
+# test_loop.project('2015/03/PXD000719')
+# test_loop.project('2016/04/PXD003232')
 
 # out of memory
 # test_loop.project('2015/05/PXD002117')
 # test_loop.project('2014/11/PXD001422') dbseq out of mem, but makes it
+# >> 2016/04/PXD002417
 
-# key error - accession
-# test_loop.project('2014/09/PXD000966')
-# test_loop.project('2014/09/PXD001000')
+# pyteomics lib prob reading SpectraData?
 # test_loop.project('2014/09/PXD001006')
+# test_loop.project('2014/09/PXD001000')
+# test_loop.project('2014/09/PXD000966')
+# test_loop.project('2014/07/PXD000710')
+# test_loop.project('2016/02/PXD001376')
+# test_loop.project('2012/12/PXD000112')
+
+# wiff peak data
 # test_loop.project('2016/01/PXD003445')
+
 
 # missing scan
 # test_loop.project('2014/10/PXD001034')
