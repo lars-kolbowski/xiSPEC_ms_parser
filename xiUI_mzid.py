@@ -40,6 +40,8 @@ class MzIdParser:
         self.spectrum_id_formats = set([])
         self.contains_crosslinks = False
 
+        self.warnings = []
+
         # connect to DB
         try:
             self.con = db.connect('')
@@ -62,7 +64,7 @@ class MzIdParser:
         mzId_stream.close()
         self.xml_version = re.search('mzIdentML.*?version="(.*?)"', file_start,  flags=re.IGNORECASE).group(1)
 
-        software_iter = re.finditer('<SoftwareName>.*?<cvParam.*?name="(.*?)"', file_start, re.DOTALL)
+        software_iter = re.finditer('<SoftwareName>.*?<cvParam.*?name="(.*?)".*?</SoftwareName>', file_start, re.DOTALL)
         analysis_software = []
         for i in software_iter:
             analysis_software.append(i.group(1))
@@ -548,7 +550,6 @@ class MzIdParser:
     def parse(self):
         self.logger.info('reading mzid - start')
         mzid_start_time = time()
-
         # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
         try:
             mzid_reader = py_mzid.MzIdentML(self.mzId_path)
@@ -619,35 +620,56 @@ class MzIdParser:
             if peak_list_file_name.endswith('raw'):
                 raise MzIdParseException('.raw files not supported')
 
+            # todo: move this stuff into init
+            # missing .mgf file extension?
+            if 'FileFormat' in spectra_data:
+                fstring = str(json.dumps([spectra_data['SpectrumIDFormat'], spectra_data['FileFormat']])) # todo: tidy / remove
+                if 'accession' in spectra_data['FileFormat']:
+                    if spectra_data['FileFormat']['accession'] == 'MS:1001062' and not peak_list_file_name.lower().endswith('.mgf'):
+                        self.warnings.append('location of mgf file is missing .mgf extension: ' + peak_list_file_name)
+                        peak_list_file_name = peak_list_file_name + '.mgf'
+                else:
+                    self.warnings.append('SpectraData>FileFormat cvParam is missing accession? (Not really looks like its pytoeomics gone wrong.)')
+            else:
+                fstring = str(json.dumps(spectra_data['SpectrumIDFormat']))  # todo: tidy / remove
+                self.warnings.append('SpectraData missing required element FileFormat.')
+
+            self.spectrum_id_formats.add(fstring)  # todo: tidy / remove
+
             if self.peak_list_readers.has_key(peak_list_file_name):
                 peak_list_reader = self.peak_list_readers[peak_list_file_name]
             else:
-                path = self.temp_dir + '/' + peak_list_file_name
-
                 ftp = ftplib.FTP("193.62.192.9")
                 ftp.login()  # Username: anonymous password: anonymous@
-
                 try:
                     target_dir = '/' + self.base + '/' + self.origin
                     ftp.cwd(target_dir)
                     self.logger.info('getting ' + peak_list_file_name)
                     ftp.retrbinary("RETR " + peak_list_file_name, open(self.temp_dir + '/' + peak_list_file_name, 'wb').write)
                 except ftplib.error_perm as e:
-                    raise MzIdMissingFileException(type(e).__name__, peak_list_file_name, e.args)
+                    #  check for gzipped
+                    try:
+                        self.logger.info('getting ' + peak_list_file_name + '.gz')
+                        ftp.retrbinary("RETR " + peak_list_file_name + '.gz',
+                                       open(self.temp_dir + '/' + peak_list_file_name + '.gz', 'wb').write)
+                    except ftplib.error_perm as e:
+                        ftp.close()
+                        raise MzIdMissingFileException(type(e).__name__, peak_list_file_name, e.args)
+                    ftp.close()
+                    peak_list_file_name = ntpath.basename(peakListParser.unzip_peak_lists(self.temp_dir + '/' + peak_list_file_name + '.gz')[0])
+                ftp.close()
 
-                peak_list_reader = peakListParser.get_peak_list_reader(path)
+                peak_list_reader = peakListParser.get_peak_list_reader(self.temp_dir + '/' + peak_list_file_name)
                 self.peak_list_readers[peak_list_file_name] = peak_list_reader
 
-            # peak list
-            fstring = str(json.dumps([[spectra_data['SpectrumIDFormat'], spectra_data['FileFormat']]]))
-            self.spectrum_id_formats.add(fstring)
+
             try:
                 scan = peakListParser.get_scan(peak_list_reader, sid_result["spectrumID"], spectra_data['SpectrumIDFormat'])
             except Exception as e:
                 raise MzIdScanNotFoundException(type(e).__name__, peak_list_file_name, sid_result["spectrumID"], e.args)
 
             peak_list = peakListParser.get_peak_list(scan, peak_list_reader['fileType'])
-            print(sid_result["spectrumID"])
+            # print(sid_result["spectrumID"])
             protocol = spectra_data_protocol_map[sid_result['spectraData_ref']]
 
             spectra.append([mzid_item_index, peak_list, peak_list_file_name, sid_result["spectrumID"],
@@ -749,13 +771,12 @@ class MzIdParser:
         # logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
 
         # warnings
-        warnings = []
         if len(fragment_parsing_error_scans) > 0:
             if len(fragment_parsing_error_scans) > 50:
                 id_string = '; '.join(fragment_parsing_error_scans[:50]) + ' ...'
             else:
                 id_string = '; '.join(fragment_parsing_error_scans)
-                warnings.append({
+                self.warnings.append({
                     "type": "IonParsing",
                     "message": "mzidentML file does not specify fragment ions.",
                     'id': id_string
@@ -778,7 +799,7 @@ class MzIdParser:
                  WHERE id = %s""",
                              [
                                  json.dumps(self.peak_list_readers.keys(), cls=NumpyEncoder),
-                                 json.dumps(warnings, cls=NumpyEncoder),
+                                 json.dumps(self.warnings),
                                  formats,
                                  parse_time,
                                  self.contains_crosslinks,

@@ -132,10 +132,18 @@ class TestLoop:
                     mzId_parser.parse()
                 except Exception as mzId_error:
                     self.logger.exception(mzId_error)
+
+                    error = json.dumps(mzId_error.args)
+
                     formats = []
                     for fmat in mzId_parser.spectrum_id_formats:
                         formats.append(fmat)
                     formats = json.dumps(formats, cls=NumpyEncoder)
+
+                    warnings = json.dumps(mzId_parser.warnings)
+
+                    peak_list_files = json.dumps(mzId_parser.peak_list_readers.keys(), cls=NumpyEncoder)
+
                     con = db.connect('')
                     cur = con.cursor()
                     try:
@@ -143,8 +151,10 @@ class TestLoop:
                     UPDATE uploads SET
                         error_type=%s,
                         upload_error=%s,
-                        spectrum_id_format=%s
-                    WHERE id = %s""", [type(mzId_error).__name__, json.dumps(mzId_error.args), formats, mzId_parser.upload_id])
+                        spectrum_id_format=%s,
+                        upload_warnings=%s,
+                        peak_list_file_names=%s
+                    WHERE id = %s""", [type(mzId_error).__name__, error, formats, warnings, peak_list_files, mzId_parser.upload_id])
                         con.commit()
 
                     except psycopg2.Error as e:
@@ -189,68 +199,101 @@ test_loop = TestLoop()
 # # test_loop.month('2012/12')
 # # test_loop.year('2013')
 # # test_loop.year('2014')
+# # test_loop.month('2014/11')
+# # test_loop.year('2014/12')
+#
+# #got to 15/06, then failed w >> 2015/05/PXD002117 , looks out of memory getting sequences
+#
 # test_loop.year('2015')
-# test_loop.year('2016')
+test_loop.year('2016')
 test_loop.year('2017')
-# test_loop.year('2018')
+test_loop.year('2018')
 
-test_loop.project('2014/09/PXD001054') # contains bib ref
+# out of memory
+# test_loop.project('2015/05/PXD002117')
+# test_loop.project('2014/11/PXD001422') dbseq out of mem, but makes it
+
+# key error - accession
+# test_loop.project('2014/09/PXD000966')
+# test_loop.project('2014/09/PXD001000')
+# test_loop.project('2014/09/PXD001006')
+# test_loop.project('2016/01/PXD003445')
+
+# missing scan
+# test_loop.project('2014/10/PXD001034')
+# test_loop.project('2015/02/PXD001213')
+# test_loop.project('2015/03/PXD000719')
+# test_loop.project('2016/02/PXD001376')
+# # missing files
+# test_loop.project('2012/12/PXD000112')
+# test_loop.project('2013/09/PXD000443')
+# test_loop.project('2013/12/PXD000623')
+# test_loop.project('2014/01/PXD000198')
+# test_loop.project('2014/01/PXD000456')
+# test_loop.project('2014/04/PXD000521')
+# test_loop.project('2014/04/PXD000565')
+# test_loop.project('2014/04/PXD000566')
+# test_loop.project('2014/04/PXD000567')
+# test_loop.project('2014/04/PXD000579')
+# test_loop.project('2014/05/PXD000223')
+# test_loop.project('2014/05/PXD000568')
+# test_loop.project('2014/07/PXD000662')
+# test_loop.project('2015/05/PXD000941')
+# test_loop.project('2015/05/PXD000942')
+# # normal
+# test_loop.project('2015/04/PXD001885')
+
+
+# test_loop.project('2014/09/PXD001054') # contains bib ref
 # test_loop.project('2015/04/PXD001877')
-# test_loop.project('2015/02/PXD001357') #- missing scan - how did it pass before
+# test_loop.project('2015/02/PXD001357')
 
-# 2014/09/PXD001311
-# 2014/10/PXD001403
+# were missing file errors
+# test_loop.project('2017/01/PXD004764')
+# test_loop.project('2017/01/PXD004778')
+# test_loop.project('2017/01/PXD004788')
+# test_loop.project('2017/01/PXD004796')
+# test_loop.project('2016/01/PXD003445')
+# test_loop.project('2016/03/PXD002759')
+# test_loop.project('2016/03/PXD003132')
+
+# header stuff that can mess up mgf reader
+# test_loop.project('2016/02/PXD001997')
+# test_loop.project('2016/03/PXD002078')
+# test_loop.project('2016/01/PXD002855')
 
 
-# 2014/04/PXD000579
-# 2014/07/PXD000662
-# 2014/07/PXD000710
-# 2012/12/PXD000112
-# 2013/09/PXD000443
-# 2013/12/PXD000623
-# 2014/01/PXD000198
-# 2014/01/PXD000456
-# 2014/04/PXD000521
-# 2014/04/PXD000565
-# 2014/04/PXD000566
-# 2014/04/PXD000567
-# 2014/05/PXD000223
-# 2014/05/PXD000568
-# 2014/09/PXD000966
-# 2014/09/PXD001000
-# 2014/09/PXD001006
-# 2012/12/PXD000039
-
+#test_loop.project('2014/09/PXD001311')
+# test_loop.project('2014/10/PXD001403')
+#
+# test_loop.project('2014/04/PXD000579')
+# test_loop.project('2014/07/PXD000662')
+# test_loop.project('2014/07/PXD000710')
+# test_loop.project('2012/12/PXD000112')
+# test_loop.project('2013/09/PXD000443')
+# test_loop.project('2013/12/PXD000623')
+# test_loop.project('2014/01/PXD000198')
+# test_loop.project('2014/01/PXD000456')
+# test_loop.project('2014/04/PXD000521')
+# test_loop.project('2014/04/PXD000565')
+# test_loop.project('2014/04/PXD000566')
+# test_loop.project('2014/04/PXD000567')
+# test_loop.project('2014/05/PXD000223')
+# test_loop.project('2014/05/PXD000568')
+# test_loop.project('2014/09/PXD000966')
+# test_loop.project('2014/09/PXD001000')
+# test_loop.project('2014/09/PXD001006')
+# test_loop.project('2012/12/PXD000039')
+#
 # test_loop.project('2017/10/PXD004883')
 # test_loop.project('2017/04/PXD004748') # no id for DataCollection
 # test_loop.project('2012/12/PXD000039') # 1.0.0
 # test_loop.project('2017/09/PXD005119') # key error:  PeptideEvidence
 # test_loop.project('2017/08/PXD004706') # raw files
 # test_loop.project('2017/06/PXD001683') # windows file paths
-
-# 2017/09/PXD007267 xiUI_pg.DBException: integer out of range, should be fixed
+#
+# test_loop.project('2017/09/PXD007267') # xiUI_pg.DBException: integer out of range, should be fixed
 
 # >> 2014/10/PXD001390 # loads of big mgf (fails coz missing scan)
-
-# successful
-# 2013/07/PXD000225
-# 2014/01/PXD000647
-# 2014/02/PXD000202
-# 2014/02/PXD000682
-# 2014/05/PXD000237
-# 2014/05/PXD000807
-# 2014/06/PXD000783
-# 2014/06/PXD001077
-# 2014/07/PXD000923
-# 2014/07/PXD001072
-# 2014/07/PXD001073
-# 2014/10/PXD000961
-# 2014/10/PXD001402
-# 2014/11/PXD001045
-# 2014/11/PXD001089
-# 2014/11/PXD001090
-# 2014/11/PXD001267
-# 2014/11/PXD001386
-
 
 print("mzId count:" + str(test_loop.mzId_count))

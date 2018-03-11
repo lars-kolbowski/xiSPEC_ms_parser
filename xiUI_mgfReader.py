@@ -143,8 +143,10 @@ class Reader(object):
             # go to start of file
             fh.seek(0)
             pos = 0
-
+            peak_list_start_pos = None
             for line in fh:
+                if len(spec_positions) == 1935:
+                    pass
                 if line.strip() == "BEGIN IONS":
                     peak_list_start_pos = -1
                 elif line.strip() == "END IONS":
@@ -152,7 +154,7 @@ class Reader(object):
                 else:
                     l = line.split('=')
                     if len(l) == 1:
-                        if peak_list_start_pos == -1:
+                        if peak_list_start_pos is not None and peak_list_start_pos == -1:
                             peak_list_start_pos = pos
                     # #  could also be getting charge and rt here
                     # #  see mgf.py, L194-L203
@@ -179,13 +181,19 @@ class Reader(object):
 
          """
 
-        if scan_id == 12798:
+        if scan_id == 1935:
             pass
 
         peak_list = None
         position = self.info['offsetList'][scan_id]
         start_pos = position[0]
         end_pos = position[1]
+
+        if (start_pos == -1):  # empty scan
+            self.spectrum['peaks'] = ''
+            # self.spectrum['params'] = params
+            return self.spectrum
+
 
         self.seeker.seek(start_pos, 0)
         peak_list = self.seeker.read(end_pos - start_pos)

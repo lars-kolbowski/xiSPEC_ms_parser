@@ -42,7 +42,7 @@ def create_tables(cur, con):
             "origin TEXT,"
             "xml_version TEXT,"
             "file_size BIGINT,"
-            "spectrum_id_format JSON,"
+            "spectrum_id_format TEXT,"
             "parse_time FLOAT)"
         )
         cur.execute("DROP TABLE IF EXISTS protocols")
