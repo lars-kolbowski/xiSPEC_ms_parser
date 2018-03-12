@@ -43,6 +43,7 @@ def create_tables(cur, con):
             "xml_version TEXT,"
             "file_size BIGINT,"
             "spectrum_id_format TEXT,"
+            "file_format TEXT,"
             "parse_time FLOAT)"
         )
         cur.execute("DROP TABLE IF EXISTS protocols")
@@ -177,76 +178,76 @@ def write_db_sequences(inj_list, cur, con):
 
 
 def write_peptides(inj_list, cur, con):
-    # try:
-    cur.executemany("""
-    INSERT INTO peptides (
-        id,
-        /*sequence,*/
-        seq_mods,
-        link_site,
-        crosslinker_modmass,
-        upload_id,
-        value
-    )
-    VALUES (%s, %s, %s, %s, %s, %s)""", inj_list)
-    #     con.commit()
-    #
-    # except psycopg2.Error as e:
-    #     raise DBException(e.message)
+    try:
+        cur.executemany("""
+        INSERT INTO peptides (
+            id,
+            /*sequence,*/
+            seq_mods,
+            link_site,
+            crosslinker_modmass,
+            upload_id,
+            value
+        )
+        VALUES (%s, %s, %s, %s, %s, %s)""", inj_list)
+        con.commit()
+
+    except psycopg2.Error as e:
+        raise DBException(e.message)
 
     return True
 
 
 def write_modifications(inj_list, cur, con):
-    # try:
-    cur.executemany("""INSERT INTO modifications (id, name, mass, residues, accession) VALUES (%s, %s, %s, %s, %s)""",
+    try:
+        cur.executemany("""INSERT INTO modifications (id, name, mass, residues, accession) VALUES (%s, %s, %s, %s, %s)""",
                         inj_list)
-    #     con.commit()
-    # except psycopg2.Error as e:
-    #     raise DBException(e.message)
+        con.commit()
+    except psycopg2.Error as e:
+        raise DBException(e.message)
 
     return True
 
 
 def write_peptide_evidences(inj_list, cur, con):
-    # try:
-    cur.executemany("""
-    INSERT INTO peptide_evidences (
-        peptide_ref,
-        dbsequence_ref,
-        start,
-        is_decoy,
-        upload_id
-    )
-    VALUES (%s, %s, %s, %s, %s)""", inj_list)
-    #     con.commit()
-    #
-    # except psycopg2.Error as e:
-    #     raise DBException(e.message)
+    try:
+        cur.executemany("""
+        INSERT INTO peptide_evidences (
+            peptide_ref,
+            dbsequence_ref,
+            start,
+            is_decoy,
+            upload_id
+        )
+        VALUES (%s, %s, %s, %s, %s)""", inj_list)
+        con.commit()
+
+    except psycopg2.Error as e:
+        raise DBException(e.message)
 
     return True
 
 
 def write_spectra(inj_list, cur, con):
-    # try:
-    cur.executemany("""INSERT INTO spectra (id, peak_list, peak_list_file_name, scan_id, frag_tol, upload_id, spectrum_id)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)""", inj_list)
-    #     con.commit()
-    #
-    # except psycopg2.Error as e:
-    #     raise DBException(e.message)
+    try:
+        cur.executemany("""INSERT INTO spectra (id, peak_list, peak_list_file_name, scan_id, frag_tol, upload_id, spectrum_id)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)""", inj_list)
+        con.commit()
+
+    except psycopg2.Error as e:
+        raise DBException(e.message)
 
     return True
 
 
 def write_spectrum_identifications(inj_list, cur, con):
-    # try:
-    cur.executemany("""INSERT INTO spectrum_identifications (id, upload_id, spectrum_id, pep1_id, pep2_id,
-                            charge_state, rank, pass_threshold, ions, scores) VALUES (%s, %s, %s, %s, %s, %s, %s, %s , %s, %s)""", inj_list)
-    #     con.commit()
-    #
-    # except psycopg2.Error as e:
-    #     raise DBException(e.message)
+    try:
+        cur.executemany("""INSERT INTO spectrum_identifications (id, upload_id, spectrum_id, pep1_id, pep2_id,
+                                charge_state, rank, pass_threshold, ions, scores) VALUES (%s, %s, %s, %s, %s, %s, %s, %s , %s, %s)""", inj_list)
+        con.commit()
+
+    except psycopg2.Error as e:
+        raise DBException(e.message)
 
     return True
 
