@@ -1,6 +1,6 @@
 import ntpath
 import zipfile
-import xiSPEC_mgfReader as py_mgf
+import xiUI_mgfReader as py_mgf
 import pymzml
 import re
 import os
