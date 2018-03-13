@@ -54,25 +54,25 @@ class TestLoop:
 
         self.temp_dir = os.path.expanduser('~') + "/parser_temp"
 
-        # # connect to DB
-        # try:
-        #     con = db.connect('')
-        #     cur = con.cursor()
-        #
-        # except db.DBException as e:
-        #     self.logger.error(e)
-        #     print(e)
-        #     sys.exit(1)
-        #
-        # # create Database tables
-        # try:
-        #     db.create_tables(cur, con)
-        # except db.DBException as e:
-        #     self.logger.error(e)
-        #     print(e)
-        #     sys.exit(1)
-        #
-        # con.close
+        # connect to DB
+        try:
+            con = db.connect('')
+            cur = con.cursor()
+
+        except db.DBException as e:
+            self.logger.error(e)
+            print(e)
+            sys.exit(1)
+
+        # create Database tables
+        try:
+            db.create_tables(cur, con)
+        except db.DBException as e:
+            self.logger.error(e)
+            print(e)
+            sys.exit(1)
+
+        con.close
 
     def all_years(self):
         files = self.get_file_list(self.base)
@@ -83,8 +83,7 @@ class TestLoop:
         target_dir = self.base + '/' + y
         files = self.get_file_list(target_dir)
         for f in files:
-            if f != '2011':
-                self.month(y + '/' + f)
+            self.month(y + '/' + f)
 
     def month(self, ym):
         target_dir = self.base + '/' + ym
@@ -188,20 +187,23 @@ class TestLoop:
             if str(resp) == "550 No files found":
                 print "No files in this directory"
             else:
-                raise
+                error_msg = "%s: %s" % (dir, e.args[0])
+                print error_msg
+
         ftp.quit()
         return files
 
 test_loop = TestLoop()
 # test_loop.allYears()  # no point, starts 2012/12
 
-# # test_loop.month('2012/12')
-# # test_loop.year('2013')
-# # test_loop.year('2014')
-# test_loop.year('2015')
-# test_loop.year('2016')
-# test_loop.year('2017')
-# test_loop.year('2018')
+# test_loop.month('2012/12')
+# test_loop.year('2013')
+# test_loop.year('2014')
+test_loop.month('2014/12')
+test_loop.year('2015')
+test_loop.year('2016')
+test_loop.year('2017')
+test_loop.year('2018')
 
 # # normal
 # test_loop.project('2015/04/PXD001885')
@@ -223,79 +225,53 @@ test_loop = TestLoop()
 # test_loop.project('2017/09/PXD005119')  # key error:  PeptideEvidence
 # test_loop.project('2017/08/PXD004706')  # raw files
 # test_loop.project('2017/06/PXD001683')  # windows file paths
-test_loop.project('2017/09/PXD007267')  # xiUI_pg.DBException: integer out of range, should be fixed
+# test_loop.project('2017/09/PXD007267')  # xiUI_pg.DBException: integer out of range, should be fixed
 # header stuff that can mess up mgf reader
-test_loop.project('2016/02/PXD001997')
-test_loop.project('2016/03/PXD002078')
-test_loop.project('2016/01/PXD002855')
-test_loop.project('2015/04/PXD001877')
-test_loop.project('2015/02/PXD001357')
-
-
-
-test_loop.project('2014/09/PXD001311')
-test_loop.project('2014/10/PXD001403')
-
-test_loop.project('2014/04/PXD000579')
-test_loop.project('2014/07/PXD000662')
-test_loop.project('2014/07/PXD000710')
-test_loop.project('2012/12/PXD000112')
-test_loop.project('2013/09/PXD000443')
-test_loop.project('2013/12/PXD000623')
-test_loop.project('2014/01/PXD000198')
-test_loop.project('2014/01/PXD000456')
-test_loop.project('2014/04/PXD000521')
-test_loop.project('2014/04/PXD000565')
-test_loop.project('2014/04/PXD000566')
-test_loop.project('2014/04/PXD000567')
-test_loop.project('2014/05/PXD000223')
-test_loop.project('2014/05/PXD000568')
-test_loop.project('2014/09/PXD000966')
-test_loop.project('2014/09/PXD001000')
-test_loop.project('2014/09/PXD001006')
-test_loop.project('2012/12/PXD000039')
-
-
+# test_loop.project('2016/02/PXD001997')
+# test_loop.project('2016/03/PXD002078')
+# test_loop.project('2016/01/PXD002855')
+# test_loop.project('2015/04/PXD001877')
+# test_loop.project('2015/02/PXD001357')
 
 # index=null
-test_loop.project('2016/02/PXD001376')
-test_loop.project('2015/02/PXD001213')
-test_loop.project('2016/02/PXD002963')
-test_loop.project('2014/10/PXD001034')
-test_loop.project('2015/03/PXD000719')
-test_loop.project('2016/04/PXD003232')
+# test_loop.project('2016/02/PXD001376')
+# test_loop.project('2015/02/PXD001213')
+# test_loop.project('2016/02/PXD002963')
+# test_loop.project('2014/10/PXD001034')
+# test_loop.project('2015/03/PXD000719')
+# test_loop.project('2016/04/PXD003232')
 
 # missing scan
-test_loop.project('2014/10/PXD001034')
-test_loop.project('2015/02/PXD001213')
-test_loop.project('2015/03/PXD000719')
-test_loop.project('2016/02/PXD001376')
+# test_loop.project('2014/10/PXD001034')
+# test_loop.project('2015/02/PXD001213')
+# test_loop.project('2015/03/PXD000719')
+# test_loop.project('2016/02/PXD001376')
 
 # missing files
-test_loop.project('2012/12/PXD000112')
-test_loop.project('2013/09/PXD000443')
-test_loop.project('2013/12/PXD000623')
-test_loop.project('2014/01/PXD000198')
-test_loop.project('2014/01/PXD000456')
-test_loop.project('2014/04/PXD000521')
-test_loop.project('2014/04/PXD000565')
-test_loop.project('2014/04/PXD000566')
-test_loop.project('2014/04/PXD000567')
-test_loop.project('2014/04/PXD000579')
-test_loop.project('2014/05/PXD000223')
-test_loop.project('2014/05/PXD000568')
-test_loop.project('2014/07/PXD000662')
-test_loop.project('2015/05/PXD000941')
-test_loop.project('2015/05/PXD000942')
-
-# were missing file errors
-test_loop.project('2017/01/PXD004764')
-test_loop.project('2017/01/PXD004778')
-test_loop.project('2017/01/PXD004788')
-test_loop.project('2017/01/PXD004796')
-test_loop.project('2016/01/PXD003445')
-test_loop.project('2016/03/PXD002759')
-test_loop.project('2016/03/PXD003132')
+# test_loop.project('2012/12/PXD000112')
+# test_loop.project('2013/09/PXD000443')
+# test_loop.project('2013/12/PXD000623')
+# test_loop.project('2014/01/PXD000198')
+# test_loop.project('2014/01/PXD000456')
+# test_loop.project('2014/04/PXD000521')
+# test_loop.project('2014/04/PXD000565')
+# test_loop.project('2014/04/PXD000566')
+# test_loop.project('2014/04/PXD000567')
+# test_loop.project('2014/04/PXD000579')
+# test_loop.project('2014/05/PXD000223')
+# test_loop.project('2014/05/PXD000568')
+# test_loop.project('2014/07/PXD000662')
+# test_loop.project('2015/05/PXD000941')
+# test_loop.project('2015/05/PXD000942')
+#
+# # were missing file errors
+# test_loop.project('2017/01/PXD004764')
+# test_loop.project('2017/01/PXD004778')
+# test_loop.project('2017/01/PXD004788')
+# test_loop.project('2017/01/PXD004796')
+# test_loop.project('2016/01/PXD003445')
+# test_loop.project('2016/03/PXD002759')
+# test_loop.project('2016/03/PXD003132')
 
 # out of memory (or struggles)
 # test_loop.project('2015/05/PXD002117')
