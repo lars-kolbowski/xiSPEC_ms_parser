@@ -604,7 +604,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         elif 'location' in spectra_data.keys():
             peak_list_file_name = ntpath.basename(spectra_data['location'])
         else:
-            peak_list_file_name = ntpath.basename(['spectraData_ref'])
+            peak_list_file_name = ntpath.basename(sid_result['spectraData_ref'])
 
         peak_list_file_name = re.sub('\.(mgf|mzml)', '', peak_list_file_name, flags=re.IGNORECASE)
 
