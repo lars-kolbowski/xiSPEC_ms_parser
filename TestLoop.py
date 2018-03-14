@@ -187,7 +187,7 @@ class TestLoop:
             if str(resp) == "550 No files found":
                 print "No files in this directory"
             else:
-                error_msg = "%s: %s" % (dir, e.args[0])
+                error_msg = "%s: %s" % (dir, ftplib.error_perm.args[0])
                 print error_msg
 
         ftp.quit()
@@ -196,10 +196,9 @@ class TestLoop:
 test_loop = TestLoop()
 # test_loop.allYears()  # no point, starts 2012/12
 
-# test_loop.month('2012/12')
-# test_loop.year('2013')
-# test_loop.year('2014')
-test_loop.month('2014/12')
+test_loop.month('2012/12')
+test_loop.year('2013')
+test_loop.year('2014')
 test_loop.year('2015')
 test_loop.year('2016')
 test_loop.year('2017')
