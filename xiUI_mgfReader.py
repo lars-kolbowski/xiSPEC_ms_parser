@@ -151,7 +151,7 @@ class Reader(object):
                     peak_list_start_pos = -1
                 elif line.strip() == "END IONS":
                     spec_positions.append((peak_list_start_pos, pos))
-                else:
+                elif not line.startswith('#'):
                     l = line.split('=')
                     if len(l) == 1:
                         if peak_list_start_pos is not None and peak_list_start_pos == -1:
