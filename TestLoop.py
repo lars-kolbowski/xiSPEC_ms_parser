@@ -9,7 +9,7 @@ import shutil
 
 from xiUI_mzid import MzIdParser
 from xiUI_mzid import NumpyEncoder
-import xiUI_pg as db
+import dummy_db as db
 
 
 class TestLoop:
@@ -55,24 +55,24 @@ class TestLoop:
         self.temp_dir = os.path.expanduser('~') + "/parser_temp"
 
         # connect to DB
-        try:
-            con = db.connect('')
-            cur = con.cursor()
-
-        except db.DBException as e:
-            self.logger.error(e)
-            print(e)
-            sys.exit(1)
-
-        # create Database tables
-        try:
-            db.create_tables(cur, con)
-        except db.DBException as e:
-            self.logger.error(e)
-            print(e)
-            sys.exit(1)
-
-        con.close
+        # try:
+        #     con = db.connect('')
+        #     cur = con.cursor()
+        #
+        # except db.DBException as e:
+        #     self.logger.error(e)
+        #     print(e)
+        #     sys.exit(1)
+        #
+        # # create Database tables
+        # try:
+        #     db.create_tables(cur, con)
+        # except db.DBException as e:
+        #     self.logger.error(e)
+        #     print(e)
+        #     sys.exit(1)
+        #
+        # con.close
 
     def all_years(self):
         files = self.get_file_list(self.base)
@@ -159,10 +159,10 @@ class TestLoop:
                         raise db.DBException(e.message)
                     con.close()
 
-                try:
-                    shutil.rmtree(self.temp_dir)
-                except OSError:
-                    pass
+                # try:
+                #     shutil.rmtree(self.temp_dir)
+                # except OSError:
+                #     pass
                 self.mzId_count = self.mzId_count + 1
                 mzId_parser = None
                 gc.collect()
@@ -194,15 +194,64 @@ class TestLoop:
         return files
 
 test_loop = TestLoop()
+
+# test_loop.project("2014/07/PXD000710")  # MS:1000776: scan number only nativeID format -  -  ["requested scanID 38581 not found in peakList file"]
+# test_loop.project("2014/09/PXD000966")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["ParseError", ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=154"]
+# test_loop.project("2014/09/PXD001000")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["ParseError", ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=726"]
+# test_loop.project("2014/09/PXD001006")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["ParseError", ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=250"]
+# test_loop.project("2014/10/PXD001034")  # MS:1000774: multiple peak list nativeID format - MS:1001062: Mascot MGF file - ["invalid spectrum ID format!"]
+# test_loop.project("2015/02/PXD001213")  # MS:1000774: multiple peak list nativeID format - MS:1001062: Mascot MGF file - ["invalid spectrum ID format!"]
+# test_loop.project("2015/03/PXD000719")  # MS:1000774: multiple peak list nativeID format - MS:1001062: Mascot MGF file - ["requested scanID 280934 not found in peakList file"]
+test_loop.project("2015/05/PXD002161")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=8819"]
+# test_loop.project("2015/06/PXD002041")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=456"]
+# test_loop.project("2015/06/PXD002042")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=262"]
+# test_loop.project("2015/06/PXD002043")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=356"]
+# test_loop.project("2015/06/PXD002044")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=221"]
+# test_loop.project("2015/06/PXD002045")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=672"]
+# test_loop.project("2015/06/PXD002046")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=364"]
+# test_loop.project("2015/06/PXD002047")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=480"]
+# test_loop.project("2015/06/PXD002048")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=388"]
+# test_loop.project("2015/06/PXD002049")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=302"]
+# test_loop.project("2015/06/PXD002050")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=17"]
+# test_loop.project("2015/07/PXD002080")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=443"]
+# test_loop.project("2015/07/PXD002081")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=297"]
+# test_loop.project("2015/07/PXD002082")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=537"]
+# test_loop.project("2015/07/PXD002083")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=303"]
+# test_loop.project("2015/07/PXD002084")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=318"]
+# test_loop.project("2015/07/PXD002085")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=384"]
+# test_loop.project("2015/07/PXD002086")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=773"]
+# test_loop.project("2015/07/PXD002087")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=234"]
+# test_loop.project("2015/07/PXD002088")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=320"]
+# test_loop.project("2015/07/PXD002089")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=214"]
+# test_loop.project("2016/02/PXD001376")  # MS:1000774: multiple peak list nativeID format - MS:1001062: Mascot MGF file - ["invalid spectrum ID format!"]
+# test_loop.project("2016/02/PXD002963")  # MS:1000774: multiple peak list nativeID format - MS:1001062: Mascot MGF file - ["invalid spectrum ID format!"]
+# test_loop.project("2016/04/PXD003232")  # MS:1000774: multiple peak list nativeID format - MS:1001062: Mascot MGF file - ["invalid spectrum ID format!"]
+# test_loop.project("2016/05/PXD001953")  # MS:1000774: multiple peak list nativeID format - MS:1001062: Mascot MGF format - ["requested scanID 207443 not found in peakList file"]
+# test_loop.project("2016/05/PXD002967")  # MS:1000774: multiple peak list nativeID format - MS:1000584: mzML format - ["invalid spectrum ID format!"]
+
+
 # test_loop.allYears()  # no point, starts 2012/12
 
-test_loop.month('2012/12')
-test_loop.year('2013')
-test_loop.year('2014')
-test_loop.year('2015')
-test_loop.year('2016')
-test_loop.year('2017')
-test_loop.year('2018')
+# test_loop.month('2012/12')
+# test_loop.year('2013')
+# test_loop.year('2014')
+# test_loop.year('2015')
+# test_loop.year('2016')
+
+# test_loop.month('2016/06')
+# test_loop.month('2016/07')
+# test_loop.month('2016/08')
+# test_loop.month('2016/09')
+# test_loop.month('2016/10')
+# test_loop.month('2016/11')
+# test_loop.month('2016/12')
+# test_loop.year('2017')
+# test_loop.year('2018')
+
+
+
+
+# test_loop.project('2016/05/PXD002967')  # missing version
 
 # # normal
 # test_loop.project('2015/04/PXD001885')

@@ -1,38 +1,42 @@
 class DBException(Exception):
     pass
 
+
 def connect(dbname):
-    return Bogus_db();
+    pass
 
 
 def create_tables(cur, con):
-    return True
+    pass
 
 
-def write_identifications(inj_list, cur, con):
-    return True
+def write_upload(inj_list, cur, con):
+    pass
 
 
-def write_peaklists(inj_list, cur, con):
-    return True
+def write_db_sequences(inj_list, cur, con):
+    pass
+
+
+def write_peptides(inj_list, cur, con):
+    pass
 
 
 def write_modifications(inj_list, cur, con):
-    return True
+    pass
+
+
+def write_peptide_evidences(inj_list, cur, con):
+    pass
+
+
+def write_spectra(inj_list, cur, con):
+    pass
+
+
+def write_spectrum_identifications(inj_list, cur, con):
+    pass
+
 
 def fill_in_missing_scores(cur, con):
     pass
-
-class Bogus_db(object):
-    # The class "constructor" - It's actually an initializer
-    def __init__(self):
-        pass
-
-    def cursor(self):
-        pass
-
-    def commit(self):
-        pass
-
-    def close(self):
-        pass

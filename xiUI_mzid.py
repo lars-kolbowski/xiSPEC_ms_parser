@@ -62,7 +62,12 @@ class MzIdParser:
 
         file_start = mzId_stream.read(5000)  # read by character
         mzId_stream.close()
-        self.xml_version = re.search('mzIdentML.*?version="(.*?)"', file_start,  flags=re.IGNORECASE).group(1)
+        version_match = re.search('mzIdentML.*?version="(.*?)"', file_start,  flags=re.IGNORECASE)
+        if version_match is not None:
+            self.xml_version = version_match.group(1)
+        else:
+            self.xml_version = ''
+            self.warnings.append("Missing mzid version info.")
 
         software_iter = re.finditer('<SoftwareName>.*?<cvParam.*?name="(.*?)".*?</SoftwareName>', file_start, re.DOTALL)
         analysis_software = []
