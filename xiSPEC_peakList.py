@@ -63,8 +63,8 @@ def get_ion_types_mzml(scan):
 def get_peak_list(scan, pl_file_type):
 
     if pl_file_type == 'mzml':
-        if scan['ms level'] == 1:
-            raise ParseError("requested scanID %i is not a MSn scan" % scan['id'])
+        # if scan['ms level'] == 1:
+        #     raise ParseError("requested scanID %i is not a MSn scan" % scan['id'])
 
         peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan.peaks if i > 0])
 
@@ -155,10 +155,12 @@ def get_scan(reader, spec_id, spec_id_format=None):
     # # e.g.: MS:1000777(spectrum        identifier        nativeID        format)
 
     ignore_dict_index = False
+    identified_spec_id_format = False
 
-    if spec_id_format is not None:
+    if spec_id_format is not None and 'accession' in spec_id_format:
 
-        if 'accession' in spec_id_format and spec_id_format['accession'] == 'MS:1000774':  # (multiple peak list nativeID format - zero based)
+        if spec_id_format['accession'] == 'MS:1000774':  # (multiple peak list nativeID format - zero based)
+            identified_spec_id_format = True
             ignore_dict_index = True
             matches = re.findall("index=([0-9]+)", spec_id)
             try:
@@ -175,33 +177,47 @@ def get_scan(reader, spec_id, spec_id_format=None):
         # The nativeID must be the same as the source file ID.
         # Used for referencing peak list files with one spectrum per file,
         # typically in a folder of PKL or DTAs, where each sourceFileRef is different.
-        elif 'accession' in spec_id_format and spec_id_format['accession'] == 'MS:1000775':
+        elif spec_id_format['accession'] == 'MS:1000775':
+            identified_spec_id_format = True
             ignore_dict_index = True
             spec_id = 0
 
         # MS:1000776
         # Used for referencing mzXML, or a DTA folder where native scan numbers can be derived.
-        elif 'accession' in spec_id_format and spec_id_format['accession'] == 'MS:1000776':
+        elif spec_id_format['accession'] == 'MS:1000776':
+            identified_spec_id_format = True
             matches = re.findall("scan=([0-9]+)", spec_id)
             spec_id = int(matches[0])
 
+        # MS:1000768
+        elif spec_id_format['accession'] == 'MS:1000768':
+            identified_spec_id_format = True
+            matches = re.findall("scan=([0-9]+)", spec_id)
+            spec_id = int(matches[0])
+
+    if not identified_spec_id_format:
+        matches = re.findall("([0-9]+)", spec_id)
+
+        if len(matches) == 1:
+            spec_id = int(matches[0])
         else:
-            matches = re.findall("([0-9]+)", spec_id)
+            raise ParseError("failed to parse spectrumID from %s" % spec_id)
 
-            if len(matches) == 1:
-                spec_id = int(matches[0])
-            else:
-                raise ParseError("failed to parse spectrumID from %s" % spec_id)
-
+    # MGF
     if reader['fileType'] == 'mgf':
         try:
             return reader['reader'].get_by_id(spec_id, ignore_dict_index=ignore_dict_index)
         except (IndexError, KeyError, ParseError):
             raise ParseError("requested scanID %s not found in peakList file" % spec_id)
-
+    # MZML
     else:
         try:
-            return reader['reader'][spec_id]
+            scan = reader['reader'][spec_id]
+            if int(scan['ms level']) == 1:
+                raise ParseError("requested scanID %i is not a MSn scan" % scan['id'])
+
+            return scan
+
         except (IndexError, KeyError, ParseError):
             raise ParseError("requested scanID %s not found in peakList file" % spec_id)
 
