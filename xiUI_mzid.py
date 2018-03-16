@@ -772,6 +772,11 @@ class MzIdParser:
                     # extract other useful info to display
                     rank = spec_id_item['rank']
 
+                    # from mzidentML schema 1.2.0: For PMF data, the rank attribute may be meaningless and values of rank = 0 should be given.
+                    # xiSPEC front-end expects rank = 1
+                    if rank is None or int(rank) == 0:
+                        rank = 1
+
                     ident_data = [spec_id_item_index,
                                   self.upload_id,
                                   mzid_item_index,
