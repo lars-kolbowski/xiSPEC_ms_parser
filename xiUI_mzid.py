@@ -31,18 +31,14 @@ class MzIdParser:
     """
     def __init__(self, mzId_path, temp_dir, db, logger):
         """
-        e.g.
-        ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2014/09/PXD001054/
-
-        origin: 2014/09/PXD001054/
-        ip: ftp.pride.ebi.ac.uk
-        base: pride/data/archive/
 
         :param mzId_path: path to mzidentML file
         :param temp_dir: absolute path to temp dir for unzipping/storing files
         :param db: database python module to use (xiUI_pg or xiSPEC_sqlite)
         :param logger: logger to use
         """
+
+        self.upload_id = 0
         self.mzId_path = mzId_path
         self.temp_dir = temp_dir
         self.db = db
@@ -57,11 +53,6 @@ class MzIdParser:
         self.modlist = []
 
         self.contains_crosslinks = False
-
-        # info used for debugging info in db
-        self.spectrum_id_formats = set([])
-        self.file_formats = set([])
-        self.peak_list_file_names = []
 
         self.warnings = []
 
@@ -180,7 +171,11 @@ class MzIdParser:
         #
         sequences_start_time = time()
         self.logger.info('getting sequences, peptides, peptide evidences, modifications - start')
-        self.parse_db_sequences(self.mzid_reader)
+        try:
+            self.parse_db_sequences(self.mzid_reader)
+        except AttributeError:
+            pass
+
         self.parse_peptides(self.mzid_reader)
         self.parse_peptide_evidences(self.mzid_reader)
         self.logger.info('getting sequences, etc - done. Time: ' + str(round(time() - sequences_start_time, 2)) + " sec")
@@ -387,7 +382,7 @@ class MzIdParser:
         for db_id in mzid_reader._offset_index["DBSequence"].keys():
             db_sequence = mzid_reader.get_by_id(db_id, tag_id='DBSequence', detailed=True)
 
-            data = [db_sequence["id"], db_sequence["accession"]];
+            data = [db_sequence["id"], db_sequence["accession"]]
 
             # name, optional elem att
             if "name" in db_sequence :
@@ -571,7 +566,7 @@ class MzIdParser:
         for pep_ev_id in mzid_reader._offset_index["PeptideEvidence"].keys():
             peptide_evidence = mzid_reader.get_by_id(pep_ev_id, tag_id='PeptideEvidence', detailed=True)
 
-            data = [];  # peptide_ref, dBSequence_ref, start, upload_id
+            data = []  # peptide_ref, dBSequence_ref, start, upload_id
             data.append(peptide_evidence["peptide_ref"])  # peptide_ref att, required
             data.append(peptide_evidence["dBSequence_ref"])  # DBSequence_ref att, required
             if "start" in peptide_evidence:
@@ -932,17 +927,23 @@ class MzIdParser:
 
 
     def log_preliminary_info(self):
+
+        # info used for debugging info in db
+        spectrum_id_formats = set([])
+        file_formats = set([])
+        peak_list_file_names = []
+
         # get some preliminary info before actual parsing starts for error logging to db
-        self.mzId_file_size = os.path.getsize(self.mzId_path)
+        mzId_file_size = os.path.getsize(self.mzId_path)
         mzId_stream = open(self.mzId_path, 'r')
 
         file_start = mzId_stream.read(10000)  # read first 10000 chars in. Should include all necessary info
         mzId_stream.close()
         version_match = re.search('mzIdentML.*?version="(.*?)"', file_start,  flags=re.IGNORECASE)
         if version_match is not None:
-            self.xml_version = version_match.group(1)
+            xml_version = version_match.group(1)
         else:
-            self.xml_version = ''
+            xml_version = ''
             self.warnings.append("Missing mzid version info.")
 
         software_iter = re.finditer('<SoftwareName>.*?<cvParam.*?name="(.*?)".*?</SoftwareName>', file_start, re.DOTALL)
@@ -961,7 +962,7 @@ class MzIdParser:
                     analysis_software
                 )
                 VALUES (%s, %s, %s, %s, %s) RETURNING id AS upload_id""",
-                             [self.origin, ntpath.basename(self.mzId_path), self.xml_version, self.mzId_file_size, analysis_software])
+                             [self.origin, ntpath.basename(self.mzId_path), xml_version, mzId_file_size, analysis_software])
             self.con.commit()
 
         except psycopg2.Error as e:
