@@ -25,20 +25,11 @@ class ScanNotFoundException(Exception):
     pass
 
 
-class dummy_class:
-
-    def commit(self):
-        return
-
-    def close(self):
-        return
-
-
 class MzIdParser:
     """
     ToDo: refactor for working with non ftp sources
     """
-    def __init__(self, mzId_path, temp_dir, origin, db, ip, base, logger):
+    def __init__(self, mzId_path, temp_dir, db, logger):
         """
         e.g.
         ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2014/09/PXD001054/
@@ -49,18 +40,12 @@ class MzIdParser:
 
         :param mzId_path: path to mzidentML file
         :param temp_dir: absolute path to temp dir for unzipping/storing files
-        :param origin: year month project folder on ftp
         :param db: database python module to use (xiUI_pg or xiSPEC_sqlite)
-        :param ip: ip of the ftp server
-        :param base: ftp base path
         :param logger: logger to use
         """
         self.mzId_path = mzId_path
         self.temp_dir = temp_dir
-        self.origin = origin
         self.db = db
-        self.ip = ip
-        self.base = base
         self.logger = logger
 
         # ToDo: Might change to pyteomics unimod obo module
@@ -80,73 +65,65 @@ class MzIdParser:
 
         self.warnings = []
 
-        # connect
-        self.con = dummy_class()
-        self.cur = None
         # connect to DB
-        # try:
-        #     self.con = db.connect('')
-        #     self.cur = self.con.cursor()
-        #
-        # except db.DBException as e:
-        #     self.logger.error(e)
-        #     print(e)
-        #     sys.exit(1)
+        try:
+            self.con = db.connect('')
+            self.cur = self.con.cursor()
+
+        except db.DBException as e:
+            self.logger.error(e)
+            print(e)
+            sys.exit(1)
 
         if mzId_path.endswith('.gz') or mzId_path.endswith('.zip'):
             self.mzId_path = MzIdParser.extract_mzid(mzId_path)
 
-        # ToDo: move to function - xiSPEC will not use it for now -> can be written to mySQL db
-        # get some preliminary info before actual parsing starts for error logging to db
-        self.mzId_file_size = os.path.getsize(mzId_path)
-        mzId_stream = open(mzId_path, 'r')
-
-        file_start = mzId_stream.read(10000)  # read first 10000 chars in. Should include all necessary info
-        mzId_stream.close()
-        version_match = re.search('mzIdentML.*?version="(.*?)"', file_start,  flags=re.IGNORECASE)
-        if version_match is not None:
-            self.xml_version = version_match.group(1)
-        else:
-            self.xml_version = ''
-            self.warnings.append("Missing mzid version info.")
-
-        software_iter = re.finditer('<SoftwareName>.*?<cvParam.*?name="(.*?)".*?</SoftwareName>', file_start, re.DOTALL)
-        analysis_software = []
-        for i in software_iter:
-            analysis_software.append(i.group(1))
-        analysis_software = json.dumps(analysis_software, cls=NumpyEncoder)
-
-        # try:
-        #     self.cur.execute("""
-        #         INSERT INTO uploads (
-        #             origin,
-        #             filename,
-        #             xml_version,
-        #             file_size,
-        #             analysis_software
-        #         )
-        #         VALUES (%s, %s, %s, %s, %s) RETURNING id AS upload_id""",
-        #                      [origin, ntpath.basename(mzId_path), self.xml_version, self.mzId_file_size, analysis_software])
-        #     self.con.commit()
-        #
-        # except psycopg2.Error as e:
-        #     raise db.DBException(e.message)
-
-        # rows = self.cur.fetchall()
-        self.upload_id = -1 # rows[0][0]
-
-    def parse(self):
         self.logger.info('reading mzid - start')
-        mzid_start_time = time()
+        self.start_time = time()
         # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
         try:
-            mzid_reader = py_mzid.MzIdentML(self.mzId_path)
+            self.mzid_reader = py_mzid.MzIdentML(self.mzId_path)
         except Exception as e:
             raise MzIdParseException(type(e).__name__, e.args)
 
-        self.logger.info('reading mzid - done. Time: ' + str(round(time() - mzid_start_time, 2)) + " sec")
+        self.logger.info('reading mzid - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
 
-        self.spectra_data = self.get_inputs(mzid_reader)
+    def get_peak_list_file_names(self):
+        peak_list_file_names = []
+        for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
+            sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
+
+            # peak list file name
+            # if 'location' in spectra_data.keys():
+            #  edited this because location is a required attribute
+            peak_list_file_name = ntpath.basename(sp_datum['location'])
+            peak_list_file_names.append(peak_list_file_name)
+            # elif 'name' in spectra_data.keys():
+            #     peak_list_file_name = spectra_data['name']
+
+            # don't know if we want to do this FIleFormat checking stuff here (could do checks about file extensions)
+            # if 'FileFormat' in sp_datum:
+            #     if 'accession' in sp_datum['FileFormat']:
+            #         file_format_readable = sp_datum['FileFormat']['accession'] + ': ' + sp_datum['FileFormat']['name']
+            #         # missing .mgf file extension?
+            #         if sp_datum['FileFormat']['accession'] == 'MS:1001062' and not peak_list_file_name.lower().endswith(
+            #                     '.mgf'):
+            #             self.warnings.append('location of mgf file is missing .mgf extension: ' + peak_list_file_name)
+            #             peak_list_file_name = peak_list_file_name + '.mgf'
+            #         # also might be some fails coz .MGF is being converted to .mgf in ftp archive
+            #     else:
+            #         self.warnings.append('SpectraData>FileFormat is missing accession.')
+            #         file_format_readable = sp_datum['FileFormat']
+            #
+            # else:
+            #     self.warnings.append('SpectraData missing required element FileFormat.')
+
+        return peak_list_file_names
+
+    def get_sequenceDB_file_names(self):
+        pass
+
+    def parse(self):
 
         #
         # upload info
@@ -162,9 +139,9 @@ class MzIdParser:
         #
         sequences_start_time = time()
         self.logger.info('getting sequences, peptides, peptide evidences, modifications - start')
-        self.parse_db_sequences(mzid_reader)
-        self.parse_peptides(mzid_reader)
-        self.parse_peptide_evidences(mzid_reader)
+        self.parse_db_sequences(self.mzid_reader)
+        self.parse_peptides(self.mzid_reader)
+        self.parse_peptide_evidences(self.mzid_reader)
         self.logger.info('getting sequences, etc - done. Time: ' + str(round(time() - sequences_start_time, 2)) + " sec")
 
         #
@@ -172,12 +149,12 @@ class MzIdParser:
         #
         spectra_map_start_time = time()
         self.logger.info('generating spectra data protocol map - start')
-        self.spectra_data_protocol_map = self.map_spectra_data_to_protocol(mzid_reader)
+        self.spectra_data_protocol_map = self.map_spectra_data_to_protocol(self.mzid_reader)
         # return_json['errors'] += spectra_data_protocol_map['errors']
         # ToDo: save FragmentTolerance to annotationsTable
         self.logger.info('generating spectraData_ProtocolMap - done. Time: ' + str(round(time() - spectra_map_start_time, 2)) + " sec")
 
-        self.main_loop(mzid_reader)
+        self.main_loop(self.mzid_reader)
 
         # ToDo: fill in missing score information
         # score_fill_start_time = time()
@@ -185,107 +162,7 @@ class MzIdParser:
         # db.fill_in_missing_scores(cur, con)
         # logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
 
-        parse_time = str(round(time() - mzid_start_time, 2))
-        # store some info on how things went
-        # try:
-        #     self.cur.execute("""
-        #         UPDATE uploads SET
-        #             peak_list_file_names=%s,
-        #             upload_warnings=%s,
-        #             spectrum_id_format=%s,
-        #             file_format=%s,
-        #             parse_time=%s,
-        #             contains_crosslinks=%s
-        #          WHERE id = %s""",
-        #                      [
-        #                          json.dumps(self.peak_list_file_names, cls=NumpyEncoder),
-        #                          json.dumps(self.warnings),
-        #                          ','.join(self.spectrum_id_formats),
-        #                          ','.join(self.file_formats),
-        #
-        #                          parse_time,
-        #                          self.contains_crosslinks,
-        #                          self.upload_id
-        #                      ])
-        #     self.con.commit()
-        # except psycopg2.Error as e:
-        #     raise e
-
-        self.logger.info('all done! Total time: ' + str(round(time() - mzid_start_time, 2)) + " sec")
-
-    def get_inputs (self, mzid_reader):
-        #  ignoring source files
-        # todo - self.search_databases
-
-        # get spectra data
-        spectra_data = {}
-        for spectra_data_id in mzid_reader._offset_index["SpectraData"].keys():
-            sp_datum = mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
-            sd_id = sp_datum['id']
-            # peak list file name
-            # if 'location' in spectra_data.keys():
-            #  location is required attribute
-            peak_list_file_name = ntpath.basename(sp_datum['location'])
-            self.peak_list_file_names.append(peak_list_file_name)
-            # elif 'name' in spectra_data.keys():
-            #     peak_list_file_name = spectra_data['name']
-
-            file_format_readable = ''
-            if 'FileFormat' in sp_datum:
-                if 'accession' in sp_datum['FileFormat']:
-                    file_format_readable = sp_datum['FileFormat']['accession'] + ': ' + sp_datum['FileFormat']['name']
-                    # missing .mgf file extension?
-                    if sp_datum['FileFormat']['accession'] == 'MS:1001062' and not peak_list_file_name.lower().endswith(
-                                '.mgf'):
-                        self.warnings.append('location of mgf file is missing .mgf extension: ' + peak_list_file_name)
-                        peak_list_file_name = peak_list_file_name + '.mgf'
-                    # also might be some fails coz .MGF is being converted to .mgf in ftp archive
-                else:
-                    self.warnings.append('SpectraData>FileFormat is missing accession.')
-                    file_format_readable = sp_datum['FileFormat']
-
-            else:
-                self.warnings.append('SpectraData missing required element FileFormat.')
-            self.file_formats.add(file_format_readable)
-
-            spec_id_format_readable = ''
-            if 'SpectrumIDFormat' in sp_datum:
-                if 'accession' in sp_datum['SpectrumIDFormat']:
-                    spec_id_format_readable = sp_datum['SpectrumIDFormat']['accession'] + ': ' + \
-                                              sp_datum['SpectrumIDFormat']['name']
-                else:
-                    self.warnings.append('SpectraData>SpectrumIDFormat is missing accession.')
-                    spec_id_format_readable = sp_datum['SpectrumIDFormat']
-            else:
-                self.warnings.append('SpectraData missing required element SpectrumIDElement.')
-            self.spectrum_id_formats.add(spec_id_format_readable)
-
-            ftp = ftplib.FTP(self.ip)
-            ftp.login()  # Uses password: anonymous@
-            try:
-                target_dir = '/' + self.base + '/' + self.origin
-                ftp.cwd(target_dir)
-                self.logger.info('getting ' + peak_list_file_name)
-                ftp.retrbinary("RETR " + peak_list_file_name,
-                               open(self.temp_dir + '/' + peak_list_file_name, 'wb').write)
-            except ftplib.error_perm as e:
-                #  check for gzipped
-                try:
-                    self.logger.info('getting ' + peak_list_file_name + '.gz')
-                    ftp.retrbinary("RETR " + peak_list_file_name + '.gz',
-                                   open(self.temp_dir + '/' + peak_list_file_name + '.gz', 'wb').write)
-                except ftplib.error_perm as e:
-                    ftp.close()
-                    raise MissingFileException(type(e).__name__, peak_list_file_name, e.args)
-                ftp.close()
-                peak_list_file_name = ntpath.basename(
-                    peakListParser.unzip_peak_lists(self.temp_dir + '/' + peak_list_file_name + '.gz')[0])
-            ftp.close()
-
-            sp_datum['peak_list_reader'] = peakListParser.get_peak_list_reader(self.temp_dir + '/' + peak_list_file_name)
-            spectra_data[sd_id] = sp_datum
-
-        return spectra_data
+        self.logger.info('all done! Total time: ' + str(round(time() - self.mzid_start_time, 2)) + " sec")
 
     def get_ion_types_mzid(self, sid_item):
         try:
@@ -920,10 +797,166 @@ class MzIdParser:
         #                                               detailed=True)
         # audits = json.dumps(audits)
         #
-       # upload_id = self.db.write_upload([self.user_id, filename, json.dumps(peak_list_file_names),
-       #                   analysis_software, provider, audits, samples, analyses, protocols, bibRefs, 'country'],
-       #                  self.cur, self.con,
-       #                  )
+        # upload_id = self.db.write_upload([self.user_id, filename, json.dumps(peak_list_file_names),
+        #                   analysis_software, provider, audits, samples, analyses, protocols, bibRefs, 'country'],
+        #                  self.cur, self.con,
+        #                  )
+
+    def fetch_supporting_files_from_PRIDE(self, origin, ip, base):
+        """
+        e.g.
+        ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2014/09/PXD001054/
+
+        origin: 2014/09/PXD001054/
+        ip: ftp.pride.ebi.ac.uk
+        base: pride/data/archive/
+
+        :param origin: year month project folder on ftp
+        :param ip: ip of the ftp server
+        :param base: ftp base path
+        """
+        #  ignoring source files
+        # todo - self.search_databases
+
+        # get spectra data
+        spectra_data = {}
+        for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
+            sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
+            sd_id = sp_datum['id']
+            # peak list file name
+            # if 'location' in spectra_data.keys():
+            #  location is required attribute
+            peak_list_file_name = ntpath.basename(sp_datum['location'])
+            self.peak_list_file_names.append(peak_list_file_name)
+            # elif 'name' in spectra_data.keys():
+            #     peak_list_file_name = spectra_data['name']
+
+            file_format_readable = ''
+            if 'FileFormat' in sp_datum:
+                if 'accession' in sp_datum['FileFormat']:
+                    file_format_readable = sp_datum['FileFormat']['accession'] + ': ' + sp_datum['FileFormat']['name']
+                    # missing .mgf file extension?
+                    if sp_datum['FileFormat']['accession'] == 'MS:1001062' and not peak_list_file_name.lower().endswith(
+                                '.mgf'):
+                        self.warnings.append('location of mgf file is missing .mgf extension: ' + peak_list_file_name)
+                        peak_list_file_name = peak_list_file_name + '.mgf'
+                    # also might be some fails coz .MGF is being converted to .mgf in ftp archive
+                else:
+                    self.warnings.append('SpectraData>FileFormat is missing accession.')
+                    file_format_readable = sp_datum['FileFormat']
+
+            else:
+                self.warnings.append('SpectraData missing required element FileFormat.')
+            self.file_formats.add(file_format_readable)
+
+            spec_id_format_readable = ''
+            if 'SpectrumIDFormat' in sp_datum:
+                if 'accession' in sp_datum['SpectrumIDFormat']:
+                    spec_id_format_readable = sp_datum['SpectrumIDFormat']['accession'] + ': ' + \
+                                              sp_datum['SpectrumIDFormat']['name']
+                else:
+                    self.warnings.append('SpectraData>SpectrumIDFormat is missing accession.')
+                    spec_id_format_readable = sp_datum['SpectrumIDFormat']
+            else:
+                self.warnings.append('SpectraData missing required element SpectrumIDElement.')
+            self.spectrum_id_formats.add(spec_id_format_readable)
+
+            ftp = ftplib.FTP(ip)
+            ftp.login()  # Uses password: anonymous@
+            try:
+                target_dir = '/' + base + '/' + origin
+                ftp.cwd(target_dir)
+                self.logger.info('getting ' + peak_list_file_name)
+                ftp.retrbinary("RETR " + peak_list_file_name,
+                               open(self.temp_dir + '/' + peak_list_file_name, 'wb').write)
+            except ftplib.error_perm as e:
+                #  check for gzipped
+                try:
+                    self.logger.info('getting ' + peak_list_file_name + '.gz')
+                    ftp.retrbinary("RETR " + peak_list_file_name + '.gz',
+                                   open(self.temp_dir + '/' + peak_list_file_name + '.gz', 'wb').write)
+                except ftplib.error_perm as e:
+                    ftp.close()
+                    raise MissingFileException(type(e).__name__, peak_list_file_name, e.args)
+                ftp.close()
+                peak_list_file_name = ntpath.basename(
+                    peakListParser.unzip_peak_lists(self.temp_dir + '/' + peak_list_file_name + '.gz')[0])
+            ftp.close()
+
+            sp_datum['peak_list_reader'] = peakListParser.get_peak_list_reader(self.temp_dir + '/' + peak_list_file_name)
+            spectra_data[sd_id] = sp_datum
+
+        return spectra_data
+
+
+    def log_preliminary_info(self):
+        # get some preliminary info before actual parsing starts for error logging to db
+        self.mzId_file_size = os.path.getsize(self.mzId_path)
+        mzId_stream = open(self.mzId_path, 'r')
+
+        file_start = mzId_stream.read(10000)  # read first 10000 chars in. Should include all necessary info
+        mzId_stream.close()
+        version_match = re.search('mzIdentML.*?version="(.*?)"', file_start,  flags=re.IGNORECASE)
+        if version_match is not None:
+            self.xml_version = version_match.group(1)
+        else:
+            self.xml_version = ''
+            self.warnings.append("Missing mzid version info.")
+
+        software_iter = re.finditer('<SoftwareName>.*?<cvParam.*?name="(.*?)".*?</SoftwareName>', file_start, re.DOTALL)
+        analysis_software = []
+        for i in software_iter:
+            analysis_software.append(i.group(1))
+        analysis_software = json.dumps(analysis_software, cls=NumpyEncoder)
+
+        try:
+            self.cur.execute("""
+                INSERT INTO uploads (
+                    origin,
+                    filename,
+                    xml_version,
+                    file_size,
+                    analysis_software
+                )
+                VALUES (%s, %s, %s, %s, %s) RETURNING id AS upload_id""",
+                             [self.origin, ntpath.basename(self.mzId_path), self.xml_version, self.mzId_file_size, analysis_software])
+            self.con.commit()
+
+        except psycopg2.Error as e:
+            raise self.db.DBException(e.message)
+
+        rows = self.cur.fetchall()
+        self.upload_id = rows[0][0]
+
+    def log_post_parse_info(self):
+        pass
+        # parse_time = str(round(time() - mzid_start_time, 2))
+        # store some info on how things went
+        # try:
+        #     self.cur.execute("""
+        #         UPDATE uploads SET
+        #             peak_list_file_names=%s,
+        #             upload_warnings=%s,
+        #             spectrum_id_format=%s,
+        #             file_format=%s,
+        #             parse_time=%s,
+        #             contains_crosslinks=%s
+        #          WHERE id = %s""",
+        #                      [
+        #                          json.dumps(self.peak_list_file_names, cls=NumpyEncoder),
+        #                          json.dumps(self.warnings),
+        #                          ','.join(self.spectrum_id_formats),
+        #                          ','.join(self.file_formats),
+        #
+        #                          parse_time,
+        #                          self.contains_crosslinks,
+        #                          self.upload_id
+        #                      ])
+        #     self.con.commit()
+        # except psycopg2.Error as e:
+        #     raise e
+
+
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
