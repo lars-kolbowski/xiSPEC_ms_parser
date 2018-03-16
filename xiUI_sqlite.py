@@ -44,7 +44,7 @@ def create_tables(cur, con):
         cur.execute(
             "CREATE TABLE protocols("
             "id text PRIMARY KEY, "
-            # "upload_id INT,"    # might not need that?
+            "upload_id INT,"    # might not need that?
             "protocol JSON,"
             "ms2_tol FLOAT)"
         )
@@ -74,7 +74,7 @@ def create_tables(cur, con):
         cur.execute(
             "CREATE TABLE modifications("
             "id INT PRIMARY KEY, "
-            # "upload_id INT,"
+            "upload_id INT,"
             "mod_name TEXT, " 
             "mass FLOAT, "
             "residues TEXT, "
@@ -93,7 +93,7 @@ def create_tables(cur, con):
         cur.execute(
             "CREATE TABLE spectra("
             "id INT, "
-            # "upload_id INT,"
+            "upload_id INT,"
             "peak_list TEXT, "
             "peak_list_file_name TEXT, "
             "scan_id INT, "
@@ -104,7 +104,7 @@ def create_tables(cur, con):
         cur.execute(
             "CREATE TABLE spectrum_identifications("
             "id INT, "
-            # "upload_id INT,"
+            "upload_id INT,"
             "spectrum_id INT, "
             "pep1_id TEXT, "
             "pep2_id TEXT, "
@@ -191,13 +191,15 @@ def create_tables(cur, con):
 def write_peptides(inj_list, cur, con):
     try:
         cur.executemany("""
-            INSERT INTO peptides (
-                'id',
-                'seq_mods',
-                'link_site',
-                'crosslinker_modmass'
-            )
-            VALUES (?, ?, ?, ?)""", inj_list)
+        INSERT INTO 'peptides' (
+            id,
+            seq_mods,
+            link_site,
+            crosslinker_modmass,
+            upload_id,
+            crosslinker_pair_id
+        )
+        VALUES (?, ?, ?, ?, ?, ?)""", inj_list)
         con.commit()
 
     except sqlite3.Error as e:
@@ -211,12 +213,13 @@ def write_modifications(inj_list, cur, con):
         cur.executemany("""
           INSERT INTO modifications (
             'id',
+            'upload_id',
             'mod_name', 
             'mass', 
             'residues', 
             'accession'
           )
-          VALUES (?, ?, ?, ?, ?)""",  inj_list)
+          VALUES (?, ?, ?, ?, ?, ?)""",  inj_list)
         con.commit()
 
     except sqlite3.Error as e:
@@ -252,6 +255,7 @@ def write_spectra(inj_list, cur, con):
               'peak_list', 
               'peak_list_file_name', 
               'scan_id', 
+              'upload_id', 
               'frag_tol', 
               'upload_id', 
               'spectrum_id'

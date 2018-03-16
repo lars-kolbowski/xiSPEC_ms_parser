@@ -201,8 +201,16 @@ def write_peptides(inj_list, cur, con):
 
 def write_modifications(inj_list, cur, con):
     try:
-        cur.executemany("""INSERT INTO modifications (id, mod_name, mass, residues, accession) VALUES (%s, %s, %s, %s, %s)""",
-                        inj_list)
+        cur.executemany("""
+          INSERT INTO modifications (
+            'id',
+            'upload_id',
+            'mod_name', 
+            'mass', 
+            'residues', 
+            'accession'
+          )
+          VALUES (%s, %s, %s, %s, %s, %s)""", inj_list)
         con.commit()
     except psycopg2.Error as e:
         raise DBException(e.message)

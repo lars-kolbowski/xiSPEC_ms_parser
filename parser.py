@@ -25,7 +25,7 @@ try:
         dname = ''
 
     # import local files
-    import xiSPEC_mzid as mzidParser
+    import xiUI_mzid as mzidParser
     import xiSPEC_csv as csvParser
     from xiSPEC_peakList import unzip_peak_lists
 
@@ -57,9 +57,9 @@ try:
     if args[3] == "pg":
         import xiUI_pg as db
     else:
-        import xiSPEC_sqlite as db
+        import xiUI_sqlite as db
 except IndexError:
-    import xiSPEC_sqlite as db
+    import xiUI_sqlite as db
 
 
 returnJSON = {
@@ -206,49 +206,56 @@ except db.DBException as e:
 # parsing
 startTime = time()
 try:
-    # check for peak list zip file
-    peakList_fileName = ntpath.basename(peakList_file)
-    if re.search(".*\.(gz|zip)$", peakList_fileName):
-        try:
-            unzipStartTime = time()
-            logger.info('unzipping start')
-            peakList_fileList = unzip_peak_lists(peakList_file)
-            logger.info('unzipping done. Time: ' + str(round(time() - unzipStartTime, 2)) + " sec")
-        except IOError as e:
-            logger.error(e.args[0])
-            returnJSON['errors'].append({
-                "type": "zipParseError",
-                "message": e.args[0],
-            })
-            print(json.dumps(returnJSON))
-            sys.exit(1)
-        except BadZipfile as e:
-            logger.error(e.args[0])
-            returnJSON['errors'].append({
-                "type": "zipParseError",
-                "message": "Looks something went wrong with the upload! Try uploading again.\n",
-            })
-            print(json.dumps(returnJSON))
-            sys.exit(1)
-
-    else:
-        peakList_fileList = [peakList_file]
+    # # check for peak list zip file
+    # peakList_fileName = ntpath.basename(peakList_file)
+    # if re.search(".*\.(gz|zip)$", peakList_fileName):
+    #     try:
+    #         unzipStartTime = time()
+    #         logger.info('unzipping start')
+    #         peakList_fileList = unzip_peak_lists(peakList_file)
+    #         logger.info('unzipping done. Time: ' + str(round(time() - unzipStartTime, 2)) + " sec")
+    #     except IOError as e:
+    #         logger.error(e.args[0])
+    #         returnJSON['errors'].append({
+    #             "type": "zipParseError",
+    #             "message": e.args[0],
+    #         })
+    #         print(json.dumps(returnJSON))
+    #         sys.exit(1)
+    #     except BadZipfile as e:
+    #         logger.error(e.args[0])
+    #         returnJSON['errors'].append({
+    #             "type": "zipParseError",
+    #             "message": "Looks something went wrong with the upload! Try uploading again.\n",
+    #         })
+    #         print(json.dumps(returnJSON))
+    #         sys.exit(1)
+    #
+    # else:
+    #     peakList_fileList = [peakList_file]
 
     # Identification File
-    identifications_fileName = ntpath.basename(identifications_file)
-    if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
-        logger.info('parsing mzid start')
-        identifications_fileType = 'mzid'
-        id_returnJSON = mzidParser.parse(identifications_file, peakList_fileList, unimodPath, cur,  con, logger)
-        returnJSON.update(id_returnJSON)
+    # identifications_fileName = ntpath.basename(identifications_file)
+    # if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
+    #     logger.info('parsing mzid start')
+    #     identifications_fileType = 'mzid'
+    #     id_returnJSON = mzidParser.parse(identifications_file, peakList_fileList, unimodPath, cur,  con, logger)
+    #     returnJSON.update(id_returnJSON)
 
-    elif identifications_fileName.endswith('.csv'):
-        logger.info('parsing csv start')
-        identifications_fileType = 'csv'
-        id_returnJSON = csvParser.parse(identifications_file, peakList_fileList, cur, con, logger)
-        returnJSON.update(id_returnJSON)
-        # mgfReader = py_mgf.read(peak_list_file)
-        # peakListArr = [pl for pl in mgfReader]
+
+    upload_folder = "/".join(identifications_file.split("/")[:-1]) + "/"
+
+    mzidParser = mzidParser.MzIdParser(identifications_file, upload_folder, db, logger)
+
+    mzidParser.parse()
+
+    # elif identifications_fileName.endswith('.csv'):
+    #     logger.info('parsing csv start')
+    #     identifications_fileType = 'csv'
+    #     id_returnJSON = csvParser.parse(identifications_file, peakList_fileList, cur, con, logger)
+    #     returnJSON.update(id_returnJSON)
+    #     # mgfReader = py_mgf.read(peak_list_file)
+    #     # peakListArr = [pl for pl in mgfReader]
 
     # delete uploaded files after they have been parsed
     if not dev:
