@@ -9,7 +9,7 @@ import shutil
 
 from xiUI_mzid import MzIdParser
 from xiUI_mzid import NumpyEncoder
-import dummy_db as db
+import xiUI_pg as db
 
 
 class TestLoop:
@@ -141,28 +141,28 @@ class TestLoop:
 
                     peak_list_files = json.dumps(mzId_parser.peak_list_file_names, cls=NumpyEncoder)
 
-                    # con = db.connect('')
-                    # cur = con.cursor()
-                    # try:
-                    #     cur.execute("""
-                    # UPDATE uploads SET
-                    #     error_type=%s,
-                    #     upload_error=%s,
-                    #     spectrum_id_format=%s,
-                    #     file_format=%s,
-                    #     upload_warnings=%s,
-                    #     peak_list_file_names=%s
-                    # WHERE id = %s""", [type(mzId_error).__name__, error, spec_id_formats, file_formats, warnings, peak_list_files, mzId_parser.upload_id])
-                    #     con.commit()
-                    #
-                    # except psycopg2.Error as e:
-                    #     raise db.DBException(e.message)
-                    # con.close()
+                    con = db.connect('')
+                    cur = con.cursor()
+                    try:
+                        cur.execute("""
+                    UPDATE uploads SET
+                        error_type=%s,
+                        upload_error=%s,
+                        spectrum_id_format=%s,
+                        file_format=%s,
+                        upload_warnings=%s,
+                        peak_list_file_names=%s
+                    WHERE id = %s""", [type(mzId_error).__name__, error, spec_id_formats, file_formats, warnings, peak_list_files, mzId_parser.upload_id])
+                        con.commit()
 
-                # try:
-                #     shutil.rmtree(self.temp_dir)
-                # except OSError:
-                #     pass
+                    except psycopg2.Error as e:
+                        raise db.DBException(e.message)
+                    con.close()
+
+                try:
+                    shutil.rmtree(self.temp_dir)
+                except OSError:
+                    pass
                 self.mzId_count = self.mzId_count + 1
                 mzId_parser = None
                 gc.collect()
@@ -206,9 +206,7 @@ test_loop = TestLoop()
 # missing FragmentTolerance
 # test_loop.project("2015/05/PXD002161")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=8819"]
 
-
 test_loop.project("2016/11/PXD004785")  # MS:1001530:  mzML unique identifier - MS:1000584: mzML file
-
 
 # test_loop.project("2015/06/PXD002041")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=456"]
 # test_loop.project("2015/06/PXD002042")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=262"]
@@ -245,14 +243,15 @@ test_loop.project("2016/11/PXD004785")  # MS:1001530:  mzML unique identifier - 
 # test_loop.year('2015')
 # test_loop.year('2016')
 
-# test_loop.month('2016/06')
-# test_loop.month('2016/07')
-# test_loop.month('2016/08')
-# test_loop.month('2016/09')
-# test_loop.month('2016/10')
-# test_loop.month('2016/11')
-# test_loop.month('2016/12')
-# test_loop.year('2017')
+# test_loop.month('2017/08')
+# test_loop.month('2017/09')
+# test_loop.month('2017/10')
+
+# >> 2017/10/PXD005168 crashed here
+
+# test_loop.month('2017/11')
+# test_loop.month('2017/12')
+# # test_loop.year('2017')
 # test_loop.year('2018')
 
 
@@ -261,7 +260,7 @@ test_loop.project("2016/11/PXD004785")  # MS:1001530:  mzML unique identifier - 
 # test_loop.project('2016/05/PXD002967')  # missing version
 
 # normal
-# test_loop.project('2015/04/PXD001885')
+test_loop.project('2015/04/PXD001885')
 
 # pyteomics lib had prob reading SpectraData?
 # test_loop.project('2014/09/PXD001006')
