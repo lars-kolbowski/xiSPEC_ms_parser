@@ -79,6 +79,7 @@ def get_peak_list(scan, pl_file_type):
 
 
 def get_reader(readers, file_name):
+
     try:
         reader = readers[file_name]
     except KeyError:
@@ -120,28 +121,6 @@ def get_scan(reader, spec_id, spec_id_format=None):
     # # } else {
     # #     return spectrumID;
     # # }
-    #
-    # if file_id_format == :
-    #     rValueStr = scan_id.replaceAll("query=", "")
-    #     id = null
-    #     if(rValueStr.matches(Constants.INTEGER))
-    #         id = Integer.toString(Integer.parseInt(rValueStr) + 1)
-    #     return id
-    # elif file_id_format == Constants.SpecIdFormat.MULTI_PEAK_LIST_NATIVE_ID:
-    #     rValueStr = scan_id.replaceAll("index=", "")
-    # if rValueStr.matches(Constants.INTEGER):
-    #         id = Integer.toString(Integer.parseInt(rValueStr) + 1)
-    #         return id
-    #     return scan_id
-    # elif file_id_format == Constants.SpecIdFormat.SINGLE_PEAK_LIST_NATIVE_ID:
-    #     return spectrumID.replaceAll("file=", "")
-    # elif file_id_format == Constants.SpecIdFormat.MZML_ID:
-    #     return spectrumID.replaceAll("mzMLid=", "")
-    # elif file_id_format == Constants.SpecIdFormat.SCAN_NUMBER_NATIVE_ID:
-    #     return spectrumID.replaceAll("scan=", "")
-    # else:
-    #     return spectrumID;
-    #
     #
     # # e.g.: MS:1000768(Thermo        nativeID        format)
     # # e.g.: MS:1000769(Waters        nativeID        format)
@@ -190,18 +169,31 @@ def get_scan(reader, spec_id, spec_id_format=None):
             spec_id = int(matches[0])
 
         # MS:1000768
+        # Thermo nativeID format: controllerType=xsd:nonNegativeIntege controllerNumber=xsd:positiveInteger scan=xsd:positiveInteger
         elif spec_id_format['accession'] == 'MS:1000768':
             identified_spec_id_format = True
             matches = re.findall("scan=([0-9]+)", spec_id)
             spec_id = int(matches[0])
 
+        # MS:1001530
+        # mzML unique identifier: Used for referencing mzML. The value of the spectrum ID attribute is referenced directly.
+
+        elif spec_id_format['accession'] == 'MS:1001530':
+            matches = re.findall("scan=([0-9]+)", spec_id)
+            try:
+                spec_id = int(matches[0])
+                identified_spec_id_format = True
+            except IndexError:
+                pass
+
     if not identified_spec_id_format:
         matches = re.findall("([0-9]+)", spec_id)
 
-        if len(matches) == 1:
-            spec_id = int(matches[0])
-        else:
+        try:
+            spec_id = int(matches[-1])
+        except IndexError:
             raise ParseError("failed to parse spectrumID from %s" % spec_id)
+
 
     # MGF
     if reader['fileType'] == 'mgf':
