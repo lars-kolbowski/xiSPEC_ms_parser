@@ -123,6 +123,47 @@ class MzIdParser:
     def get_sequenceDB_file_names(self):
         pass
 
+    def get_peak_lists_from_temp_dir(self):
+        # get spectra data
+        spectra_data = {}
+        for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
+            sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
+            sd_id = sp_datum['id']
+            peak_list_file_name = ntpath.basename(sp_datum['location'])
+
+            # don't know if following stuff belongs in here
+            # if 'FileFormat' in sp_datum:
+            #     if 'accession' in sp_datum['FileFormat']:
+            #         file_format_readable = sp_datum['FileFormat']['accession'] + ': ' + sp_datum['FileFormat']['name']
+            #         # missing .mgf file extension?
+            #         if sp_datum['FileFormat']['accession'] == 'MS:1001062' and not peak_list_file_name.lower().endswith(
+            #                     '.mgf'):
+            #             self.warnings.append('location of mgf file is missing .mgf extension: ' + peak_list_file_name)
+            #             peak_list_file_name = peak_list_file_name + '.mgf'
+            #         # also might be some fails coz .MGF is being converted to .mgf in ftp archive
+            #     else:
+            #         self.warnings.append('SpectraData>FileFormat is missing accession.')
+            #         file_format_readable = sp_datum['FileFormat']
+            #
+            # else:
+            #     self.warnings.append('SpectraData missing required element FileFormat.')
+
+            # if 'SpectrumIDFormat' in sp_datum:
+            #     if 'accession' in sp_datum['SpectrumIDFormat']:
+            #         spec_id_format_readable = sp_datum['SpectrumIDFormat']['accession'] + ': ' + \
+            #                                   sp_datum['SpectrumIDFormat']['name']
+            #     else:
+            #         self.warnings.append('SpectraData>SpectrumIDFormat is missing accession.')
+            #         spec_id_format_readable = sp_datum['SpectrumIDFormat']
+            # else:
+            #     self.warnings.append('SpectraData missing required element SpectrumIDElement.')
+            # self.spectrum_id_formats.add(spec_id_format_readable)
+
+            sp_datum['peak_list_reader'] = peakListParser.get_peak_list_reader(self.temp_dir + '/' + peak_list_file_name)
+            spectra_data[sd_id] = sp_datum
+
+        return spectra_data
+
     def parse(self):
 
         #
@@ -154,6 +195,7 @@ class MzIdParser:
         # ToDo: save FragmentTolerance to annotationsTable
         self.logger.info('generating spectraData_ProtocolMap - done. Time: ' + str(round(time() - spectra_map_start_time, 2)) + " sec")
 
+        self.spectra_data = self.get_peak_lists_from_temp_dir()
         self.main_loop(self.mzid_reader)
 
         # ToDo: fill in missing score information
