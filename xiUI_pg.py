@@ -46,6 +46,9 @@ def create_tables(cur, con):
             "file_format TEXT,"
             "parse_time FLOAT)"
         )
+
+        # ToDo: not used atm
+        # might be a good place to save ions here?
         cur.execute("DROP TABLE IF EXISTS protocols")
         cur.execute(
             "CREATE TABLE protocols("
@@ -54,13 +57,14 @@ def create_tables(cur, con):
             "protocol JSON,"
             "ms2_tol FLOAT)"
         )
+
         cur.execute("DROP TABLE IF EXISTS db_sequences")
         cur.execute(
             "CREATE TABLE db_sequences("
             "id text, "
             "upload_id INT,"
             "accession TEXT, "
-            "name TEXT, "
+            "protein_name TEXT, "
             "description TEXT, "
             "sequence TEXT, "
             "is_decoy BOOLEAN)"
@@ -70,19 +74,17 @@ def create_tables(cur, con):
             "CREATE TABLE peptides("
             "id text, "
             "upload_id INT,"
-            #"sequence TEXT,"
             "seq_mods TEXT,"
             "link_site INT,"
-            "crosslinker_modmass FLOAT,"
-            "value INT)"
-
+            "crosslinker_modmass FLOAT,"    # ToDo: save cross-links to extra table?
+            "crosslinker_pair_id INT)"
         )
         cur.execute("DROP TABLE IF EXISTS modifications")
         cur.execute(
             "CREATE TABLE modifications("
             "id BIGINT PRIMARY KEY, "
             "upload_id INT,"
-            "name TEXT, "
+            "mod_name TEXT, "
             "mass FLOAT, "
             "residues TEXT, "
             "accession TEXT)"
@@ -116,9 +118,9 @@ def create_tables(cur, con):
             "pep1_id text, "
             "pep2_id text, "
             "charge_state int, "
-            "pass_threshold text, "
+            "pass_threshold INT, "
             "rank int,"
-            "ions JSON, "
+            "ions TEXT, "   # ToDo: find better place to store ions -> might be protocols table (unused atm)
             "scores JSON)"
         )
         con.commit()
@@ -163,7 +165,7 @@ def write_db_sequences(inj_list, cur, con):
         INSERT INTO db_sequences (
             id,
             accession,
-            name,
+            protein_name,
             description,
             sequence,
             upload_id
@@ -182,12 +184,11 @@ def write_peptides(inj_list, cur, con):
         cur.executemany("""
         INSERT INTO peptides (
             id,
-            /*sequence,*/
             seq_mods,
             link_site,
             crosslinker_modmass,
             upload_id,
-            value
+            crosslinker_pair_id
         )
         VALUES (%s, %s, %s, %s, %s, %s)""", inj_list)
         con.commit()
@@ -200,7 +201,7 @@ def write_peptides(inj_list, cur, con):
 
 def write_modifications(inj_list, cur, con):
     try:
-        cur.executemany("""INSERT INTO modifications (id, name, mass, residues, accession) VALUES (%s, %s, %s, %s, %s)""",
+        cur.executemany("""INSERT INTO modifications (id, mod_name, mass, residues, accession) VALUES (%s, %s, %s, %s, %s)""",
                         inj_list)
         con.commit()
     except psycopg2.Error as e:
@@ -273,7 +274,7 @@ def fill_in_missing_scores(cur, con):
         for row in res:
             row_scores = json.loads(row[1])
             missing = all_scores - set(row_scores.keys())
-            missing_dict = {key: -1 for key in missing}
+            missing_dict = {key: -1 for key in missing}     # ToDo: there are negative scores -> this needs changing
 
             if len(missing) > 0:
                 row_scores.update(missing_dict)

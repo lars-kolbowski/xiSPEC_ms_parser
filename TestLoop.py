@@ -141,23 +141,23 @@ class TestLoop:
 
                     peak_list_files = json.dumps(mzId_parser.peak_list_file_names, cls=NumpyEncoder)
 
-                    con = db.connect('')
-                    cur = con.cursor()
-                    try:
-                        cur.execute("""
-                    UPDATE uploads SET
-                        error_type=%s,
-                        upload_error=%s,
-                        spectrum_id_format=%s,
-                        file_format=%s,
-                        upload_warnings=%s,
-                        peak_list_file_names=%s
-                    WHERE id = %s""", [type(mzId_error).__name__, error, spec_id_formats, file_formats, warnings, peak_list_files, mzId_parser.upload_id])
-                        con.commit()
-
-                    except psycopg2.Error as e:
-                        raise db.DBException(e.message)
-                    con.close()
+                    # con = db.connect('')
+                    # cur = con.cursor()
+                    # try:
+                    #     cur.execute("""
+                    # UPDATE uploads SET
+                    #     error_type=%s,
+                    #     upload_error=%s,
+                    #     spectrum_id_format=%s,
+                    #     file_format=%s,
+                    #     upload_warnings=%s,
+                    #     peak_list_file_names=%s
+                    # WHERE id = %s""", [type(mzId_error).__name__, error, spec_id_formats, file_formats, warnings, peak_list_files, mzId_parser.upload_id])
+                    #     con.commit()
+                    #
+                    # except psycopg2.Error as e:
+                    #     raise db.DBException(e.message)
+                    # con.close()
 
                 # try:
                 #     shutil.rmtree(self.temp_dir)
@@ -202,7 +202,14 @@ test_loop = TestLoop()
 # test_loop.project("2014/10/PXD001034")  # MS:1000774: multiple peak list nativeID format - MS:1001062: Mascot MGF file - ["invalid spectrum ID format!"]
 # test_loop.project("2015/02/PXD001213")  # MS:1000774: multiple peak list nativeID format - MS:1001062: Mascot MGF file - ["invalid spectrum ID format!"]
 # test_loop.project("2015/03/PXD000719")  # MS:1000774: multiple peak list nativeID format - MS:1001062: Mascot MGF file - ["requested scanID 280934 not found in peakList file"]
-test_loop.project("2015/05/PXD002161")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=8819"]
+
+# missing FragmentTolerance
+# test_loop.project("2015/05/PXD002161")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=8819"]
+
+
+test_loop.project("2016/11/PXD004785")  # MS:1001530:  mzML unique identifier - MS:1000584: mzML file
+
+
 # test_loop.project("2015/06/PXD002041")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=456"]
 # test_loop.project("2015/06/PXD002042")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=262"]
 # test_loop.project("2015/06/PXD002043")  # MS:1000768: Thermo nativeID format - MS:1000584: mzML file - ["failed to parse spectrumID from controllerType=0 controllerNumber=1 scan=356"]
@@ -253,7 +260,7 @@ test_loop.project("2015/05/PXD002161")  # MS:1000768: Thermo nativeID format - M
 
 # test_loop.project('2016/05/PXD002967')  # missing version
 
-# # normal
+# normal
 # test_loop.project('2015/04/PXD001885')
 
 # pyteomics lib had prob reading SpectraData?
