@@ -12,19 +12,50 @@ import os
 import psycopg2
 import ftplib
 
+
 class MzIdParseException(Exception):
     pass
+
 
 class MissingFileException(Exception):
     pass
 
+
 class ScanNotFoundException(Exception):
     pass
 
+
+class dummy_class:
+
+    def commit(self):
+        return
+
+    def close(self):
+        return
+
+
 class MzIdParser:
-
+    """
+    ToDo: refactor for working with non ftp sources
+    """
     def __init__(self, mzId_path, temp_dir, origin, db, ip, base, logger):
+        """
+        e.g.
+        ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2014/09/PXD001054/
 
+        origin: 2014/09/PXD001054/
+        ip: ftp.pride.ebi.ac.uk
+        base: pride/data/archive/
+
+        :param mzId_path: path to mzidentML file
+        :param temp_dir: absolute path to temp dir for unzipping/storing files
+        :param origin: year month project folder on ftp
+        :param db: database python module to use (xiUI_pg or xiSPEC_sqlite)
+        :param ip: ip of the ftp server
+        :param base: ftp base path
+        :param logger: logger to use
+        """
+        self.mzId_path = mzId_path
         self.temp_dir = temp_dir
         self.origin = origin
         self.db = db
@@ -32,35 +63,45 @@ class MzIdParser:
         self.base = base
         self.logger = logger
 
+        # ToDo: Might change to pyteomics unimod obo module
         self.unimod_path = 'obo/unimod.obo'
+
+        # collect all modifications encountered when looping through the SIRs
+        # ToDo: modifications might be globally stored under
+        # ToDo: AnalysisProtocolCollection->SpectrumIdentificationProtocol->ModificationParams
         self.modlist = []
 
         self.contains_crosslinks = False
+
+        # info used for debugging info in db
         self.spectrum_id_formats = set([])
         self.file_formats = set([])
         self.peak_list_file_names = []
 
         self.warnings = []
 
+        # connect
+        self.con = dummy_class()
+        self.cur = None
         # connect to DB
-        try:
-            self.con = db.connect('')
-            self.cur = self.con.cursor()
-
-        except db.DBException as e:
-            self.logger.error(e)
-            print(e)
-            sys.exit(1)
+        # try:
+        #     self.con = db.connect('')
+        #     self.cur = self.con.cursor()
+        #
+        # except db.DBException as e:
+        #     self.logger.error(e)
+        #     print(e)
+        #     sys.exit(1)
 
         if mzId_path.endswith('.gz') or mzId_path.endswith('.zip'):
-            mzId_path = MzIdParser.extract_mzid(mzId_path)
+            self.mzId_path = MzIdParser.extract_mzid(mzId_path)
 
-        self.mzId_path = mzId_path
-        # get some preliminary info
+        # ToDo: move to function - xiSPEC will not use it for now -> can be written to mySQL db
+        # get some preliminary info before actual parsing starts for error logging to db
         self.mzId_file_size = os.path.getsize(mzId_path)
         mzId_stream = open(mzId_path, 'r')
 
-        file_start = mzId_stream.read(5000)  # read by character
+        file_start = mzId_stream.read(10000)  # read first 10000 chars in. Should include all necessary info
         mzId_stream.close()
         version_match = re.search('mzIdentML.*?version="(.*?)"', file_start,  flags=re.IGNORECASE)
         if version_match is not None:
@@ -75,24 +116,24 @@ class MzIdParser:
             analysis_software.append(i.group(1))
         analysis_software = json.dumps(analysis_software, cls=NumpyEncoder)
 
-        try:
-            self.cur.execute("""
-                INSERT INTO uploads (
-                    origin,
-                    filename,
-                    xml_version,
-                    file_size,
-                    analysis_software
-                )
-                VALUES (%s, %s, %s, %s, %s) RETURNING id AS upload_id""",
-                             [origin, ntpath.basename(mzId_path), self.xml_version, self.mzId_file_size, analysis_software])
-            self.con.commit()
+        # try:
+        #     self.cur.execute("""
+        #         INSERT INTO uploads (
+        #             origin,
+        #             filename,
+        #             xml_version,
+        #             file_size,
+        #             analysis_software
+        #         )
+        #         VALUES (%s, %s, %s, %s, %s) RETURNING id AS upload_id""",
+        #                      [origin, ntpath.basename(mzId_path), self.xml_version, self.mzId_file_size, analysis_software])
+        #     self.con.commit()
+        #
+        # except psycopg2.Error as e:
+        #     raise db.DBException(e.message)
 
-        except psycopg2.Error as e:
-            raise db.DBException(e.message)
-
-        rows = self.cur.fetchall()
-        self.upload_id = rows[0][0]
+        # rows = self.cur.fetchall()
+        self.upload_id = -1 # rows[0][0]
 
     def parse(self):
         self.logger.info('reading mzid - start')
@@ -138,7 +179,7 @@ class MzIdParser:
 
         self.main_loop(mzid_reader)
 
-        # fill in missing score information
+        # ToDo: fill in missing score information
         # score_fill_start_time = time()
         # logger.info('fill in missing scores - start')
         # db.fill_in_missing_scores(cur, con)
@@ -146,29 +187,29 @@ class MzIdParser:
 
         parse_time = str(round(time() - mzid_start_time, 2))
         # store some info on how things went
-        try:
-            self.cur.execute("""
-                UPDATE uploads SET
-                    peak_list_file_names=%s, 
-                    upload_warnings=%s,
-                    spectrum_id_format=%s,
-                    file_format=%s,
-                    parse_time=%s,
-                    contains_crosslinks=%s
-                 WHERE id = %s""",
-                             [
-                                 json.dumps(self.peak_list_file_names, cls=NumpyEncoder),
-                                 json.dumps(self.warnings),
-                                 ','.join(self.spectrum_id_formats),
-                                 ','.join(self.file_formats),
-
-                                 parse_time,
-                                 self.contains_crosslinks,
-                                 self.upload_id
-                             ])
-            self.con.commit()
-        except psycopg2.Error as e:
-            raise e
+        # try:
+        #     self.cur.execute("""
+        #         UPDATE uploads SET
+        #             peak_list_file_names=%s,
+        #             upload_warnings=%s,
+        #             spectrum_id_format=%s,
+        #             file_format=%s,
+        #             parse_time=%s,
+        #             contains_crosslinks=%s
+        #          WHERE id = %s""",
+        #                      [
+        #                          json.dumps(self.peak_list_file_names, cls=NumpyEncoder),
+        #                          json.dumps(self.warnings),
+        #                          ','.join(self.spectrum_id_formats),
+        #                          ','.join(self.file_formats),
+        #
+        #                          parse_time,
+        #                          self.contains_crosslinks,
+        #                          self.upload_id
+        #                      ])
+        #     self.con.commit()
+        # except psycopg2.Error as e:
+        #     raise e
 
         self.logger.info('all done! Total time: ' + str(round(time() - mzid_start_time, 2)) + " sec")
 
@@ -219,8 +260,8 @@ class MzIdParser:
                 self.warnings.append('SpectraData missing required element SpectrumIDElement.')
             self.spectrum_id_formats.add(spec_id_format_readable)
 
-            ftp = ftplib.FTP("193.62.192.9")
-            ftp.login()  # Username: anonymous password: anonymous@
+            ftp = ftplib.FTP(self.ip)
+            ftp.login()  # Uses password: anonymous@
             try:
                 target_dir = '/' + self.base + '/' + self.origin
                 ftp.cwd(target_dir)
@@ -303,55 +344,6 @@ class MzIdParser:
 
         else:
             raise StandardError('unsupported file type: %s' % archive)
-
-    # ToDo: clear confusion about 0 & 1 based formats
-    @staticmethod
-    def get_scan(spec_id, spec_id_format):
-        # mzml 0 based
-
-        #
-        # if (fileIdFormat == Constants.SpecIdFormat.MASCOT_QUERY_NUM) {
-        #     String rValueStr = spectrumID.replaceAll("query=", "");
-        #     String id = null;
-        #     if(rValueStr.matches(Constants.INTEGER)){
-        #         id = Integer.toString(Integer.parseInt(rValueStr) + 1);
-        #     }
-        #     return id;
-        # } else if (fileIdFormat == Constants.SpecIdFormat.MULTI_PEAK_LIST_NATIVE_ID) {
-        #     String rValueStr = spectrumID.replaceAll("index=", "");
-        #     String id;
-        #     if(rValueStr.matches(Constants.INTEGER)){
-        #         id = Integer.toString(Integer.parseInt(rValueStr) + 1);
-        #         return id;
-        #     }
-        #     return spectrumID;
-        # } else if (fileIdFormat == Constants.SpecIdFormat.SINGLE_PEAK_LIST_NATIVE_ID) {
-        #     return spectrumID.replaceAll("file=", "");
-        # } else if (fileIdFormat == Constants.SpecIdFormat.MZML_ID) {
-        #     return spectrumID.replaceAll("mzMLid=", "");
-        # } else if (fileIdFormat == Constants.SpecIdFormat.SCAN_NUMBER_NATIVE_ID) {
-        #     return spectrumID.replaceAll("scan=", "");
-        # } else {
-        #     return spectrumID;
-        # }
-
-
-        # e.g.: MS:1000768(Thermo        nativeID        format)
-        # e.g.: MS:1000769(Waters        nativeID        format)
-        # e.g.: MS:1000770(WIFF        nativeID        format)
-        # e.g.: MS:1000771(Bruker / Agilent        YEP        nativeID        format)
-        # e.g.: MS:1000772(Bruker        BAF        nativeID        format)
-        # e.g.: MS:1000773(Bruker        FID        nativeID        format)
-        # e.g.: MS:1000774(multiple       peak        list        nativeID        format)
-        # e.g.: MS:1000775(single        peak        list        nativeID        format)
-        # e.g.: MS:1000776(scan        number        only        nativeID        format)
-        # e.g.: MS:1000777(spectrum        identifier        nativeID        format)
-
-        if spec_id_format['accession'] == 'MS:1000774':  # (multiple peak list nativeID format - zero based)
-
-            matches = re.findall("(?:query|index)=([0-9]+)", spec_id)
-            if len(matches) == 1:
-                return int(matches[0])
 
     @staticmethod
     def map_spectra_data_to_protocol(mzid_reader):
@@ -470,7 +462,7 @@ class MzIdParser:
         return mod['name']
 
     def parse_db_sequences(self, mzid_reader):
-        #DBSEQUENCES
+        # DBSEQUENCES
         inj_list = []
         # for db_sequence in sequence_collection['DBSequence']:
         for db_id in mzid_reader._offset_index["DBSequence"].keys():
@@ -762,7 +754,7 @@ class MzIdParser:
                            'scaffold' in k.lower()
                     }
                     #
-                    # # fragmentation ions ToDO
+                    # # fragmentation ions ToDo: do we want to make assumptions of fragIon types by fragMethod from mzml?
                     ions = self.get_ion_types_mzid(spec_id_item)
                     # if no ion types are specified in the id file check the mzML file
                     # if len(ions) == 0 and peak_list_reader['fileType'] == 'mzml':
@@ -779,6 +771,11 @@ class MzIdParser:
 
                     # extract other useful info to display
                     rank = spec_id_item['rank']
+
+                    # from mzidentML schema 1.2.0: For PMF data, the rank attribute may be meaningless and values of rank = 0 should be given.
+                    # xiSPEC front-end expects rank = 1
+                    if rank is None or int(rank) == 0:
+                        rank = 1
 
                     ident_data = [spec_id_item_index,
                                   self.upload_id,

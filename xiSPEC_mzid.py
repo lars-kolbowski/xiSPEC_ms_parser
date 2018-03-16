@@ -145,7 +145,7 @@ def map_spectra_data_to_protocol(mzid_reader):
     """
 
     spectra_data_protocol_map = {
-        'errors': [],
+        'warnings': [],
     }
 
     analysis_collection = mzid_reader.iterfind('AnalysisCollection').next()
@@ -175,7 +175,7 @@ def map_spectra_data_to_protocol(mzid_reader):
         except KeyError:
             frag_tol_value = '10'
             frag_tol_unit = 'ppm'
-            spectra_data_protocol_map['errors'].append(
+            spectra_data_protocol_map['warnings'].append(
                 {"type": "mzidParseError",
                  "message": "could not parse ms2tolerance. Falling back to default values."})
 
@@ -505,7 +505,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     spectra_map_start_time = time()
     logger.info('generating spectra data protocol map - start')
     spectra_data_protocol_map = map_spectra_data_to_protocol(mzid_reader)
-    return_json['errors'] += spectra_data_protocol_map['errors']
+    return_json['warnings'] += spectra_data_protocol_map['warnings']
     # ToDo: save FragmentTolerance to annotationsTable
     logger.info('generating spectraData_ProtocolMap - done. Time: ' + str(round(time() - spectra_map_start_time, 2)) + " sec")
 
@@ -669,6 +669,11 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
                 # extract other useful info to display
                 rank = paired_spec_id_items[0]['rank']
+
+                # from mzidentML schema 1.2.0: For PMF data, the rank attribute may be meaningless and values of rank = 0 should be given.
+                # xiSPEC front-end expects rank = 1
+                if rank is None or int(rank) == 0:
+                    rank = 1
 
                 # ToDo: handling for mzid that don't include isDecoy
                 is_decoy = any([pep['isDecoy'] for pep in pep_info['isDecoy']])
