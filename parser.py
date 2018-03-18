@@ -45,7 +45,9 @@ try:
     os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
 
     # create logger
-    logging.basicConfig(filename=logFile, level=logging.DEBUG,
+    # logging.basicConfig(filename=logFile, level=logging.DEBUG,
+    #                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
+    logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s %(levelname)s %(name)s %(message)s')
     logger = logging.getLogger(__name__)
 
@@ -91,16 +93,16 @@ try:
         # peakList_file = "/media/data/work/xiSPEC_test_files/PXD006767/PXD006767.zip"
 
         # small mzid dataset
-        identifications_file = baseDir + "DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
-        peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
+        # identifications_file = baseDir + "DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
+        # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
 
         # # large mzid dataset
         # identifications_file = baseDir + "Tmuris_exo/Tmuris_exosomes1.mzid"
         # peakList_file = baseDir + "Tmuris_exo/20171027_DDA_JC1.zip"
 
         # PXD006574
-        # identifications_file = baseDir + "PXD006574/monomerResults.mzid.gz"
-        # peakList_file = baseDir + "PXD006574/monomerResults-specId.pride.mgf.gz"
+        identifications_file = baseDir + "PXD006574/monomerResults.mzid.gz"
+        peakList_file = baseDir + "PXD006574/monomerResults-specId.pride.mgf.gz"
         # identifications_file = baseDir + "PXD006574/dimerResultsToPRIDE.mzid.gz"
         # peakList_file = baseDir + "PXD006574/dimerResultsToPRIDE-specId.pride.mgf.gz"
 
@@ -108,7 +110,7 @@ try:
         # identifications_file = baseDir + "PXD001677/result_DynamicDBReduction.mzid"
         # peakList_file = baseDir + "PXD001677/result_DynamicDBReduction-specId.pride.mgf.gz"
         # identifications_file = baseDir + "PXD001677/result_NormalMode.mzid"
-        # peakList_file = baseDir + "PXD001677/result_NormalMode-specId.pride.mgf.gz"
+        # peakList_file = baseDir + "PXD001677/result_NormalMode-specId.pride.mgf"
 
         # PXD007836 - mzid 1.1.0
         # identifications_file = baseDir + "PXD007836/data.mzid"
@@ -185,23 +187,23 @@ except Exception as e:
     print(e)
     sys.exit(1)
 
-# connect to DB
-try:
-    con = db.connect(dbName)
-    cur = con.cursor()
+# # connect to DB
+# try:
+#     con = db.connect(dbName)
+#     cur = con.cursor()
 
-except db.DBException as e:
-    logger.error(e)
-    print(e)
-    sys.exit(1)
-
-# create Database tables
-try:
-    db.create_tables(cur, con)
-except db.DBException as e:
-    logger.error(e)
-    print(e)
-    sys.exit(1)
+# except db.DBException as e:
+#     logger.error(e)
+#     print(e)
+#     sys.exit(1)
+#
+# # create Database tables
+# try:
+#     db.create_tables(cur, con)
+# except db.DBException as e:
+#     logger.error(e)
+#     print(e)
+#     sys.exit(1)
 
 # parsing
 startTime = time()
@@ -242,10 +244,20 @@ try:
     #     id_returnJSON = mzidParser.parse(identifications_file, peakList_fileList, unimodPath, cur,  con, logger)
     #     returnJSON.update(id_returnJSON)
 
-
-    upload_folder = "/".join(identifications_file.split("/")[:-1]) + "/"
+    try:
+        upload_folder
+    except NameError:
+        upload_folder = "/".join(identifications_file.split("/")[:-1]) + "/"
 
     mzidParser = mzidParser.MzIdParser(identifications_file, upload_folder, db, logger)
+
+    # create Database tables
+    try:
+        db.create_tables(mzidParser.cur, mzidParser.con)
+    except db.DBException as e:
+        logger.error(e)
+        print(e)
+        sys.exit(1)
 
     mzidParser.parse()
 
@@ -263,6 +275,7 @@ try:
         shutil.rmtree(upload_folder)
 
 except Exception as e:
+    print(e)
     logger.exception(e)
     returnJSON['errors'].append(
         {"type": "Error", "message": e.args[0]})
@@ -283,6 +296,6 @@ if len(returnJSON["errors"]) > 100:
 
 print(json.dumps(returnJSON, indent=4))
 
-if con:
-    con.close()
+# if con:
+#     con.close()
 logger.info('all done! Total time: ' + str(round(time() - startTime, 2)) + " sec")
