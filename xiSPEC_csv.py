@@ -79,7 +79,7 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
         # peakList
         try:
             peak_list_reader = peakListParser.get_reader(peak_list_readers, raw_file_name)
-        except peakListParser.ParseError as e:
+        except peakListParser.PeakListParseError as e:
             return_json['errors'].append({
                 "type": "peakListParseError",
                 "message": e.args[0],
@@ -88,7 +88,7 @@ def parse(csv_file, peak_list_file_list, cur, con, logger):
             continue
         try:
             scan = peakListParser.get_scan(peak_list_reader, scan_id)
-        except peakListParser.ParseError:
+        except peakListParser.PeakListParseError:
             try:
                 scan_not_found_error[raw_file_name].append(scan_id)
             except KeyError:

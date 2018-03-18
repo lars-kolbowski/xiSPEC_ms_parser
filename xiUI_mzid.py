@@ -5,7 +5,8 @@ import json
 import sys
 import numpy as np
 from time import time
-import xiSPEC_peakList as peakListParser
+#import xiSPEC_peakList as peakListParser
+from xiSPEC_peakList import PeakListReader
 import zipfile
 import gzip
 import os
@@ -43,6 +44,7 @@ class MzIdParser:
             self.mzId_path = MzIdParser.extract_mzid(mzId_path)
         else:
             self.self.mzId_path = mzId_path
+        self.peak_list_readers = {}  # peak list readers indexed by spectraData_ref
         self.temp_dir = temp_dir
         self.db = db
         self.logger = logger
@@ -116,7 +118,7 @@ class MzIdParser:
 
     def get_peak_lists_from_temp_dir(self):
         # get spectra data
-        spectra_data = {}
+        spectra_data = {} # when returned becomes peak_list_readers, can tidy up
         for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
             sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
             sd_id = sp_datum['id']
@@ -153,17 +155,23 @@ class MzIdParser:
             peak_list_file_path = self.temp_dir + peak_list_file_name
 
             try:
-                sp_datum['peak_list_reader'] = peakListParser.get_peak_list_reader(peak_list_file_path)
+                peak_list_reader = PeakListReader(peak_list_file_path, sp_datum)
             except IOError:
-                sp_datum['peak_list_reader'] = peakListParser.get_peak_list_reader(peakListParser.unzip_peak_lists(peak_list_file_path + '.gz')[0])
+                peak_list_reader = PeakListReader(PeakListReader.unzip_peak_lists(peak_list_file_path + '.gz')[0])
 
-            spectra_data[sd_id] = sp_datum
+            spectra_data[sd_id] = peak_list_reader
 
         return spectra_data
 
     def parse(self):
 
         # ToDo: we might want to start with checking peak list files for unsupported file formats?
+        # agree,
+        # i also think we want to use inheritance to deal with the  self.parse_db_sequences issue below
+        # (subclass this class with one where the parse_db_sequences function does nothing,
+        # same for peptide_evidences)
+        # see bottom of file - cc
+
 
         #
         # upload info
@@ -200,7 +208,7 @@ class MzIdParser:
         # ToDo: save FragmentTolerance to annotationsTable
         self.logger.info('generating spectraData_ProtocolMap - done. Time: ' + str(round(time() - spectra_map_start_time, 2)) + " sec")
 
-        self.spectra_data = self.get_peak_lists_from_temp_dir()
+        self.peak_list_readers = self.get_peak_lists_from_temp_dir()
         self.main_loop(self.mzid_reader)
 
         # ToDo: fill in missing score information
@@ -637,22 +645,23 @@ class MzIdParser:
         self.logger.info('main loop - start')
 
         for sid_result in mzid_reader:
-            spectra_datum = self.spectra_data[sid_result['spectraData_ref']]
-            peak_list_reader = spectra_datum['peak_list_reader']
+            peak_list_reader = self.peak_list_readers[sid_result['spectraData_ref']]
 
             try:
-                scan = peakListParser.get_scan(peak_list_reader, sid_result["spectrumID"], spectra_datum['SpectrumIDFormat'])
+                scan = peak_list_reader.get_scan(sid_result["spectrumID"])
             except Exception as e:
-                raise ScanNotFoundException(type(e).__name__, ntpath.basename(spectra_datum['location']), e.args)
+                raise ScanNotFoundException(type(e).__name__,
+                                            ntpath.basename(peak_list_reader.spectra_data['location']), e.args)
 
-            peak_list = peakListParser.get_peak_list(scan, peak_list_reader['fileType'])
+            peak_list = peak_list_reader.get_peak_list(scan, peak_list_reader['fileType'])
             # print(sid_result["spectrumID"])
+
             protocol = self.spectra_data_protocol_map[sid_result['spectraData_ref']]
 
             spectra.append([
                 mzid_item_index,
                 peak_list,
-                ntpath.basename(spectra_datum['location']),
+                ntpath.basename(peak_list_reader.spectra_data['location']),
                 sid_result["spectrumID"],
                 protocol['fragmentTolerance'],
                 self.upload_id,
@@ -884,71 +893,71 @@ class MzIdParser:
 
         # get spectra data
         spectra_data = {}
-        for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
-            sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
-            sd_id = sp_datum['id']
-            # peak list file name
-            # if 'location' in spectra_data.keys():
-            #  location is required attribute
-            peak_list_file_name = ntpath.basename(sp_datum['location'])
-            self.peak_list_file_names.append(peak_list_file_name)
-            # elif 'name' in spectra_data.keys():
-            #     peak_list_file_name = spectra_data['name']
-
-            file_format_readable = ''
-            if 'FileFormat' in sp_datum:
-                if 'accession' in sp_datum['FileFormat']:
-                    file_format_readable = sp_datum['FileFormat']['accession'] + ': ' + sp_datum['FileFormat']['name']
-                    # missing .mgf file extension?
-                    if sp_datum['FileFormat']['accession'] == 'MS:1001062' and not peak_list_file_name.lower().endswith(
-                                '.mgf'):
-                        self.warnings.append('location of mgf file is missing .mgf extension: ' + peak_list_file_name)
-                        peak_list_file_name = peak_list_file_name + '.mgf'
-                    # also might be some fails coz .MGF is being converted to .mgf in ftp archive
-                else:
-                    self.warnings.append('SpectraData>FileFormat is missing accession.')
-                    file_format_readable = sp_datum['FileFormat']
-
-            else:
-                self.warnings.append('SpectraData missing required element FileFormat.')
-            self.file_formats.add(file_format_readable)
-
-            spec_id_format_readable = ''
-            if 'SpectrumIDFormat' in sp_datum:
-                if 'accession' in sp_datum['SpectrumIDFormat']:
-                    spec_id_format_readable = sp_datum['SpectrumIDFormat']['accession'] + ': ' + \
-                                              sp_datum['SpectrumIDFormat']['name']
-                else:
-                    self.warnings.append('SpectraData>SpectrumIDFormat is missing accession.')
-                    spec_id_format_readable = sp_datum['SpectrumIDFormat']
-            else:
-                self.warnings.append('SpectraData missing required element SpectrumIDElement.')
-            self.spectrum_id_formats.add(spec_id_format_readable)
-
-            ftp = ftplib.FTP(ip)
-            ftp.login()  # Uses password: anonymous@
-            try:
-                target_dir = '/' + base + '/' + origin
-                ftp.cwd(target_dir)
-                self.logger.info('getting ' + peak_list_file_name)
-                ftp.retrbinary("RETR " + peak_list_file_name,
-                               open(self.temp_dir + '/' + peak_list_file_name, 'wb').write)
-            except ftplib.error_perm as e:
-                #  check for gzipped
-                try:
-                    self.logger.info('getting ' + peak_list_file_name + '.gz')
-                    ftp.retrbinary("RETR " + peak_list_file_name + '.gz',
-                                   open(self.temp_dir + '/' + peak_list_file_name + '.gz', 'wb').write)
-                except ftplib.error_perm as e:
-                    ftp.close()
-                    raise MissingFileException(type(e).__name__, peak_list_file_name, e.args)
-                ftp.close()
-                peak_list_file_name = ntpath.basename(
-                    peakListParser.unzip_peak_lists(self.temp_dir + '/' + peak_list_file_name + '.gz')[0])
-            ftp.close()
-
-            sp_datum['peak_list_reader'] = peakListParser.get_peak_list_reader(self.temp_dir + '/' + peak_list_file_name)
-            spectra_data[sd_id] = sp_datum
+        # for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
+        #     sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
+        #     sd_id = sp_datum['id']
+        #     # peak list file name
+        #     # if 'location' in spectra_data.keys():
+        #     #  location is required attribute
+        #     peak_list_file_name = ntpath.basename(sp_datum['location'])
+        #     self.peak_list_file_names.append(peak_list_file_name)
+        #     # elif 'name' in spectra_data.keys():
+        #     #     peak_list_file_name = spectra_data['name']
+        #
+        #     file_format_readable = ''
+        #     if 'FileFormat' in sp_datum:
+        #         if 'accession' in sp_datum['FileFormat']:
+        #             file_format_readable = sp_datum['FileFormat']['accession'] + ': ' + sp_datum['FileFormat']['name']
+        #             # missing .mgf file extension?
+        #             if sp_datum['FileFormat']['accession'] == 'MS:1001062' and not peak_list_file_name.lower().endswith(
+        #                         '.mgf'):
+        #                 self.warnings.append('location of mgf file is missing .mgf extension: ' + peak_list_file_name)
+        #                 peak_list_file_name = peak_list_file_name + '.mgf'
+        #             # also might be some fails coz .MGF is being converted to .mgf in ftp archive
+        #         else:
+        #             self.warnings.append('SpectraData>FileFormat is missing accession.')
+        #             file_format_readable = sp_datum['FileFormat']
+        #
+        #     else:
+        #         self.warnings.append('SpectraData missing required element FileFormat.')
+        #     self.file_formats.add(file_format_readable)
+        #
+        #     spec_id_format_readable = ''
+        #     if 'SpectrumIDFormat' in sp_datum:
+        #         if 'accession' in sp_datum['SpectrumIDFormat']:
+        #             spec_id_format_readable = sp_datum['SpectrumIDFormat']['accession'] + ': ' + \
+        #                                       sp_datum['SpectrumIDFormat']['name']
+        #         else:
+        #             self.warnings.append('SpectraData>SpectrumIDFormat is missing accession.')
+        #             spec_id_format_readable = sp_datum['SpectrumIDFormat']
+        #     else:
+        #         self.warnings.append('SpectraData missing required element SpectrumIDElement.')
+        #     self.spectrum_id_formats.add(spec_id_format_readable)
+        #
+        #     ftp = ftplib.FTP(ip)
+        #     ftp.login()  # Uses password: anonymous@
+        #     try:
+        #         target_dir = '/' + base + '/' + origin
+        #         ftp.cwd(target_dir)
+        #         self.logger.info('getting ' + peak_list_file_name)
+        #         ftp.retrbinary("RETR " + peak_list_file_name,
+        #                        open(self.temp_dir + '/' + peak_list_file_name, 'wb').write)
+        #     except ftplib.error_perm as e:
+        #         #  check for gzipped
+        #         try:
+        #             self.logger.info('getting ' + peak_list_file_name + '.gz')
+        #             ftp.retrbinary("RETR " + peak_list_file_name + '.gz',
+        #                            open(self.temp_dir + '/' + peak_list_file_name + '.gz', 'wb').write)
+        #         except ftplib.error_perm as e:
+        #             ftp.close()
+        #             raise MissingFileException(type(e).__name__, peak_list_file_name, e.args)
+        #         ftp.close()
+        #         peak_list_file_name = ntpath.basename(
+        #             peakListParser.unzip_peak_lists(self.temp_dir + '/' + peak_list_file_name + '.gz')[0])
+        #     ftp.close()
+        #
+        #     sp_datum['peak_list_reader'] = peakListParser.get_peak_list_reader(self.temp_dir + '/' + peak_list_file_name)
+        #     spectra_data[sd_id] = sp_datum
 
         return spectra_data
 
@@ -1026,6 +1035,11 @@ class MzIdParser:
         # except psycopg2.Error as e:
         #     raise e
 
+class xiSPEC_MzIdParser(MzIdParser):
+    def parse_db_sequences(self, mzid_reader):
+        pass
+    def parse_peptide_evidences(self, mzid_reader):
+        pass
 
 
 class NumpyEncoder(json.JSONEncoder):
