@@ -38,9 +38,8 @@ def create_tables(cur, con):
         #     "upload_errors JSON)"
         # )
 
-        # ToDo: not used atm
+        # ToDo: not used atm might be a good place to save ions here?
         cur.execute("DROP TABLE IF EXISTS protocols")
-        # might be a good place to save ions here?
         cur.execute(
             "CREATE TABLE protocols("
             "id text PRIMARY KEY, "
@@ -63,7 +62,8 @@ def create_tables(cur, con):
         cur.execute("DROP TABLE IF EXISTS peptides")
         cur.execute(
             "CREATE TABLE peptides("
-            "id text PRIMARY KEY, "
+            # "id TEXT PRIMARY KEY, "
+            "id TEXT, "
             "upload_id INT,"
             "seq_mods TEXT,"
             "link_site INT,"
@@ -191,7 +191,7 @@ def create_tables(cur, con):
 def write_peptides(inj_list, cur, con):
     try:
         cur.executemany("""
-        INSERT INTO 'peptides' (
+        INSERT INTO peptides (
             id,
             seq_mods,
             link_site,
@@ -255,7 +255,6 @@ def write_spectra(inj_list, cur, con):
               'peak_list', 
               'peak_list_file_name', 
               'scan_id', 
-              'upload_id', 
               'frag_tol', 
               'upload_id', 
               'spectrum_id'

@@ -27,9 +27,9 @@ class ScanNotFoundException(Exception):
 
 class MzIdParser:
     """
-    ToDo: refactor for working with non ftp sources
+
     """
-    def __init__(self, mzId_path, temp_dir, db, logger):
+    def __init__(self, mzId_path, temp_dir, db, logger, db_name=''):
         """
 
         :param mzId_path: path to mzidentML file
@@ -39,7 +39,10 @@ class MzIdParser:
         """
 
         self.upload_id = 0
-        self.mzId_path = mzId_path
+        if mzId_path.endswith('.gz') or mzId_path.endswith('.zip'):
+            self.mzId_path = MzIdParser.extract_mzid(mzId_path)
+        else:
+            self.self.mzId_path = mzId_path
         self.temp_dir = temp_dir
         self.db = db
         self.logger = logger
@@ -48,7 +51,7 @@ class MzIdParser:
         self.unimod_path = 'obo/unimod.obo'
 
         # collect all modifications encountered when looping through the SIRs
-        # ToDo: modifications might be globally stored under
+        # ToDo: modifications might be globally stored in mzIdentML under
         # ToDo: AnalysisProtocolCollection->SpectrumIdentificationProtocol->ModificationParams
         self.modlist = []
 
@@ -58,16 +61,13 @@ class MzIdParser:
 
         # connect to DB
         try:
-            self.con = db.connect('')
+            self.con = db.connect(db_name)
             self.cur = self.con.cursor()
 
         except db.DBException as e:
             self.logger.error(e)
             print(e)
             sys.exit(1)
-
-        if mzId_path.endswith('.gz') or mzId_path.endswith('.zip'):
-            self.mzId_path = MzIdParser.extract_mzid(mzId_path)
 
         self.logger.info('reading mzid - start')
         self.start_time = time()
@@ -150,12 +150,20 @@ class MzIdParser:
             #     self.warnings.append('SpectraData missing required element SpectrumIDElement.')
             # self.spectrum_id_formats.add(spec_id_format_readable)
 
-            sp_datum['peak_list_reader'] = peakListParser.get_peak_list_reader(self.temp_dir + '/' + peak_list_file_name)
+            peak_list_file_path = self.temp_dir + peak_list_file_name
+
+            try:
+                sp_datum['peak_list_reader'] = peakListParser.get_peak_list_reader(peak_list_file_path)
+            except IOError:
+                sp_datum['peak_list_reader'] = peakListParser.get_peak_list_reader(peakListParser.unzip_peak_lists(peak_list_file_path + '.gz')[0])
+
             spectra_data[sd_id] = sp_datum
 
         return spectra_data
 
     def parse(self):
+
+        # ToDo: we might want to start with checking peak list files for unsupported file formats?
 
         #
         # upload info
@@ -177,15 +185,17 @@ class MzIdParser:
             pass
 
         self.parse_peptides(self.mzid_reader)
-        self.parse_peptide_evidences(self.mzid_reader)
-        self.logger.info('getting sequences, etc - done. Time: ' + str(round(time() - sequences_start_time, 2)) + " sec")
+
+        # not needed for xiSPEC ToDo: might need param to distinguish between xiSPEC & xiUI-> talk to CC
+        # self.parse_peptide_evidences(self.mzid_reader)
+        # self.logger.info('getting sequences, etc - done. Time: ' + str(round(time() - sequences_start_time, 2)) + " sec")
 
         #
         # init spectra to protocol lookup
         #
         spectra_map_start_time = time()
         self.logger.info('generating spectra data protocol map - start')
-        self.spectra_data_protocol_map = self.map_spectra_data_to_protocol(self.mzid_reader)
+        self.map_spectra_data_to_protocol()
         # return_json['errors'] += spectra_data_protocol_map['errors']
         # ToDo: save FragmentTolerance to annotationsTable
         self.logger.info('generating spectraData_ProtocolMap - done. Time: ' + str(round(time() - spectra_map_start_time, 2)) + " sec")
@@ -259,8 +269,8 @@ class MzIdParser:
         else:
             raise StandardError('unsupported file type: %s' % archive)
 
-    @staticmethod
-    def map_spectra_data_to_protocol(mzid_reader):
+    # @staticmethod
+    def map_spectra_data_to_protocol(self):
         """
         extract and map spectrumIdentificationProtocol which includes annotation data like fragment tolerance
         only fragment tolerance is extracted for now
@@ -276,10 +286,10 @@ class MzIdParser:
             'errors': [],
         }
 
-        analysis_collection = mzid_reader.iterfind('AnalysisCollection').next()
+        analysis_collection = self.mzid_reader.iterfind('AnalysisCollection').next()
         for spectrumIdentification in analysis_collection['SpectrumIdentification']:
             sid_protocol_ref = spectrumIdentification['spectrumIdentificationProtocol_ref']
-            sid_protocol = mzid_reader.get_by_id(sid_protocol_ref, tag_id='SpectrumIdentificationProtocol', detailed=True)
+            sid_protocol = self.mzid_reader.get_by_id(sid_protocol_ref, tag_id='SpectrumIdentificationProtocol', detailed=True)
 
             try:
                 frag_tol = sid_protocol['FragmentTolerance']
@@ -301,11 +311,16 @@ class MzIdParser:
                          "message": "search tolerance plus value doesn't match minus value. Using plus value!"})
 
             except KeyError:
+                self.warnings.append({
+                    "type": "mzidParseError",
+                    "message": "could not parse ms2tolerance. Falling back to default values.",
+                    # 'id': id_string
+                })
                 frag_tol_value = '10'
                 frag_tol_unit = 'ppm'
-                spectra_data_protocol_map['errors'].append(
-                    {"type": "mzidParseError",
-                     "message": "could not parse ms2tolerance. Falling back to default values."})
+                # spectra_data_protocol_map['errors'].append(
+                #     {"type": "mzidParseError",
+                #      "message": "could not parse ms2tolerance. Falling back to default values."})
 
             for inputSpectra in spectrumIdentification['InputSpectra']:
                 spectra_data_ref = inputSpectra['spectraData_ref']
@@ -315,9 +330,9 @@ class MzIdParser:
                     'fragmentTolerance': ' '.join([frag_tol_value, frag_tol_unit])
                 }
 
-        mzid_reader.reset()
-
-        return spectra_data_protocol_map
+        self.mzid_reader.reset()
+        self.spectra_data_protocol_map = spectra_data_protocol_map
+        # return spectra_data_protocol_map
 
     @staticmethod
     def get_cross_link_identifier(sid_item):
@@ -429,7 +444,7 @@ class MzIdParser:
         inj_list = []
         for pep_id in mzid_reader._offset_index["Peptide"].keys():
             peptide = mzid_reader.get_by_id(pep_id, tag_id='Peptide', detailed=True)
-
+            peptide2 = mzid_reader.get_by_id(pep_id, tag_id='Peptide', detailed=True, accession_key=True)
             pep_seq_dict = []
             for aa in peptide['PeptideSequence']:
                 pep_seq_dict.append({"Modification": "", "aminoAcid": aa})
@@ -583,7 +598,10 @@ class MzIdParser:
 
             inj_list.append(data)
 
-        self.db.write_peptide_evidences(inj_list, self.cur, self.con)
+        try:
+            self.db.write_peptide_evidences(inj_list, self.cur, self.con)
+        except AttributeError:
+            pass
 
         self.con.commit()
         mzid_reader.reset()
@@ -631,8 +649,15 @@ class MzIdParser:
             # print(sid_result["spectrumID"])
             protocol = self.spectra_data_protocol_map[sid_result['spectraData_ref']]
 
-            spectra.append([mzid_item_index, peak_list, ntpath.basename(spectra_datum['location']), sid_result["spectrumID"],
-                            protocol['fragmentTolerance'], self.upload_id, sid_result['id']])
+            spectra.append([
+                mzid_item_index,
+                peak_list,
+                ntpath.basename(spectra_datum['location']),
+                sid_result["spectrumID"],
+                protocol['fragmentTolerance'],
+                self.upload_id,
+                sid_result['id']]
+            )
 
             spectrum_ident_dict = dict()
             linear_index = -1  # negative index values for linear peptides
@@ -659,6 +684,7 @@ class MzIdParser:
                     # do stuff common to linears and crosslinks
                     charge_state = spec_id_item['chargeState']
                     pass_threshold = spec_id_item['passThreshold']
+                    # ToDo: refactor with MS: cv Param list of all scores
                     scores = {
                         k: v for k, v in spec_id_item.iteritems()
                         if 'score' in k.lower() or
@@ -668,7 +694,7 @@ class MzIdParser:
                            'scaffold' in k.lower()
                     }
                     #
-                    # # fragmentation ions ToDo: do we want to make assumptions of fragIon types by fragMethod from mzml?
+                    # fragmentation ions ToDo: do we want to make assumptions of fragIon types by fragMethod from mzML?
                     ions = self.get_ion_types_mzid(spec_id_item)
                     # if no ion types are specified in the id file check the mzML file
                     # if len(ions) == 0 and peak_list_reader['fileType'] == 'mzml':
@@ -686,8 +712,9 @@ class MzIdParser:
                     # extract other useful info to display
                     rank = spec_id_item['rank']
 
-                    # from mzidentML schema 1.2.0: For PMF data, the rank attribute may be meaningless and values of rank = 0 should be given.
-                    # xiSPEC front-end expects rank = 1
+                    # from mzidentML schema 1.2.0:
+                    # For PMF data, the rank attribute may be meaningless and values of rank = 0 should be given.
+                    # xiSPEC front-end expects rank = 1 as default
                     if rank is None or int(rank) == 0:
                         rank = 1
 
@@ -706,7 +733,7 @@ class MzIdParser:
 
                     spec_id_item_index += 1
 
-            #ToDO: better way to concat arrays, numpy?
+            # ToDO: better way to concat arrays, numpy?
             for spec_ident in spectrum_ident_dict.values():
                 spectrum_identifications.append(spec_ident)
 
@@ -722,7 +749,7 @@ class MzIdParser:
             self.db.write_spectra(spectra, self.cur, self.con)
             self.db.write_spectrum_identifications(spectrum_identifications, self.cur, self.con)
             self.con.commit()
-        except psycopg2.Error as e:
+        except Exception as e:
             raise e
 
         self.logger.info('write remaining entries and modifications to DB - done. Time: '
