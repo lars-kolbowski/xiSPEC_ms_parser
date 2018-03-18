@@ -611,7 +611,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         # peak list
         try:
             peak_list_reader = peakListParser.get_reader(peak_list_readers, peak_list_file_name)
-        except peakListParser.ParseError as e:
+        except peakListParser.PeakListParseError as e:
             return_json['errors'].append({
                 "type": "peakListParseError",
                 "message": e.args[0],
@@ -620,7 +620,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             continue
         try:
             scan = peakListParser.get_scan(peak_list_reader, sid_result["spectrumID"], spectra_data['SpectrumIDFormat'])
-        except peakListParser.ParseError:
+        except peakListParser.PeakListParseError:
             try:
                 spec_not_found_error[peak_list_file_name].append(sid_result["spectrumID"])
             except KeyError:

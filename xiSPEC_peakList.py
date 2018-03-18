@@ -7,271 +7,294 @@ import os
 import gzip
 
 
-class ParseError(Exception):
+class PeakListParseError(Exception):
     pass
 
+class PeakListReader:
+    def __init__(self, pl_path, spectra_data):
+        self.spectra_data = spectra_data
+        self.pl_file_name = ntpath.basename(pl_path)
+        # todo? in practical terms what we have is probably more robust
+        # but should technically be done with reference to the accession number of spectra_data['FileFormat']?,
+        # i think edge case is where actual file name and spectra_data['location'] are both missing file extension
+        # but spectra_data['FileFormat'] is correct; then it should still parse
 
-def unzip_peak_lists(zip_file):
+        # i noticed from mzML spefication doc that the names of CV params are not guaranteed to be constant between versions,
+        # only the accessions
 
-    if zip_file.endswith(".zip"):
-        zip_ref = zipfile.ZipFile(zip_file, 'r')
-        unzip_path = zip_file + '_unzip/'
-        zip_ref.extractall(unzip_path)
-        zip_ref.close()
+        if self.pl_file_name.lower().endswith('.mzml'):
+            self.peak_list_file_type = 'mzml'
+            self.reader = pymzml.run.Reader(pl_path)
 
-        return_file_list = []
-
-        for root, dir_names, file_names in os.walk(unzip_path):
-            file_names = [f for f in file_names if not f[0] == '.']
-            dir_names[:] = [d for d in dir_names if not d[0] == '.']
-            for file_name in file_names:
-                os.path.join(root, file_name)
-                if file_name.lower().endswith('.mgf') or file_name.lower().endswith('.mzml'):
-                    return_file_list.append(root+'/'+file_name)
-                else:
-                    raise IOError('unsupported file type: %s' % file_name)
-
-        return return_file_list
-
-    elif zip_file.endswith('.gz'):
-        in_f = gzip.open(zip_file, 'rb')
-        zip_file = zip_file.replace(".gz", "")
-        out_f = open(zip_file, 'wb')
-        out_f.write(in_f.read())
-        in_f.close()
-        out_f.close()
-
-        return [zip_file]
-    else:
-        raise StandardError("unsupported file extension for: %s" % zip_file)
-
-
-def get_ion_types_mzml(scan):
-    frag_methods = {
-        'beam-type collision-induced dissociation': ["b", "y"],
-        'collision-induced dissociation': ["b", "y"],
-        'electron transfer dissociation': ["c", "z"],
-    }
-    # get fragMethod and translate that to Ion Types
-    ion_types = []
-    for key in scan.keys():
-        if key in frag_methods.keys():
-            ion_types += frag_methods[key]
-    return ion_types
-
-
-def get_peak_list(scan, pl_file_type):
-
-    if pl_file_type == 'mzml':
-        # if scan['ms level'] == 1:
-        #     raise ParseError("requested scanID %i is not a MSn scan" % scan['id'])
-
-        peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan.peaks if i > 0])
-
-    elif pl_file_type == 'mgf':
-        peak_list = scan['peaks']
-        # peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan['peaks'] if i > 0])
-
-    else:
-        raise ParseError("unsupported peak list file type: %s" % pl_file_type)
-
-    return peak_list
-
-
-def get_reader(readers, file_name):
-
-    try:
-        reader = readers[file_name]
-    except KeyError:
-        #add warning?
-        if len(readers.keys()) == 1:
-            reader = readers[readers.keys()[0]]
-        else:
-            raise ParseError("%s from identifications file does not match any of your peaklist files: %s" %
-                             (file_name, '; '.join(readers.keys())))
-    return reader
-
-
-def get_scan(reader, spec_id, spec_id_format=None):
-
-
-    # file_id_format_accession = spec_id_format['accession']
-    # #
-    # # if (fileIdFormat == Constants.SpecIdFormat.MASCOT_QUERY_NUM) {
-    # #     String rValueStr = spectrumID.replaceAll("query=", "");
-    # #     String id = null;
-    # #     if(rValueStr.matches(Constants.INTEGER)){
-    # #         id = Integer.toString(Integer.parseInt(rValueStr) + 1);
-    # #     }
-    # #     return id;
-    # # } else if (fileIdFormat == Constants.SpecIdFormat.MULTI_PEAK_LIST_NATIVE_ID) {
-    # #     String rValueStr = spectrumID.replaceAll("index=", "");
-    # #     String id;
-    # #     if(rValueStr.matches(Constants.INTEGER)){
-    # #         id = Integer.toString(Integer.parseInt(rValueStr) + 1);
-    # #         return id;
-    # #     }
-    # #     return spectrumID;
-    # # } else if (fileIdFormat == Constants.SpecIdFormat.SINGLE_PEAK_LIST_NATIVE_ID) {
-    # #     return spectrumID.replaceAll("file=", "");
-    # # } else if (fileIdFormat == Constants.SpecIdFormat.MZML_ID) {
-    # #     return spectrumID.replaceAll("mzMLid=", "");
-    # # } else if (fileIdFormat == Constants.SpecIdFormat.SCAN_NUMBER_NATIVE_ID) {
-    # #     return spectrumID.replaceAll("scan=", "");
-    # # } else {
-    # #     return spectrumID;
-    # # }
-    #
-    # # e.g.: MS:1000768(Thermo        nativeID        format)
-    # # e.g.: MS:1000769(Waters        nativeID        format)
-    # # e.g.: MS:1000770(WIFF        nativeID        format)
-    # # e.g.: MS:1000771(Bruker / Agilent        YEP        nativeID        format)
-    # # e.g.: MS:1000772(Bruker        BAF        nativeID        format)
-    # # e.g.: MS:1000773(Bruker        FID        nativeID        format)
-    # # e.g.: MS:1000774(multiple       peak        list        nativeID        format)
-    # # e.g.: MS:1000775(single        peak        list        nativeID        format)
-    # # e.g.: MS:1000776(scan        number        only        nativeID        format)
-    # # e.g.: MS:1000777(spectrum        identifier        nativeID        format)
-
-    ignore_dict_index = False
-    identified_spec_id_format = False
-
-    if spec_id_format is not None and 'accession' in spec_id_format:
-
-        if spec_id_format['accession'] == 'MS:1000774':  # (multiple peak list nativeID format - zero based)
-            identified_spec_id_format = True
-            ignore_dict_index = True
-            matches = re.findall("index=([0-9]+)", spec_id)
-            try:
-                spec_id = int(matches[0])
-
-            # try to cast spec_id to int if re doesn't match -> PXD006767 has this format
-            except IndexError:
-                try:
-                    spec_id = int(spec_id)
-                except ValueError:
-                    raise ParseError("invalid spectrum ID format!")
-
-        # MS:1000775
-        # The nativeID must be the same as the source file ID.
-        # Used for referencing peak list files with one spectrum per file,
-        # typically in a folder of PKL or DTAs, where each sourceFileRef is different.
-        elif spec_id_format['accession'] == 'MS:1000775':
-            identified_spec_id_format = True
-            ignore_dict_index = True
-            spec_id = 0
-
-        # MS:1000776
-        # Used for referencing mzXML, or a DTA folder where native scan numbers can be derived.
-        elif spec_id_format['accession'] == 'MS:1000776':
-            identified_spec_id_format = True
-            matches = re.findall("scan=([0-9]+)", spec_id)
-            spec_id = int(matches[0])
-
-        # MS:1000768
-        # Thermo nativeID format: controllerType=xsd:nonNegativeIntege controllerNumber=xsd:positiveInteger scan=xsd:positiveInteger
-        elif spec_id_format['accession'] == 'MS:1000768':
-            identified_spec_id_format = True
-            matches = re.findall("scan=([0-9]+)", spec_id)
-            spec_id = int(matches[0])
-
-        # MS:1001530
-        # mzML unique identifier: Used for referencing mzML. The value of the spectrum ID attribute is referenced directly.
-
-        elif spec_id_format['accession'] == 'MS:1001530':
-            matches = re.findall("scan=([0-9]+)", spec_id)
-            try:
-                spec_id = int(matches[0])
-                identified_spec_id_format = True
-            except IndexError:
-                pass
-
-    if not identified_spec_id_format:
-        matches = re.findall("([0-9]+)", spec_id)
-
-        try:
-            spec_id = int(matches[-1])
-        except IndexError:
-            raise ParseError("failed to parse spectrumID from %s" % spec_id)
-
-
-    # MGF
-    if reader['fileType'] == 'mgf':
-        try:
-            return reader['reader'].get_by_id(spec_id, ignore_dict_index=ignore_dict_index)
-        except (IndexError, KeyError, ParseError):
-            raise ParseError("requested scanID %s not found in peakList file" % spec_id)
-    # MZML
-    else:
-        try:
-            scan = reader['reader'][spec_id]
-            if int(scan['ms level']) == 1:
-                raise ParseError("requested scanID %i is not a MSn scan" % scan['id'])
-
-            return scan
-
-        except (IndexError, KeyError, ParseError):
-            raise ParseError("requested scanID %s not found in peakList file" % spec_id)
-
-
-    # try:
-    #     if reader['fileType'] == 'mgf':
-    #         scan = reader['reader'][scan_id+1]  # ToDo: clear up 0/1 confusion
-    #     elif reader['fileType'] == 'mzml':
-    #         scan = reader['reader'][scan_id]
-    # except (IndexError, KeyError):
-    #     raise ParseError("requested scanID %i not found in peakList file" % scan_id)
-    #
-    # return scan
-
-
-def create_peak_list_readers(pl_file_list):
-    return_dict = {}
-
-    for pl_file in pl_file_list:
-
-        pl_file_name = ntpath.basename(pl_file)
-
-        if pl_file_name.lower().endswith('.mzml'):
-            peak_list_file_type = 'mzml'
-            reader = pymzml.run.Reader(pl_file)
-
-        elif pl_file_name.lower().endswith('.mgf'):
-            peak_list_file_type = 'mgf'
-            reader = py_mgf.Reader(pl_file)
+        elif self.pl_file_name.lower().endswith('.mgf'):
+            self.peak_list_file_type = 'mgf'
+            reader = py_mgf.Reader(pl_path)
 
         else:
-            raise ParseError("unsupported peak list file type for: %s" % pl_file_name)
+            raise PeakListParseError("unsupported peak list file type for: %s" % self.pl_file_name)
 
-        peak_list_reader_index = re.sub("\.(mzml|mgf)\Z", "", pl_file_name, flags=re.I)
-        return_dict[peak_list_reader_index] = {
-            'reader': reader,
-            'fileType': peak_list_file_type
+    @staticmethod
+    def unzip_peak_lists(zip_file):
+
+        if zip_file.endswith(".zip"):
+            zip_ref = zipfile.ZipFile(zip_file, 'r')
+            unzip_path = zip_file + '_unzip/'
+            zip_ref.extractall(unzip_path)
+            zip_ref.close()
+
+            return_file_list = []
+
+            for root, dir_names, file_names in os.walk(unzip_path):
+                file_names = [f for f in file_names if not f[0] == '.']
+                dir_names[:] = [d for d in dir_names if not d[0] == '.']
+                for file_name in file_names:
+                    os.path.join(root, file_name)
+                    if file_name.lower().endswith('.mgf') or file_name.lower().endswith('.mzml'):
+                        return_file_list.append(root+'/'+file_name)
+                    else:
+                        raise IOError('unsupported file type: %s' % file_name)
+
+            return return_file_list
+
+        elif zip_file.endswith('.gz'):
+            in_f = gzip.open(zip_file, 'rb')
+            zip_file = zip_file.replace(".gz", "")
+            out_f = open(zip_file, 'wb')
+            out_f.write(in_f.read())
+            in_f.close()
+            out_f.close()
+
+            return [zip_file]
+        else:
+            raise StandardError("unsupported file extension for: %s" % zip_file)
+
+    @staticmethod
+    def get_ion_types_mzml(scan):
+        frag_methods = {
+            'beam-type collision-induced dissociation': ["b", "y"],
+            'collision-induced dissociation': ["b", "y"],
+            'electron transfer dissociation': ["c", "z"],
         }
+        # get fragMethod and translate that to Ion Types
+        ion_types = []
+        for key in scan.keys():
+            if key in frag_methods.keys():
+                ion_types += frag_methods[key]
+        return ion_types
 
-    return return_dict
+    def get_peak_list(self, scan):
+
+        if self.pl_file_type == 'mzml':
+            # if scan['ms level'] == 1:
+            #     raise ParseError("requested scanID %i is not a MSn scan" % scan['id'])
+
+            peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan.peaks if i > 0])
+
+        elif self.pl_file_type == 'mgf':
+            peak_list = scan['peaks']
+            # peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan['peaks'] if i > 0])
+
+        else:
+            raise PeakListParseError("unsupported peak list file type: %s" % self.pl_file_type)
+
+        return peak_list
+
+    # def get_reader(readers, file_name):
+    #
+    #     try:
+    #         reader = readers[file_name]
+    #     except KeyError:
+    #         #add warning?
+    #         if len(readers.keys()) == 1:
+    #             reader = readers[readers.keys()[0]]
+    #         else:
+    #             raise PeakListParseError("%s from identifications file does not match any of your peaklist files: %s" %
+    #                                      (file_name, '; '.join(readers.keys())))
+    #     return reader
 
 
-def get_peak_list_reader(pl_file):
+    def get_scan(self, spec_id):
 
-    pl_file_name = ntpath.basename(pl_file)
+        spec_id_format = self.spectra_data['SpectrumIDFormat']
 
-    if pl_file_name.lower().endswith('.mzml'):
-        peak_list_file_type = 'mzml'
-        reader = pymzml.run.Reader(pl_file)
+        # file_id_format_accession = spec_id_format['accession']
+        # #
+        # # if (fileIdFormat == Constants.SpecIdFormat.MASCOT_QUERY_NUM) {
+        # #     String rValueStr = spectrumID.replaceAll("query=", "");
+        # #     String id = null;
+        # #     if(rValueStr.matches(Constants.INTEGER)){
+        # #         id = Integer.toString(Integer.parseInt(rValueStr) + 1);
+        # #     }
+        # #     return id;
+        # # } else if (fileIdFormat == Constants.SpecIdFormat.MULTI_PEAK_LIST_NATIVE_ID) {
+        # #     String rValueStr = spectrumID.replaceAll("index=", "");
+        # #     String id;
+        # #     if(rValueStr.matches(Constants.INTEGER)){
+        # #         id = Integer.toString(Integer.parseInt(rValueStr) + 1);
+        # #         return id;
+        # #     }
+        # #     return spectrumID;
+        # # } else if (fileIdFormat == Constants.SpecIdFormat.SINGLE_PEAK_LIST_NATIVE_ID) {
+        # #     return spectrumID.replaceAll("file=", "");
+        # # } else if (fileIdFormat == Constants.SpecIdFormat.MZML_ID) {
+        # #     return spectrumID.replaceAll("mzMLid=", "");
+        # # } else if (fileIdFormat == Constants.SpecIdFormat.SCAN_NUMBER_NATIVE_ID) {
+        # #     return spectrumID.replaceAll("scan=", "");
+        # # } else {
+        # #     return spectrumID;
+        # # }
+        #
+        # # e.g.: MS:1000768(Thermo        nativeID        format)
+        # # e.g.: MS:1000769(Waters        nativeID        format)
+        # # e.g.: MS:1000770(WIFF        nativeID        format)
+        # # e.g.: MS:1000771(Bruker / Agilent        YEP        nativeID        format)
+        # # e.g.: MS:1000772(Bruker        BAF        nativeID        format)
+        # # e.g.: MS:1000773(Bruker        FID        nativeID        format)
+        # # e.g.: MS:1000774(multiple       peak        list        nativeID        format)
+        # # e.g.: MS:1000775(single        peak        list        nativeID        format)
+        # # e.g.: MS:1000776(scan        number        only        nativeID        format)
+        # # e.g.: MS:1000777(spectrum        identifier        nativeID        format)
 
-    elif pl_file_name.lower().endswith('.mgf'):
-        peak_list_file_type = 'mgf'
-        reader = py_mgf.Reader(pl_file)
+        ignore_dict_index = False
+        identified_spec_id_format = False
 
-    else:
-        raise ParseError("unsupported peak list file type for: %s" % pl_file_name)
+        if spec_id_format is not None and 'accession' in spec_id_format:
+
+            if spec_id_format['accession'] == 'MS:1000774':  # (multiple peak list nativeID format - zero based)
+                identified_spec_id_format = True
+                ignore_dict_index = True
+                matches = re.findall("index=([0-9]+)", spec_id)
+                try:
+                    spec_id = int(matches[0])
+
+                # try to cast spec_id to int if re doesn't match -> PXD006767 has this format
+                except IndexError:
+                    try:
+                        spec_id = int(spec_id)
+                    except ValueError:
+                        raise PeakListParseError("invalid spectrum ID format!")
+
+            # MS:1000775
+            # The nativeID must be the same as the source file ID.
+            # Used for referencing peak list files with one spectrum per file,
+            # typically in a folder of PKL or DTAs, where each sourceFileRef is different.
+            elif spec_id_format['accession'] == 'MS:1000775':
+                identified_spec_id_format = True
+                ignore_dict_index = True
+                spec_id = 0
+
+            # MS:1000776
+            # Used for referencing mzXML, or a DTA folder where native scan numbers can be derived.
+            elif spec_id_format['accession'] == 'MS:1000776':
+                identified_spec_id_format = True
+                matches = re.findall("scan=([0-9]+)", spec_id)
+                spec_id = int(matches[0])
+
+            # MS:1000768
+            # Thermo nativeID format: controllerType=xsd:nonNegativeIntege controllerNumber=xsd:positiveInteger scan=xsd:positiveInteger
+            elif spec_id_format['accession'] == 'MS:1000768':
+                identified_spec_id_format = True
+                matches = re.findall("scan=([0-9]+)", spec_id)
+                spec_id = int(matches[0])
+
+            # MS:1001530
+            # mzML unique identifier: Used for referencing mzML. The value of the spectrum ID attribute is referenced directly.
+
+            elif spec_id_format['accession'] == 'MS:1001530':
+                matches = re.findall("scan=([0-9]+)", spec_id)
+                try:
+                    spec_id = int(matches[0])
+                    identified_spec_id_format = True
+                except IndexError:
+                    pass
+
+        if not identified_spec_id_format:
+            matches = re.findall("([0-9]+)", spec_id)
+
+            try:
+                spec_id = int(matches[-1])
+            except IndexError:
+                raise PeakListParseError("failed to parse spectrumID from %s" % spec_id)
+
+        return self.reader[spec_id]
+
+        # # MGF
+        # if self['fileType'] == 'mgf':
+        #     try:
+        #         return self.reader.get_by_id(spec_id, ignore_dict_index=ignore_dict_index)
+        #     except (IndexError, KeyError, PeakListParseError):
+        #         raise PeakListParseError("requested scanID %s not found in peakList file" % spec_id)
+        # # MZML
+        # else:
+        #     try:
+        #         scan = self.reader[spec_id]
+        #         if int(scan['ms level']) == 1:
+        #             raise PeakListParseError("requested scanID %i is not a MSn scan" % scan['id'])
+        #
+        #         return scan
+        #
+        #     except (IndexError, KeyError, PeakListParseError):
+        #         raise PeakListParseError("requested scanID %s not found in peakList file" % spec_id)
 
 
+        # try:
+        #     if reader['fileType'] == 'mgf':
+        #         scan = reader['reader'][scan_id+1]  # ToDo: clear up 0/1 confusion
+        #     elif reader['fileType'] == 'mzml':
+        #         scan = reader['reader'][scan_id]
+        # except (IndexError, KeyError):
+        #     raise ParseError("requested scanID %i not found in peakList file" % scan_id)
+        #
+        # return scan
 
-    # peak_list_reader_index = key  # re.sub("\.(mzml|mgf)\Z", "", pl_file_name, flags=re.I)
-    return {
-        'reader': reader,
-        'fileType': peak_list_file_type
-    }
+
+    # def create_peak_list_readers(pl_file_list):
+    #     return_dict = {}
+    #
+    #     for pl_file in pl_file_list:
+    #
+    #         pl_file_name = ntpath.basename(pl_file)
+    #
+    #         if pl_file_name.lower().endswith('.mzml'):
+    #             peak_list_file_type = 'mzml'
+    #             reader = pymzml.run.Reader(pl_file)
+    #
+    #         elif pl_file_name.lower().endswith('.mgf'):
+    #             peak_list_file_type = 'mgf'
+    #             reader = py_mgf.Reader(pl_file)
+    #
+    #         else:
+    #             raise PeakListParseError("unsupported peak list file type for: %s" % pl_file_name)
+    #
+    #         peak_list_reader_index = re.sub("\.(mzml|mgf)\Z", "", pl_file_name, flags=re.I)
+    #         return_dict[peak_list_reader_index] = {
+    #             'reader': reader,
+    #             'fileType': peak_list_file_type
+    #         }
+    #
+    #     return return_dict
+    #
+    #
+    # def get_peak_list_reader(pl_file):
+    #
+    #     pl_file_name = ntpath.basename(pl_file)
+    #
+    #     if pl_file_name.lower().endswith('.mzml'):
+    #         peak_list_file_type = 'mzml'
+    #         reader = pymzml.run.Reader(pl_file)
+    #
+    #     elif pl_file_name.lower().endswith('.mgf'):
+    #         peak_list_file_type = 'mgf'
+    #         reader = py_mgf.Reader(pl_file)
+    #
+    #     else:
+    #         raise PeakListParseError("unsupported peak list file type for: %s" % pl_file_name)
+    #
+    #
+    #
+    #     # peak_list_reader_index = key  # re.sub("\.(mzml|mgf)\Z", "", pl_file_name, flags=re.I)
+    #     return {
+    #         'reader': reader,
+    #         'fileType': peak_list_file_type
+    #     }
 
