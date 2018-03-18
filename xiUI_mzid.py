@@ -157,7 +157,7 @@ class MzIdParser:
             try:
                 peak_list_reader = PeakListReader(peak_list_file_path, sp_datum)
             except IOError:
-                peak_list_reader = PeakListReader(PeakListReader.unzip_peak_lists(peak_list_file_path + '.gz')[0])
+                peak_list_reader = PeakListReader(PeakListReader.unzip_peak_lists(peak_list_file_path + '.gz')[0], sp_datum)
 
             spectra_data[sd_id] = peak_list_reader
 
