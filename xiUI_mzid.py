@@ -647,13 +647,15 @@ class MzIdParser:
         for sid_result in mzid_reader:
             peak_list_reader = self.peak_list_readers[sid_result['spectraData_ref']]
 
+            # maybe look again at how the get_scan and get_peak_list functions are organised,
+            # seems like there could be just one called get_peak_list?
             try:
                 scan = peak_list_reader.get_scan(sid_result["spectrumID"])
             except Exception as e:
                 raise ScanNotFoundException(type(e).__name__,
                                             ntpath.basename(peak_list_reader.spectra_data['location']), e.args)
 
-            peak_list = peak_list_reader.get_peak_list(scan, peak_list_reader['fileType'])
+            peak_list = peak_list_reader.get_peak_list(scan)
             # print(sid_result["spectrumID"])
 
             protocol = self.spectra_data_protocol_map[sid_result['spectraData_ref']]
