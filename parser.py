@@ -27,7 +27,7 @@ try:
     # import local files
     import xiUI_mzid as mzidParser
     import xiSPEC_csv as csvParser
-    from xiSPEC_peakList import unzip_peak_lists
+    # from xiSPEC_peakList import unzip_peak_lists
 
     # logging
     try:
@@ -249,7 +249,7 @@ try:
     except NameError:
         upload_folder = "/".join(identifications_file.split("/")[:-1]) + "/"
 
-    mzidParser = mzidParser.MzIdParser(identifications_file, upload_folder, db, logger)
+    mzidParser = mzidParser.xiSPEC_MzIdParser(identifications_file, upload_folder, db, logger, dbName)
 
     # create Database tables
     try:
