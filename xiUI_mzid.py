@@ -52,9 +52,9 @@ class MzIdParser:
         # ToDo: Might change to pyteomics unimod obo module
         self.unimod_path = 'obo/unimod.obo'
 
-        # collect all modifications encountered when looping through the SIRs
         # ToDo: modifications might be globally stored in mzIdentML under
         # ToDo: AnalysisProtocolCollection->SpectrumIdentificationProtocol->ModificationParams
+        # ToDo: atm we get them while looping through the peptides (might be more robust and we're doing it anyway)
         self.modlist = []
 
         self.contains_crosslinks = False
@@ -168,9 +168,8 @@ class MzIdParser:
         start_time = time()
 
         # ToDo: more gracefully handle missing files
-        try:
-            self.peak_list_readers = self.read_peak_lists()
-        except:
+        self.peak_list_readers = self.read_peak_lists()
+
         #
         # upload info
         #
@@ -440,8 +439,8 @@ class MzIdParser:
             # "oxidation": "ox"
         }
 
-        #PEPTIDES
-        inj_list = []
+        # PEPTIDES
+        peptide_inj_list = []
         for pep_id in mzid_reader._offset_index["Peptide"].keys():
             peptide = mzid_reader.get_by_id(pep_id, tag_id='Peptide', detailed=True)
             peptide2 = mzid_reader.get_by_id(pep_id, tag_id='Peptide', detailed=True, accession_key=True)
@@ -454,7 +453,7 @@ class MzIdParser:
 
             value = -1
 
-            #MODIFICATIONS
+            # MODIFICATIONS
             # add in modifications
             if 'Modification' in peptide.keys():
                 for mod in peptide['Modification']:
@@ -531,48 +530,28 @@ class MzIdParser:
             # data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
             data = [peptide["id"], peptide_seq_with_mods, link_site, crosslinker_modmass, self.upload_id, value]
 
-            inj_list.append(data)
+            peptide_inj_list.append(data)
 
-        self.db.write_peptides(inj_list, self.cur, self.con)
+        self.db.write_peptides(peptide_inj_list, self.cur, self.con)
 
-        # modifications - ToDo
-        # modifications = []
-        # for mod in all_mods:
-        #     try:
-        #         mod_accession = mod['accession']
-        #     except KeyError:
-        #         mod_accession = ''
-        #         modifications.append({
-        #         'aminoAcids': mod['residues'],
-        #         'id': mod['name'],
-        #         'mass': mod['monoisotopicMassDelta'],
-        #         'accession': mod_accession
-        #     })
-
-        # add mods to global modList
-        # for mod in pep_info['annotation']['modifications']:
-        #     if mod['id'] not in [m['id'] for m in modifications]:
-        #         modifications.append(mod)
-        #     else:
-        #         old_mod = modifications[[m['id'] for m in modifications].index(mod['id'])]
-        #         # check if modname with different mass exists already
-        #         for res in mod['aminoAcids']:
-        #             if res not in old_mod['aminoAcids']:
-        #                 old_mod['aminoAcids'].append(res)
         #
-        # mod_index = 0
-        # multiple_inj_list_modifications = []
-        # for mod in all_mods:
-        #     multiple_inj_list_modifications.append([
-        #         mod_index,
-        #         mod['id'],
-        #         mod['mass'],
-        #         ''.join(mod['aminoAcids']),
-        #         mod['accession']
-        #     ])
-        #     mod_index += 1
-        #
-        # db.write_modifications(multiple_inj_list_modifications, cur, con)
+        mod_index = 0
+        modifications_inj_list = []
+        for mod in self.modlist:
+            try:
+                mod_accession = mod['accession']
+            except KeyError:
+                mod_accession = ''
+            modifications_inj_list.append([
+                mod_index,
+                self.upload_id,
+                mod['name'],
+                mod['monoisotopicMassDelta'],
+                ''.join(mod['residues']),
+                mod_accession
+            ])
+            mod_index += 1
+        self.db.write_modifications(modifications_inj_list, self.cur, self.con)
 
         self.logger.info('parse peptides, modifications - done. Time: ' + str(round(time() - start_time, 2)) + " sec")
 
@@ -754,7 +733,7 @@ class MzIdParser:
 
         # once loop is done write remaining data to DB
         db_wrap_up_start_time = time()
-        self.logger.info('write remaining entries and modifications to DB - start')
+        self.logger.info('write spectra to DB - start')
         try:
             self.db.write_spectra(spectra, self.cur, self.con)
             self.db.write_spectrum_identifications(spectrum_identifications, self.cur, self.con)
@@ -762,7 +741,7 @@ class MzIdParser:
         except Exception as e:
             raise e
 
-        self.logger.info('write remaining entries and modifications to DB - done. Time: '
+        self.logger.info('write spectra to DB - start - done. Time: '
                     + str(round(time() - db_wrap_up_start_time, 2)) + " sec")
 
         # warnings
