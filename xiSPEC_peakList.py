@@ -10,6 +10,7 @@ import gzip
 class PeakListParseError(Exception):
     pass
 
+
 class PeakListReader:
     def __init__(self, pl_path, spectra_data):
         self.spectra_data = spectra_data
@@ -28,7 +29,7 @@ class PeakListReader:
 
         elif self.pl_file_name.lower().endswith('.mgf'):
             self.peak_list_file_type = 'mgf'
-            reader = py_mgf.Reader(pl_path)
+            self.reader = py_mgf.Reader(pl_path)
 
         else:
             raise PeakListParseError("unsupported peak list file type for: %s" % self.pl_file_name)
@@ -82,15 +83,17 @@ class PeakListReader:
                 ion_types += frag_methods[key]
         return ion_types
 
-    def get_peak_list(self, scan):
+    def get_peak_list(self, spec_id):
 
-        if self.pl_file_type == 'mzml':
+        scan = self.get_scan(spec_id)
+
+        if self.peak_list_file_type == 'mzml':
             # if scan['ms level'] == 1:
             #     raise ParseError("requested scanID %i is not a MSn scan" % scan['id'])
 
             peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan.peaks if i > 0])
 
-        elif self.pl_file_type == 'mgf':
+        elif self.peak_list_file_type == 'mgf':
             peak_list = scan['peaks']
             # peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan['peaks'] if i > 0])
 
@@ -98,19 +101,6 @@ class PeakListReader:
             raise PeakListParseError("unsupported peak list file type: %s" % self.pl_file_type)
 
         return peak_list
-
-    # def get_reader(readers, file_name):
-    #
-    #     try:
-    #         reader = readers[file_name]
-    #     except KeyError:
-    #         #add warning?
-    #         if len(readers.keys()) == 1:
-    #             reader = readers[readers.keys()[0]]
-    #         else:
-    #             raise PeakListParseError("%s from identifications file does not match any of your peaklist files: %s" %
-    #                                      (file_name, '; '.join(readers.keys())))
-    #     return reader
 
 
     def get_scan(self, spec_id):
@@ -155,14 +145,14 @@ class PeakListReader:
         # # e.g.: MS:1000776(scan        number        only        nativeID        format)
         # # e.g.: MS:1000777(spectrum        identifier        nativeID        format)
 
-        ignore_dict_index = False
+        # ignore_dict_index = False
         identified_spec_id_format = False
 
         if spec_id_format is not None and 'accession' in spec_id_format:
 
             if spec_id_format['accession'] == 'MS:1000774':  # (multiple peak list nativeID format - zero based)
                 identified_spec_id_format = True
-                ignore_dict_index = True
+                # ignore_dict_index = True
                 matches = re.findall("index=([0-9]+)", spec_id)
                 try:
                     spec_id = int(matches[0])
@@ -180,7 +170,7 @@ class PeakListReader:
             # typically in a folder of PKL or DTAs, where each sourceFileRef is different.
             elif spec_id_format['accession'] == 'MS:1000775':
                 identified_spec_id_format = True
-                ignore_dict_index = True
+                # ignore_dict_index = True
                 spec_id = 0
 
             # MS:1000776
@@ -199,7 +189,6 @@ class PeakListReader:
 
             # MS:1001530
             # mzML unique identifier: Used for referencing mzML. The value of the spectrum ID attribute is referenced directly.
-
             elif spec_id_format['accession'] == 'MS:1001530':
                 matches = re.findall("scan=([0-9]+)", spec_id)
                 try:
@@ -217,84 +206,4 @@ class PeakListReader:
                 raise PeakListParseError("failed to parse spectrumID from %s" % spec_id)
 
         return self.reader[spec_id]
-
-        # # MGF
-        # if self['fileType'] == 'mgf':
-        #     try:
-        #         return self.reader.get_by_id(spec_id, ignore_dict_index=ignore_dict_index)
-        #     except (IndexError, KeyError, PeakListParseError):
-        #         raise PeakListParseError("requested scanID %s not found in peakList file" % spec_id)
-        # # MZML
-        # else:
-        #     try:
-        #         scan = self.reader[spec_id]
-        #         if int(scan['ms level']) == 1:
-        #             raise PeakListParseError("requested scanID %i is not a MSn scan" % scan['id'])
-        #
-        #         return scan
-        #
-        #     except (IndexError, KeyError, PeakListParseError):
-        #         raise PeakListParseError("requested scanID %s not found in peakList file" % spec_id)
-
-
-        # try:
-        #     if reader['fileType'] == 'mgf':
-        #         scan = reader['reader'][scan_id+1]  # ToDo: clear up 0/1 confusion
-        #     elif reader['fileType'] == 'mzml':
-        #         scan = reader['reader'][scan_id]
-        # except (IndexError, KeyError):
-        #     raise ParseError("requested scanID %i not found in peakList file" % scan_id)
-        #
-        # return scan
-
-
-    # def create_peak_list_readers(pl_file_list):
-    #     return_dict = {}
-    #
-    #     for pl_file in pl_file_list:
-    #
-    #         pl_file_name = ntpath.basename(pl_file)
-    #
-    #         if pl_file_name.lower().endswith('.mzml'):
-    #             peak_list_file_type = 'mzml'
-    #             reader = pymzml.run.Reader(pl_file)
-    #
-    #         elif pl_file_name.lower().endswith('.mgf'):
-    #             peak_list_file_type = 'mgf'
-    #             reader = py_mgf.Reader(pl_file)
-    #
-    #         else:
-    #             raise PeakListParseError("unsupported peak list file type for: %s" % pl_file_name)
-    #
-    #         peak_list_reader_index = re.sub("\.(mzml|mgf)\Z", "", pl_file_name, flags=re.I)
-    #         return_dict[peak_list_reader_index] = {
-    #             'reader': reader,
-    #             'fileType': peak_list_file_type
-    #         }
-    #
-    #     return return_dict
-    #
-    #
-    # def get_peak_list_reader(pl_file):
-    #
-    #     pl_file_name = ntpath.basename(pl_file)
-    #
-    #     if pl_file_name.lower().endswith('.mzml'):
-    #         peak_list_file_type = 'mzml'
-    #         reader = pymzml.run.Reader(pl_file)
-    #
-    #     elif pl_file_name.lower().endswith('.mgf'):
-    #         peak_list_file_type = 'mgf'
-    #         reader = py_mgf.Reader(pl_file)
-    #
-    #     else:
-    #         raise PeakListParseError("unsupported peak list file type for: %s" % pl_file_name)
-    #
-    #
-    #
-    #     # peak_list_reader_index = key  # re.sub("\.(mzml|mgf)\Z", "", pl_file_name, flags=re.I)
-    #     return {
-    #         'reader': reader,
-    #         'fileType': peak_list_file_type
-    #     }
 

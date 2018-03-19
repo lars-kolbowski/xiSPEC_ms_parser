@@ -116,7 +116,7 @@ class MzIdParser:
     def get_sequenceDB_file_names(self):
         pass
 
-    def get_peak_lists_from_temp_dir(self):
+    def read_peak_lists(self):
         # get spectra data
         spectra_data = {} # when returned becomes peak_list_readers, can tidy up
         for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
@@ -165,14 +165,12 @@ class MzIdParser:
 
     def parse(self):
 
-        # ToDo: we might want to start with checking peak list files for unsupported file formats?
-        # agree,
-        # i also think we want to use inheritance to deal with the  self.parse_db_sequences issue below
-        # (subclass this class with one where the parse_db_sequences function does nothing,
-        # same for peptide_evidences)
-        # see bottom of file - cc
+        start_time = time()
 
-
+        # ToDo: more gracefully handle missing files
+        try:
+            self.peak_list_readers = self.read_peak_lists()
+        except:
         #
         # upload info
         #
@@ -184,31 +182,17 @@ class MzIdParser:
 
         #
         # Sequences, Peptides, Peptide Evidences (inc. peptide positions), Modifications
-        #
-        sequences_start_time = time()
-        self.logger.info('getting sequences, peptides, peptide evidences, modifications - start')
-        try:
-            self.parse_db_sequences(self.mzid_reader)
-        except AttributeError:
-            pass
-
+        self.parse_db_sequences(self.mzid_reader)
         self.parse_peptides(self.mzid_reader)
+        self.parse_peptide_evidences(self.mzid_reader)
 
-        # not needed for xiSPEC ToDo: might need param to distinguish between xiSPEC & xiUI-> talk to CC
-        # self.parse_peptide_evidences(self.mzid_reader)
-        # self.logger.info('getting sequences, etc - done. Time: ' + str(round(time() - sequences_start_time, 2)) + " sec")
-
-        #
         # init spectra to protocol lookup
-        #
         spectra_map_start_time = time()
         self.logger.info('generating spectra data protocol map - start')
         self.map_spectra_data_to_protocol()
-        # return_json['errors'] += spectra_data_protocol_map['errors']
         # ToDo: save FragmentTolerance to annotationsTable
         self.logger.info('generating spectraData_ProtocolMap - done. Time: ' + str(round(time() - spectra_map_start_time, 2)) + " sec")
 
-        self.peak_list_readers = self.get_peak_lists_from_temp_dir()
         self.main_loop(self.mzid_reader)
 
         # ToDo: fill in missing score information
@@ -217,7 +201,7 @@ class MzIdParser:
         # db.fill_in_missing_scores(cur, con)
         # logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
 
-        self.logger.info('all done! Total time: ' + str(round(time() - self.mzid_start_time, 2)) + " sec")
+        self.logger.info('all done! Total time: ' + str(round(time() - start_time, 2)) + " sec")
 
     def get_ion_types_mzid(self, sid_item):
         try:
@@ -399,6 +383,9 @@ class MzIdParser:
         return mod['name']
 
     def parse_db_sequences(self, mzid_reader):
+
+        self.logger.info('parse db sequences - start')
+        start_time = time()
         # DBSEQUENCES
         inj_list = []
         # for db_sequence in sequence_collection['DBSequence']:
@@ -438,7 +425,12 @@ class MzIdParser:
 
         self.db.write_db_sequences(inj_list, self.cur, self.con)
 
+        self.logger.info('parse db sequences - done. Time: ' + str(round(time() - start_time, 2)) + " sec")
+
     def parse_peptides(self, mzid_reader):
+        start_time = time()
+        self.logger.info('parse peptides, modifications - start')
+
         # ToDo: might be stuff in pyteomics lib for this?
         unimod_masses = self.get_unimod_masses(self.unimod_path)
         mod_aliases = {
@@ -582,7 +574,11 @@ class MzIdParser:
         #
         # db.write_modifications(multiple_inj_list_modifications, cur, con)
 
+        self.logger.info('parse peptides, modifications - done. Time: ' + str(round(time() - start_time, 2)) + " sec")
+
     def parse_peptide_evidences(self, mzid_reader):
+        start_time = time()
+        self.logger.info('parse peptide evidences - start')
         #PEPTIDE EVIDENCES
         inj_list = []
         # for peptide_evidence in sequence_collection['PeptideEvidence']:
@@ -613,6 +609,8 @@ class MzIdParser:
 
         self.con.commit()
         mzid_reader.reset()
+
+        self.logger.info('parse peptide evidences - done. Time: ' + str(round(time() - start_time, 2)) + " sec")
 
     @staticmethod
     def get_unimod_masses(unimod_path):
@@ -650,12 +648,13 @@ class MzIdParser:
             # maybe look again at how the get_scan and get_peak_list functions are organised,
             # seems like there could be just one called get_peak_list?
             try:
-                scan = peak_list_reader.get_scan(sid_result["spectrumID"])
+                # scan = peak_list_reader.get_scan(sid_result["spectrumID"])
+                peak_list = peak_list_reader.get_peak_list(sid_result["spectrumID"])
             except Exception as e:
                 raise ScanNotFoundException(type(e).__name__,
                                             ntpath.basename(peak_list_reader.spectra_data['location']), e.args)
 
-            peak_list = peak_list_reader.get_peak_list(scan)
+            # peak_list = peak_list_reader.get_peak_list(scan)
             # print(sid_result["spectrumID"])
 
             protocol = self.spectra_data_protocol_map[sid_result['spectraData_ref']]
@@ -1036,6 +1035,7 @@ class MzIdParser:
         #     self.con.commit()
         # except psycopg2.Error as e:
         #     raise e
+
 
 class xiSPEC_MzIdParser(MzIdParser):
     def parse_db_sequences(self, mzid_reader):
