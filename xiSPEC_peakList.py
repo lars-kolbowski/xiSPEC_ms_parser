@@ -6,9 +6,6 @@ import re
 import os
 import gzip
 
-from xiUI_mzid import MzIdParseException
-
-
 class PeakListParseError(Exception):
     pass
 
@@ -19,16 +16,6 @@ class ScanNotFoundException(Exception):
 
 class PeakListReader:
     def __init__(self, pl_path, spectra_data):
-        # is there anything we'd like to complain about?
-        if spectra_data['SpectrumIDFormat'] is None:
-            raise MzIdParseException('SpectraData is missing SpectrumIdFormat')
-        if spectra_data['SpectrumIDFormat']['accession'] is None:
-            raise MzIdParseException('SpectraData/SpectrumIdFormat is missing accession')
-        if spectra_data['FileFormat'] is None:
-            raise MzIdParseException('SpectraData is missing FileFormat')
-        if spectra_data['FileFormat']['accession'] is None:
-            raise MzIdParseException('SpectraData/FileFormat is missing accession')
-
         self.spectra_data = spectra_data
 
         if self.is_mzML():

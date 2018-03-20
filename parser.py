@@ -80,7 +80,7 @@ try:
 
     # development testfiles
     if dev:
-        baseDir = "/media/data/work/xiSPEC_test_files/"
+        baseDir = "/home/col/xiSPEC_test_files/"
         # identifications_file = baseDir + 'OpenxQuest_example_added_annotations.mzid'
         # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
         # peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf"
@@ -97,8 +97,8 @@ try:
         # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
 
         # # large mzid dataset
-        identifications_file = baseDir + "Tmuris_exo/Tmuris_exosomes1.mzid"
-        peakList_file = baseDir + "Tmuris_exo/20171027_DDA_JC1.zip"
+        identifications_file = baseDir + "linear/Tmuris_exo/Tmuris_exosomes1.mzid"
+        peakList_file = baseDir + "linear/Tmuris_exo/20171027_DDA_JC1.zip"
 
         # PXD006574
         # identifications_file = baseDir + "PXD006574/monomerResults.mzid.gz"

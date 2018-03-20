@@ -303,9 +303,9 @@ def fill_in_missing_scores(cur, con):
         for row in res:
             row_scores = json.loads(row[1])
             missing = all_scores - set(row_scores.keys())
-            missing_dict = {key: -1 for key in missing}
 
             if len(missing) > 0:
+                missing_dict = {key: -1 for key in missing}
                 row_scores.update(missing_dict)
                 inj_list.append([json.dumps(row_scores), row[0]])
                 # cur.execute('UPDATE identifications SET allScores=? WHERE id = row[0]', json.dumps(row_scores))

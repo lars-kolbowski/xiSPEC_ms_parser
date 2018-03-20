@@ -118,36 +118,19 @@ class MzIdParser:
         spectra_data = {}   # when returned becomes peak_list_readers, can tidy up
         for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
             sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
+
+            # is there anything we'd like to complain about?
+            if sp_datum['SpectrumIDFormat'] is None:
+                raise MzIdParseException('SpectraData is missing SpectrumIdFormat')
+            if sp_datum['SpectrumIDFormat']['accession'] is None:
+                raise MzIdParseException('SpectraData/SpectrumIdFormat is missing accession')
+            if sp_datum['FileFormat'] is None:
+                raise MzIdParseException('SpectraData is missing FileFormat')
+            if sp_datum['FileFormat']['accession'] is None:
+                raise MzIdParseException('SpectraData/FileFormat is missing accession')
+
             sd_id = sp_datum['id']
             peak_list_file_name = ntpath.basename(sp_datum['location'])
-
-            # don't know if following stuff belongs in here
-            # if 'FileFormat' in sp_datum:
-            #     if 'accession' in sp_datum['FileFormat']:
-            #         file_format_readable = sp_datum['FileFormat']['accession'] + ': ' + sp_datum['FileFormat']['name']
-            #         # missing .mgf file extension?
-            #         if sp_datum['FileFormat']['accession'] == 'MS:1001062' and not peak_list_file_name.lower().endswith(
-            #                     '.mgf'):
-            #             self.warnings.append('location of mgf file is missing .mgf extension: ' + peak_list_file_name)
-            #             peak_list_file_name = peak_list_file_name + '.mgf'
-            #         # also might be some fails coz .MGF is being converted to .mgf in ftp archive
-            #     else:
-            #         self.warnings.append('SpectraData>FileFormat is missing accession.')
-            #         file_format_readable = sp_datum['FileFormat']
-            #
-            # else:
-            #     self.warnings.append('SpectraData missing required element FileFormat.')
-
-            # if 'SpectrumIDFormat' in sp_datum:
-            #     if 'accession' in sp_datum['SpectrumIDFormat']:
-            #         spec_id_format_readable = sp_datum['SpectrumIDFormat']['accession'] + ': ' + \
-            #                                   sp_datum['SpectrumIDFormat']['name']
-            #     else:
-            #         self.warnings.append('SpectraData>SpectrumIDFormat is missing accession.')
-            #         spec_id_format_readable = sp_datum['SpectrumIDFormat']
-            # else:
-            #     self.warnings.append('SpectraData missing required element SpectrumIDElement.')
-            # self.spectrum_id_formats.add(spec_id_format_readable)
 
             peak_list_file_path = self.temp_dir + peak_list_file_name
 
@@ -179,7 +162,6 @@ class MzIdParser:
         #
         # Sequences, Peptides, Peptide Evidences (inc. peptide positions), Modifications
 
-        # ToDo: Why do we call them with mzid_reader and not use self.mzid_reader?
         self.parse_db_sequences(self.mzid_reader)
         self.parse_peptides(self.mzid_reader)
         self.parse_peptide_evidences(self.mzid_reader)
@@ -189,9 +171,9 @@ class MzIdParser:
         #
         # Fill missing scores with
         score_fill_start_time = time()
-        self.logger.info('fill in missing scores - start')
-        self.db.fill_in_missing_scores(self.cur, self.con)
-        self.logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
+        # self.logger.info('fill in missing scores - start')
+        # self.db.fill_in_missing_scores(self.cur, self.con)
+        # self.logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
 
         self.logger.info('all done! Total time: ' + str(round(time() - start_time, 2)) + " sec")
 
@@ -269,9 +251,7 @@ class MzIdParser:
         self.logger.info('generating spectra data protocol map - start')
         start_time = time()
 
-        spectra_data_protocol_map = {
-            'errors': [],
-        }
+        spectra_data_protocol_map = {}
 
         sid_protocols = []
 
@@ -295,7 +275,7 @@ class MzIdParser:
                     frag_tol['search tolerance plus value']['value'] == frag_tol['search tolerance minus value']['value'],
                     frag_tol['search tolerance plus value']['unit'] == frag_tol['search tolerance minus value']['unit']
                 ]):
-                    spectra_data_protocol_map['errors'].append(
+                    self.warnings.append(
                         {"type": "mzidParseError",
                          "message": "search tolerance plus value doesn't match minus value. Using plus value!"})
 
@@ -409,6 +389,8 @@ class MzIdParser:
         start_time = time()
         self.logger.info('parse peptides, modifications - start')
 
+        self.peptide_id_lookup = {}
+
         # ToDo: might be stuff in pyteomics lib for this?
         unimod_masses = self.get_unimod_masses(self.unimod_path)
         mod_aliases = {
@@ -418,11 +400,13 @@ class MzIdParser:
             # "oxidation": "ox"
         }
 
+
         # PEPTIDES
+        peptide_index = 0
         peptide_inj_list = []
         for pep_id in mzid_reader._offset_index["Peptide"].keys():
             peptide = mzid_reader.get_by_id(pep_id, tag_id='Peptide', detailed=True)
-            peptide2 = mzid_reader.get_by_id(pep_id, tag_id='Peptide', detailed=True, accession_key=True)
+            # peptide2 = mzid_reader.get_by_id(pep_id, tag_id='Peptide', detailed=True, accession_key=True)
             pep_seq_dict = []
             for aa in peptide['PeptideSequence']:
                 pep_seq_dict.append({"Modification": "", "aminoAcid": aa})
@@ -507,9 +491,11 @@ class MzIdParser:
             peptide_seq_with_mods = ''.join([''.join([x['aminoAcid'], x['Modification']]) for x in pep_seq_dict])
 
             # data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
-            data = [peptide["id"], peptide_seq_with_mods, link_site, crosslinker_modmass, self.upload_id, value]
+            data = [peptide_index, peptide_seq_with_mods, link_site, crosslinker_modmass, self.upload_id, value]
 
             peptide_inj_list.append(data)
+            self.peptide_id_lookup[peptide['id']] = peptide_index
+            peptide_index += 1
 
         self.db.write_peptides(peptide_inj_list, self.cur, self.con)
 
@@ -552,7 +538,7 @@ class MzIdParser:
             peptide_evidence = mzid_reader.get_by_id(pep_ev_id, tag_id='PeptideEvidence', detailed=True)
 
             data = []  # peptide_ref, dBSequence_ref, protein_accession, start, upload_id
-            data.append(peptide_evidence["peptide_ref"])  # peptide_ref att, required
+            data.append(self.peptide_id_lookup[peptide_evidence["peptide_ref"]])  # peptide_ref att, required
             data.append(peptide_evidence["dBSequence_ref"])  # DBSequence_ref att, required
             data.append(db_seq_ref_prot_map[peptide_evidence["dBSequence_ref"]])
 
@@ -564,7 +550,7 @@ class MzIdParser:
             if "isDecoy" in peptide_evidence:
                 data.append(peptide_evidence["isDecoy"])  # isDecoy att, optional
             else:
-                data.append("false")  # hmm, not right ToDo: fix , there's comments in Lars' code about it
+                data.append(None)
 
             data.append(self.upload_id)
 
@@ -647,7 +633,7 @@ class MzIdParser:
                 if id in spectrum_ident_dict.keys():
                     # do crosslink specific stuff
                     ident_data = spectrum_ident_dict.get(id)
-                    ident_data[4] = spec_id_item['peptide_ref']
+                    ident_data[4] = self.peptide_id_lookup[spec_id_item['peptide_ref']]
                 else:
                     # do stuff common to linears and crosslinks
                     charge_state = spec_id_item['chargeState']
@@ -690,7 +676,7 @@ class MzIdParser:
                         spec_id_item_index,
                         self.upload_id,
                         mzid_item_index,
-                        spec_id_item['peptide_ref'],
+                        self.peptide_id_lookup[spec_id_item['peptide_ref']],
                         '',  # pep2
                         charge_state,
                         rank,
