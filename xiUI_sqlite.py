@@ -98,7 +98,7 @@ def create_tables(cur, con):
             "CREATE TABLE spectrum_identifications("
             "id INT, "
             "upload_id INT,"
-            "spectrum_id INT, "
+            "spectrum_ref INT, "
             "pep1_id TEXT, "
             "pep2_id TEXT, "
             "charge_state INT, "
@@ -248,7 +248,7 @@ def write_spectra(inj_list, cur, con):
               'scan_id', 
               'frag_tol', 
               'upload_id', 
-              'spectrum_id'
+              'spectrum_ref'
           )
           VALUES (?, ?, ?, ?, ?, ?, ?)""", inj_list)
         con.commit()
@@ -303,9 +303,9 @@ def fill_in_missing_scores(cur, con):
         for row in res:
             row_scores = json.loads(row[1])
             missing = all_scores - set(row_scores.keys())
-            missing_dict = {key: -1 for key in missing}
 
             if len(missing) > 0:
+                missing_dict = {key: -1 for key in missing}
                 row_scores.update(missing_dict)
                 inj_list.append([json.dumps(row_scores), row[0]])
                 # cur.execute('UPDATE identifications SET allScores=? WHERE id = row[0]', json.dumps(row_scores))
