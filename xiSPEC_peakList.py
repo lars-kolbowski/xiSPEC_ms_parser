@@ -6,6 +6,8 @@ import re
 import os
 import gzip
 
+from xiUI_mzid import MzIdParseException
+
 
 class PeakListParseError(Exception):
     pass
@@ -17,26 +19,30 @@ class ScanNotFoundException(Exception):
 
 class PeakListReader:
     def __init__(self, pl_path, spectra_data):
+        # is there anything we'd like to complain about?
+        if spectra_data['SpectrumIDFormat'] is None:
+            raise MzIdParseException('SpectraData is missing SpectrumIdFormat')
+        if spectra_data['SpectrumIDFormat']['accession'] is None:
+            raise MzIdParseException('SpectraData/SpectrumIdFormat is missing accession')
+        if spectra_data['FileFormat'] is None:
+            raise MzIdParseException('SpectraData is missing FileFormat')
+        if spectra_data['FileFormat']['accession'] is None:
+            raise MzIdParseException('SpectraData/FileFormat is missing accession')
+
         self.spectra_data = spectra_data
-        self.pl_file_name = ntpath.basename(pl_path)
-        # todo? in practical terms what we have is probably more robust
-        # but should technically be done with reference to the accession number of spectra_data['FileFormat']?,
-        # i think edge case is where actual file name and spectra_data['location'] are both missing file extension
-        # but spectra_data['FileFormat'] is correct; then it should still parse
 
-        # i noticed from mzML spefication doc that the names of CV params are not guaranteed to be constant between versions,
-        # only the accessions
-
-        if self.pl_file_name.lower().endswith('.mzml'):
-            self.peak_list_file_type = 'mzml'
+        if self.is_mzML():
             self.reader = pymzml.run.Reader(pl_path)
-
-        elif self.pl_file_name.lower().endswith('.mgf'):
-            self.peak_list_file_type = 'mgf'
+        elif self.is_mgf():
             self.reader = py_mgf.Reader(pl_path)
-
         else:
-            raise PeakListParseError("unsupported peak list file type for: %s" % self.pl_file_name)
+            raise PeakListParseError("unsupported peak list file type for: %s" % ntpath.basename(self.pl_path))
+
+    def is_mgf(self):
+        return self.spectra_data['FileFormat']['accession'] == 'MS:1001062'
+
+    def is_mzML(self):
+        return self.spectra_data['FileFormat']['accession'] == 'MS:1000584'
 
     @staticmethod
     def unzip_peak_lists(zip_file):
@@ -95,17 +101,17 @@ class PeakListReader:
             raise ScanNotFoundException(type(e).__name__,
                                         ntpath.basename(self.spectra_data['location']), e.args)
 
-        if self.peak_list_file_type == 'mzml':
+        if self.is_mzML():
             # if scan['ms level'] == 1:
             #     raise ParseError("requested scanID %i is not a MSn scan" % scan['id'])
 
             peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan.peaks if i > 0])
 
-        elif self.peak_list_file_type == 'mgf':
+        elif self.is_mgf():
             peak_list = scan['peaks']
             # peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan['peaks'] if i > 0])
 
-        else:
+        else: #  this should never happen is it would have raise error in constructor
             raise PeakListParseError("unsupported peak list file type: %s" % self.peak_list_file_type)
 
         return peak_list
@@ -155,61 +161,61 @@ class PeakListReader:
         # ignore_dict_index = False
         identified_spec_id_format = False
 
-        if spec_id_format is not None and 'accession' in spec_id_format:
+        # if spec_id_format is not None and 'accession' in spec_id_format: # not needed, checked in constructor
 
-            # MS:1000774 multiple peak list nativeID format - zero based
-            if spec_id_format['accession'] == 'MS:1000774':
-                identified_spec_id_format = True
-                # ignore_dict_index = True
-                matches = re.match("index=([0-9]+)", spec_id).groups()
+        # MS:1000774 multiple peak list nativeID format - zero based
+        if spec_id_format['accession'] == 'MS:1000774':
+            identified_spec_id_format = True
+            # ignore_dict_index = True
+            matches = re.match("index=([0-9]+)", spec_id).groups()
+            try:
+                spec_id = int(matches[0])
+
+            # try to cast spec_id to int if re doesn't match -> PXD006767 has this format
+            except (AttributeError, IndexError):
                 try:
-                    spec_id = int(matches[0])
-
-                # try to cast spec_id to int if re doesn't match -> PXD006767 has this format
-                except (AttributeError, IndexError):
-                    try:
-                        spec_id = int(spec_id)
-                    except ValueError:
-                        raise PeakListParseError("invalid spectrum ID format!")
-
-            # MS:1000775 single peak list nativeID format
-            # The nativeID must be the same as the source file ID.
-            # Used for referencing peak list files with one spectrum per file,
-            # typically in a folder of PKL or DTAs, where each sourceFileRef is different.
-            elif spec_id_format['accession'] == 'MS:1000775':
-                identified_spec_id_format = True
-                # ignore_dict_index = True
-                spec_id = 0
-
-            # MS:1000776 scan number only nativeID format
-            # Used for referencing mzXML, or a DTA folder where native scan numbers can be derived.
-            elif spec_id_format['accession'] == 'MS:1000776':
-                identified_spec_id_format = True
-                try:
-                    matches = re.match("scan=([0-9]+)", spec_id).groups()
-                    spec_id = int(matches[0])
-                except (IndexError, AttributeError):
+                    spec_id = int(spec_id)
+                except ValueError:
                     raise PeakListParseError("invalid spectrum ID format!")
 
-            # MS:1000768 Thermo nativeID format:
-            # controllerType=xsd:nonNegativeIntege controllerNumber=xsd:positiveInteger scan=xsd:positiveInteger
-            elif spec_id_format['accession'] == 'MS:1000768':
-                identified_spec_id_format = True
-                try:
-                    matches = re.search("scan=([0-9]+)", spec_id).groups()
-                    spec_id = int(matches[0])
-                except (IndexError, AttributeError):
-                    raise PeakListParseError("invalid spectrum ID format!")
+        # MS:1000775 single peak list nativeID format
+        # The nativeID must be the same as the source file ID.
+        # Used for referencing peak list files with one spectrum per file,
+        # typically in a folder of PKL or DTAs, where each sourceFileRef is different.
+        elif spec_id_format['accession'] == 'MS:1000775':
+            identified_spec_id_format = True
+            # ignore_dict_index = True
+            spec_id = 0
 
-            # MS:1001530 mzML unique identifier:
-            # Used for referencing mzML. The value of the spectrum ID attribute is referenced directly.
-            elif spec_id_format['accession'] == 'MS:1001530':
+        # MS:1000776 scan number only nativeID format
+        # Used for referencing mzXML, or a DTA folder where native scan numbers can be derived.
+        elif spec_id_format['accession'] == 'MS:1000776':
+            identified_spec_id_format = True
+            try:
+                matches = re.match("scan=([0-9]+)", spec_id).groups()
+                spec_id = int(matches[0])
+            except (IndexError, AttributeError):
+                raise PeakListParseError("invalid spectrum ID format!")
+
+        # MS:1000768 Thermo nativeID format:
+        # controllerType=xsd:nonNegativeIntege controllerNumber=xsd:positiveInteger scan=xsd:positiveInteger
+        elif spec_id_format['accession'] == 'MS:1000768':
+            identified_spec_id_format = True
+            try:
                 matches = re.search("scan=([0-9]+)", spec_id).groups()
-                try:
-                    spec_id = int(matches[0])
-                    identified_spec_id_format = True
-                except IndexError:
-                    pass
+                spec_id = int(matches[0])
+            except (IndexError, AttributeError):
+                raise PeakListParseError("invalid spectrum ID format!")
+
+        # MS:1001530 mzML unique identifier:
+        # Used for referencing mzML. The value of the spectrum ID attribute is referenced directly.
+        elif spec_id_format['accession'] == 'MS:1001530':
+            matches = re.search("scan=([0-9]+)", spec_id).groups()
+            try:
+                spec_id = int(matches[0])
+                identified_spec_id_format = True
+            except IndexError:
+                pass
 
         if not identified_spec_id_format:
             matches = re.findall("([0-9]+)", spec_id)
