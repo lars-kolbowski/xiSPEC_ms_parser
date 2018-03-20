@@ -98,7 +98,7 @@ def create_tables(cur, con):
             "CREATE TABLE spectrum_identifications("
             "id INT, "
             "upload_id INT,"
-            "spectrum_id INT, "
+            "spectrum_ref INT, "
             "pep1_id TEXT, "
             "pep2_id TEXT, "
             "charge_state INT, "
@@ -248,7 +248,7 @@ def write_spectra(inj_list, cur, con):
               'scan_id', 
               'frag_tol', 
               'upload_id', 
-              'spectrum_id'
+              'spectrum_ref'
           )
           VALUES (?, ?, ?, ?, ?, ?, ?)""", inj_list)
         con.commit()
