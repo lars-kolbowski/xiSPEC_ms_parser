@@ -11,6 +11,10 @@ class PeakListParseError(Exception):
     pass
 
 
+class ScanNotFoundException(Exception):
+    pass
+
+
 class PeakListReader:
     def __init__(self, pl_path, spectra_data):
         self.spectra_data = spectra_data
@@ -83,9 +87,13 @@ class PeakListReader:
                 ion_types += frag_methods[key]
         return ion_types
 
-    def get_peak_list(self, spec_id):
+    def get_peak_list(self, scan_id):
 
-        scan = self.get_scan(spec_id)
+        try:
+            scan = self.reader[scan_id]
+        except Exception as e:
+            raise ScanNotFoundException(type(e).__name__,
+                                        ntpath.basename(self.spectra_data['location']), e.args)
 
         if self.peak_list_file_type == 'mzml':
             # if scan['ms level'] == 1:
@@ -98,12 +106,11 @@ class PeakListReader:
             # peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan['peaks'] if i > 0])
 
         else:
-            raise PeakListParseError("unsupported peak list file type: %s" % self.pl_file_type)
+            raise PeakListParseError("unsupported peak list file type: %s" % self.peak_list_file_type)
 
         return peak_list
 
-
-    def get_scan(self, spec_id):
+    def parse_scan_id(self, spec_id):
 
         spec_id_format = self.spectra_data['SpectrumIDFormat']
 
@@ -150,21 +157,22 @@ class PeakListReader:
 
         if spec_id_format is not None and 'accession' in spec_id_format:
 
-            if spec_id_format['accession'] == 'MS:1000774':  # (multiple peak list nativeID format - zero based)
+            # MS:1000774 multiple peak list nativeID format - zero based
+            if spec_id_format['accession'] == 'MS:1000774':
                 identified_spec_id_format = True
                 # ignore_dict_index = True
-                matches = re.findall("index=([0-9]+)", spec_id)
+                matches = re.match("index=([0-9]+)", spec_id).groups()
                 try:
                     spec_id = int(matches[0])
 
                 # try to cast spec_id to int if re doesn't match -> PXD006767 has this format
-                except IndexError:
+                except (AttributeError, IndexError):
                     try:
                         spec_id = int(spec_id)
                     except ValueError:
                         raise PeakListParseError("invalid spectrum ID format!")
 
-            # MS:1000775
+            # MS:1000775 single peak list nativeID format
             # The nativeID must be the same as the source file ID.
             # Used for referencing peak list files with one spectrum per file,
             # typically in a folder of PKL or DTAs, where each sourceFileRef is different.
@@ -173,24 +181,30 @@ class PeakListReader:
                 # ignore_dict_index = True
                 spec_id = 0
 
-            # MS:1000776
+            # MS:1000776 scan number only nativeID format
             # Used for referencing mzXML, or a DTA folder where native scan numbers can be derived.
             elif spec_id_format['accession'] == 'MS:1000776':
                 identified_spec_id_format = True
-                matches = re.findall("scan=([0-9]+)", spec_id)
-                spec_id = int(matches[0])
+                try:
+                    matches = re.match("scan=([0-9]+)", spec_id).groups()
+                    spec_id = int(matches[0])
+                except (IndexError, AttributeError):
+                    raise PeakListParseError("invalid spectrum ID format!")
 
-            # MS:1000768
-            # Thermo nativeID format: controllerType=xsd:nonNegativeIntege controllerNumber=xsd:positiveInteger scan=xsd:positiveInteger
+            # MS:1000768 Thermo nativeID format:
+            # controllerType=xsd:nonNegativeIntege controllerNumber=xsd:positiveInteger scan=xsd:positiveInteger
             elif spec_id_format['accession'] == 'MS:1000768':
                 identified_spec_id_format = True
-                matches = re.findall("scan=([0-9]+)", spec_id)
-                spec_id = int(matches[0])
+                try:
+                    matches = re.search("scan=([0-9]+)", spec_id).groups()
+                    spec_id = int(matches[0])
+                except (IndexError, AttributeError):
+                    raise PeakListParseError("invalid spectrum ID format!")
 
-            # MS:1001530
-            # mzML unique identifier: Used for referencing mzML. The value of the spectrum ID attribute is referenced directly.
+            # MS:1001530 mzML unique identifier:
+            # Used for referencing mzML. The value of the spectrum ID attribute is referenced directly.
             elif spec_id_format['accession'] == 'MS:1001530':
-                matches = re.findall("scan=([0-9]+)", spec_id)
+                matches = re.search("scan=([0-9]+)", spec_id).groups()
                 try:
                     spec_id = int(matches[0])
                     identified_spec_id_format = True
@@ -205,5 +219,5 @@ class PeakListReader:
             except IndexError:
                 raise PeakListParseError("failed to parse spectrumID from %s" % spec_id)
 
-        return self.reader[spec_id]
+        return spec_id
 

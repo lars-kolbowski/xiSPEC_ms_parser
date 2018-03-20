@@ -42,23 +42,11 @@ def create_tables(cur, con):
         cur.execute("DROP TABLE IF EXISTS protocols")
         cur.execute(
             "CREATE TABLE protocols("
-            "id text PRIMARY KEY, "
-            "upload_id INT,"    # might not need that?
-            "protocol JSON,"
-            "ms2_tol FLOAT)"
+            "id TEXT PRIMARY KEY, "
+            "upload_id INT,"
+            "protocol JSON)"
         )
 
-        # cur.execute("DROP TABLE IF EXISTS db_sequences")
-        # cur.execute(
-        #     "CREATE TABLE db_sequences("
-        #     "id text PRIMARY KEY, "
-        #     "upload_id INT,"
-        #     "accession VARCHAR(10), "
-        #     "name TEXT, "
-        #     "description TEXT, "
-        #     "sequence TEXT, "
-        #     "is_decoy BOOLEAN)"
-        # )
         cur.execute("DROP TABLE IF EXISTS peptides")
         cur.execute(
             "CREATE TABLE peptides("
@@ -70,6 +58,7 @@ def create_tables(cur, con):
             "crosslinker_modmass FLOAT,"    # ToDo: save cross-links to extra table?
             "crosslinker_pair_id INT)"
         )
+
         cur.execute("DROP TABLE IF EXISTS modifications")
         cur.execute(
             "CREATE TABLE modifications("
@@ -80,15 +69,18 @@ def create_tables(cur, con):
             "residues TEXT, "
             "accession TEXT)"
         )
-        # cur.execute("DROP TABLE IF EXISTS peptide_evidences")
-        # cur.execute(
-        #     "CREATE TABLE peptide_evidences("
-        #     "upload_id INT,"
-        #     "peptide_ref TEXT, "
-        #     "dbsequence_ref TEXT, "
-        #     "start INT, "
-        #     "is_decoy BOOLEAN)"
-        # )
+
+        cur.execute("DROP TABLE IF EXISTS peptide_evidences")
+        cur.execute(
+            "CREATE TABLE peptide_evidences("
+            "upload_id INT,"
+            "peptide_ref TEXT, "
+            "dbsequence_ref TEXT, "
+            "protein_accession TEXT,"
+            "pep_start INT, "
+            "is_decoy BOOLEAN)"
+        )
+
         cur.execute("DROP TABLE IF EXISTS spectra")
         cur.execute(
             "CREATE TABLE spectra("
@@ -100,6 +92,7 @@ def create_tables(cur, con):
             "frag_tol TEXT,"
             "spectrum_id TEXT)"
         )
+
         cur.execute("DROP TABLE IF EXISTS spectrum_identifications")
         cur.execute(
             "CREATE TABLE spectrum_identifications("
@@ -149,21 +142,18 @@ def create_tables(cur, con):
 
 # def write_protocols(inj_list, cur, con):
 #
-#     # try:
-#     #     cur.executemany("""
-#     # INSERT INTO db_sequences (
-#     #     'id',
-#     #     'accession',
-#     #     'name',
-#     #     'description',
-#     #     'sequence',
-#     #     'is_decoy'
-#     # )
-#     # VALUES (?, ?, ?, ?, ?, ?)""", inj_list)
-#     #     con.commit()
-#     #
-#     # except sqlite3.Error as e:
-#     #     raise DBException(e.message)
+#     try:
+#         cur.executemany("""
+#     INSERT INTO protocols (
+#         'id',
+#         'upload_id',
+#         'protocol'
+#     )
+#     VALUES (?, ?, ?)""", inj_list)
+#         con.commit()
+#
+#     except sqlite3.Error as e:
+#         raise DBException(e.message)
 #
 #     return True
 
@@ -228,23 +218,24 @@ def write_modifications(inj_list, cur, con):
     return True
 
 
-# def write_peptide_evidences(inj_list, cur, con):
-#     try:
-#         cur.executemany("""
-#     INSERT INTO peptide_evidences (
-#         'peptide_ref',
-#         'dbsequence_ref',
-#         'start',
-#         'is_decoy',
-#         'upload_id'
-#     )
-#     VALUES (?, ?, ?, ?, ?)""", inj_list)
-#         con.commit()
-#
-#     except sqlite3.Error as e:
-#         raise DBException(e.message)
-#
-#     return True
+def write_peptide_evidences(inj_list, cur, con):
+    try:
+        cur.executemany("""
+    INSERT INTO peptide_evidences (
+        'peptide_ref',
+        'dbsequence_ref',
+        'protein_accession',
+        'pep_start',
+        'is_decoy',
+        'upload_id'
+    )
+    VALUES (?, ?, ?, ?, ?, ?)""", inj_list)
+        con.commit()
+
+    except sqlite3.Error as e:
+        raise DBException(e.message)
+
+    return True
 
 
 def write_spectra(inj_list, cur, con):
@@ -304,9 +295,9 @@ def fill_in_missing_scores(cur, con):
         all_scores = cur.fetchall()
         all_scores = set([str(x[0]) for x in all_scores])
 
-        multiple_inj_list = []
+        inj_list = []
 
-        cur.execute('SELECT id, allScores FROM identifications')
+        cur.execute('SELECT id, scores FROM spectrum_identifications')
         res = cur.fetchall()
 
         for row in res:
@@ -316,13 +307,13 @@ def fill_in_missing_scores(cur, con):
 
             if len(missing) > 0:
                 row_scores.update(missing_dict)
-                multiple_inj_list.append([json.dumps(row_scores), row[0]])
+                inj_list.append([json.dumps(row_scores), row[0]])
                 # cur.execute('UPDATE identifications SET allScores=? WHERE id = row[0]', json.dumps(row_scores))
 
         cur.executemany("""
-            UPDATE identifications
-            SET `allScores` = ?
-            WHERE `id` = ?""", multiple_inj_list)
+            UPDATE spectrum_identifications
+            SET `scores` = ?
+            WHERE `id` = ?""", inj_list)
 
         con.commit()
 

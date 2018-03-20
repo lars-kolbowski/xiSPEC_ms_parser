@@ -95,7 +95,7 @@ def create_tables(cur, con):
             "upload_id INT,"
             "peptide_ref text, "
             "dbsequence_ref text, "
-            "start int, "
+            "pep_start int, "
             "is_decoy BOOLEAN)"
         )
         cur.execute("DROP TABLE IF EXISTS spectra")
