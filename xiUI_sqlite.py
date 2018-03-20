@@ -90,7 +90,7 @@ def create_tables(cur, con):
             "peak_list_file_name TEXT, "
             "scan_id INT, "
             "frag_tol TEXT,"
-            "spectrum_id TEXT)"
+            "spectrum_ref TEXT)"
         )
 
         cur.execute("DROP TABLE IF EXISTS spectrum_identifications")
@@ -98,7 +98,7 @@ def create_tables(cur, con):
             "CREATE TABLE spectrum_identifications("
             "id INT, "
             "upload_id INT,"
-            "spectrum_ref INT, "
+            "spectrum_id INT, "
             "pep1_id TEXT, "
             "pep2_id TEXT, "
             "charge_state INT, "

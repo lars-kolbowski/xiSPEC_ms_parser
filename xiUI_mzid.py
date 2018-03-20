@@ -681,7 +681,7 @@ class MzIdParser:
                         charge_state,
                         rank,
                         pass_threshold,
-                        json.dumps(ions),
+                        ions,
                         json.dumps(scores)
                     ]
 
