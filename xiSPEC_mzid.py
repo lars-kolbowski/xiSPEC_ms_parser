@@ -44,7 +44,7 @@ def get_ion_types_mzid(sid_item, logger):
     return ion_types
 
 
-# split into two functions
+# split into two functions?
 def extract_mzid(archive):
     if archive.endswith('zip'):
         zip_ref = zipfile.ZipFile(archive, 'r')
@@ -69,13 +69,22 @@ def extract_mzid(archive):
 
         return return_file_list[0]
 
-    # elif archive.endswith('gz'):
-    # with gzip.open(archive, 'wb') as f:
-    #     f.write(archive[])
+    elif archive.endswith('gz'):
+        in_f = gzip.open(archive, 'rb')
+        archive = archive.replace(".gz", "")
+        out_f = open(archive, 'wb')
+        out_f.write(in_f.read())
+        in_f.close()
+        out_f.close()
+
+        return archive
+
+    else:
+        raise StandardError('unsupported file type: %s' % archive)
 
 
 # ToDo: clear confusion about 0 & 1 based formats
-def get_scan_id(spec_id, spec_id_format):
+def get_scan(spec_id, spec_id_format):
     # mzml 0 based
 
     #
@@ -136,7 +145,7 @@ def map_spectra_data_to_protocol(mzid_reader):
     """
 
     spectra_data_protocol_map = {
-        'errors': [],
+        'warnings': [],
     }
 
     analysis_collection = mzid_reader.iterfind('AnalysisCollection').next()
@@ -166,7 +175,7 @@ def map_spectra_data_to_protocol(mzid_reader):
         except KeyError:
             frag_tol_value = '10'
             frag_tol_unit = 'ppm'
-            spectra_data_protocol_map['errors'].append(
+            spectra_data_protocol_map['warnings'].append(
                 {"type": "mzidParseError",
                  "message": "could not parse ms2tolerance. Falling back to default values."})
 
@@ -370,9 +379,11 @@ def get_peptide_info(sid_items, mzid_reader, unimod_masses, seq_ref_protein_map,
                         logger.error('modification without name!')
                         logger.error(mod)
 
-                # add CL locations
-                if 'cross-link donor' in mod.keys() or 'cross-link acceptor' in mod.keys():
-                    return_dict['linkSites'].append(mod_location - 1)
+                # add CL locations ToDo: change to cvParam accession lookup
+                if 'cross-link donor' in mod.keys() \
+                        or 'cross-link acceptor' in mod.keys() \
+                        or 'cross-link receiver' in mod.keys():     # tmp fix
+                    return_dict['linkSites'].append(mod['location'])
                     # return_dict['linkSites'].append(
                     #     {"id": link_index, "peptideId": pep_index, "linkSite": mod_location - 1})
                 if 'cross-link donor' in mod.keys():
@@ -424,6 +435,15 @@ def get_peptide_info(sid_items, mzid_reader, unimod_masses, seq_ref_protein_map,
                 'accession': mod_accession
             })
 
+
+    #ToDo: more elaborate sanity check
+    if len(return_dict['linkSites']) == 1 and len(return_dict['peptides']) == 2:
+        return_dict['errors'].append({
+            "type": "mzidParseError",
+            "message": "incomplete cross-linking information",
+            "id": sid_item
+        })
+
     return return_dict
 
 
@@ -447,14 +467,8 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     logger.info('reading mzid - start')
     mzid_start_time = time()
 
-    # ToDo: move to function
-    if mzid_file.endswith('gz'):
-        in_f = gzip.open(mzid_file, 'rb')
-        mzid_file = mzid_file.replace(".gz", "")
-        out_f = open(mzid_file, 'wb')
-        out_f.write(in_f.read())
-        in_f.close()
-        out_f.close()
+    if mzid_file.endswith('.gz') or mzid_file.endswith('.zip'):
+        mzid_file = extract_mzid(mzid_file)
 
     return_json = {
         "response": "",
@@ -470,7 +484,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     except Exception as e:
         return_json['errors'].append({
             "type": "mzidParseError",
-            "message": e
+            "message": e.args
         })
         return return_json
 
@@ -491,7 +505,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     spectra_map_start_time = time()
     logger.info('generating spectra data protocol map - start')
     spectra_data_protocol_map = map_spectra_data_to_protocol(mzid_reader)
-    return_json['errors'] += spectra_data_protocol_map['errors']
+    return_json['warnings'] += spectra_data_protocol_map['warnings']
     # ToDo: save FragmentTolerance to annotationsTable
     logger.info('generating spectraData_ProtocolMap - done. Time: ' + str(round(time() - spectra_map_start_time, 2)) + " sec")
 
@@ -512,12 +526,13 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
     # peakList readers
     peak_list_start_time = time()
     logger.info('reading peakList files - start')
+
     peak_list_readers = peakListParser.create_peak_list_readers(peak_list_file_list)
     logger.info('reading peakList files - done. Time: ' + str(round(time() - peak_list_start_time, 2)) + " sec")
 
     # ToDo: better error handling for general errors - bundling errors of same type errors together
     fragment_parsing_error_scans = []
-    scan_not_found_error = {}
+    spec_not_found_error = {}
 
     # main loop
     main_loop_start_time = time()
@@ -552,49 +567,50 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             })
 
         # get scan id ToDo: clear up 1/0-based confusion
-        # scan_id = get_scan_id(id_item["spectrumID"], spectra_data['SpectrumIDFormat'])
-        try:
-            scan_id = int(sid_result['peak list scans'])
-        except KeyError:
-            matches = re.findall("([0-9]+)", sid_result["spectrumID"])
-            if len(matches) > 1:
-                # ToDo: this might not work for all mzids. Check more file formats. 0 vs 1 based mess
-                matches = re.findall("(?:scan|index|query|mzMLid)?=?([0-9]+)", sid_result["spectrumID"])
-            if len(matches) > 0:
-                # ToDo: handle multiple scans? Is this standard compliant?
-                # found in https://github.com/HUPO-PSI/mzIdentML/blob/master/examples/1_2examples/crosslinking/OpenxQuest_example_added_annotations.mzid
-                scan_ids = [int(m) for m in matches]
-                if len(scan_ids) > 1:
-                    return_json['errors'].append(
-                        {"type": "mzidParseError",
-                         "message": "More than one scan found for SpectrumIdentificationItem: %s"
-                                    % sid_result["spectrumID"],
-                         'id': sid_result['id']
-                         })
-                    continue
-                else:
-                    scan_id = scan_ids[0]
-            else:
-                return_json['errors'].append({
-                    "type": "mzidParseError",
-                    "message": "Error parsing scanID from mzidentml: %s" % sid_result["spectrumID"],
-                    "id": sid_result['id']
-                })
-                continue
+        # scan_id = get_scan(sid_result["spectrumID"], spectra_data['SpectrumIDFormat'])
 
-        # raw file name
+        # try:
+        #     scan_id = int(sid_result['peak list scans'])
+        # except KeyError:
+        #     matches = re.findall("([0-9]+)", sid_result["spectrumID"])
+        #     if len(matches) > 1:
+        #         # ToDo: this might not work for all mzids. Check more file formats. 0 vs 1 based mess
+        #         matches = re.findall("(?:scan|index|query|mzMLid)?=?([0-9]+)", sid_result["spectrumID"])
+        #     if len(matches) > 0:
+        #         # ToDo: handle multiple scans? Is this standard compliant?
+        #         # found in https://github.com/HUPO-PSI/mzIdentML/blob/master/examples/1_2examples/crosslinking/OpenxQuest_example_added_annotations.mzid
+        #         scan_ids = [int(m) for m in matches]
+        #         if len(scan_ids) > 1:
+        #             return_json['errors'].append(
+        #                 {"type": "mzidParseError",
+        #                  "message": "More than one scan found for SpectrumIdentificationItem: %s"
+        #                             % sid_result["spectrumID"],
+        #                  'id': sid_result['id']
+        #                  })
+        #             continue
+        #         else:
+        #             scan_id = scan_ids[0]
+        #     else:
+        #         return_json['errors'].append({
+        #             "type": "mzidParseError",
+        #             "message": "Error parsing scanID from mzidentml: %s" % sid_result["spectrumID"],
+        #             "id": sid_result['id']
+        #         })
+        #         continue
+
+        # peak list file name - changed so works with windows file paths also, e.g. 2017/06/PXD001683 - cc
         if 'name' in spectra_data.keys():
-            raw_file_name = spectra_data['name']
+            peak_list_file_name = spectra_data['name']
         elif 'location' in spectra_data.keys():
-            raw_file_name = spectra_data['location'].split('/')[-1]
+            peak_list_file_name = ntpath.basename(spectra_data['location'])
         else:
-            raw_file_name = sid_result['spectraData_ref'].split('/')[-1]
+            peak_list_file_name = ntpath.basename(sid_result['spectraData_ref'])
 
-        raw_file_name = re.sub('\.(mgf|mzml)', '', raw_file_name, flags=re.IGNORECASE)
+        peak_list_file_name = re.sub('\.(mgf|mzml)', '', peak_list_file_name, flags=re.IGNORECASE)
 
         # peak list
         try:
-            peak_list_reader = peakListParser.get_reader(peak_list_readers, raw_file_name)
+            peak_list_reader = peakListParser.get_reader(peak_list_readers, peak_list_file_name)
         except peakListParser.ParseError as e:
             return_json['errors'].append({
                 "type": "peakListParseError",
@@ -603,12 +619,12 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             })
             continue
         try:
-            scan = peakListParser.get_scan(peak_list_reader, scan_id)
+            scan = peakListParser.get_scan(peak_list_reader, sid_result["spectrumID"], spectra_data['SpectrumIDFormat'])
         except peakListParser.ParseError:
             try:
-                scan_not_found_error[raw_file_name].append(scan_id)
+                spec_not_found_error[peak_list_file_name].append(sid_result["spectrumID"])
             except KeyError:
-                scan_not_found_error[raw_file_name] = [scan_id]
+                spec_not_found_error[peak_list_file_name] = [sid_result["spectrumID"]]
             continue
 
         peak_list = peakListParser.get_peak_list(scan, peak_list_reader['fileType'])
@@ -618,7 +634,6 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
         # ms2 tolerance
         ms2_tol = spectra_data_protocol_map[sid_result['spectraData_ref']]['fragmentTolerance']
 
-        # alternatives = []
         for SpecId in spec_id_set:
             paired_spec_id_items = [sid_item for sid_item in sid_result['SpectrumIdentificationItem'] if
                                     sid_item['cross-link spectrum identification item'] == SpecId]
@@ -633,84 +648,96 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
 
             pep_info = get_peptide_info(paired_spec_id_items, mzid_reader, unimod_masses, seq_ref_protein_map, logger)
 
-            # fragmentation ions
-            pep_info['ions'] = get_ion_types_mzid(paired_spec_id_items[0], logger)
-            # if no ion types are specified in the id file check the mzML file
-            if len(pep_info['ions']) == 0 and peak_list_reader['fileType'] == 'mzml':
-                pep_info['ions'] = peakListParser.get_ion_types_mzml(scan)
-
-            pep_info['ions'] = list(set(pep_info['ions']))
-
-            if len(pep_info['ions']) == 0:
-                pep_info['ions'] = ['peptide', 'b', 'y']
-                # ToDo: better error handling for general errors - bundling together of same type errors
-                fragment_parsing_error_scans.append(sid_result['id'])
-
-            pep_info['ions'] = ';'.join(pep_info['ions'])
-
-            # extract other useful info to display
-            rank = paired_spec_id_items[0]['rank']
-
-            # ToDo: handling for mzid that don't include isDecoy
-            is_decoy = any([pep['isDecoy'] for pep in pep_info['isDecoy']])
-            # accessions = ";".join(pep_info['proteins'])
-            protein1 = pep_info['protein1']
-            protein2 = pep_info['protein2']
-
-            # passThreshold
-            if pep_info['passThreshold']:
-                pass_threshold = 1
+            if len(pep_info['errors']) > 0:
+                return_json['errors'] += pep_info['errors']
+            # ToDo: not write to database if there were errors?
             else:
-                pass_threshold = 0
+                # fragmentation ions
+                pep_info['ions'] = get_ion_types_mzid(paired_spec_id_items[0], logger)
+                # if no ion types are specified in the id file check the mzML file
+                if len(pep_info['ions']) == 0 and peak_list_reader['fileType'] == 'mzml':
+                    pep_info['ions'] = peakListParser.get_ion_types_mzml(scan)
 
-            # peptides and linker position
-            pep1 = pep_info['peptides'][0]
+                pep_info['ions'] = list(set(pep_info['ions']))
 
-            if len(pep_info['peptides']) > 1:
-                link_pos1 = pep_info['linkSites'][0]
-                pep2 = pep_info['peptides'][1]
-                link_pos2 = pep_info['linkSites'][1]
+                if len(pep_info['ions']) == 0:
+                    pep_info['ions'] = ['peptide', 'b', 'y']
+                    # ToDo: better error handling for general errors - bundling together of same type errors
+                    fragment_parsing_error_scans.append(sid_result['id'])
 
-            else:
-                pep2 = ""
-                link_pos1 = -1
-                link_pos2 = -1
+                pep_info['ions'] = ';'.join(pep_info['ions'])
 
-            multiple_inj_list_identifications.append(
-                [spec_id_item_index,
-                 sid_result['id'],
-                 pep1,
-                 pep2,
-                 link_pos1,
-                 link_pos2,
-                 pep_info['precursorCharge'],
-                 pass_threshold,
-                 ms2_tol,
-                 pep_info['ions'],
-                 pep_info["cross-linker modMass"],
-                 rank,
-                 # score,
-                 json.dumps(pep_info['scores']),
-                 is_decoy,
-                 protein1,
-                 protein2,
-                 raw_file_name,
-                 scan_id,
-                 mzid_item_index]
-            )
+                # extract other useful info to display
+                rank = paired_spec_id_items[0]['rank']
 
-            # add mods to global modList
-            for mod in pep_info['annotation']['modifications']:
-                if mod['id'] not in [m['id'] for m in modifications]:
-                    modifications.append(mod)
+                # from mzidentML schema 1.2.0: For PMF data, the rank attribute may be meaningless and values of rank = 0 should be given.
+                # xiSPEC front-end expects rank = 1
+                if rank is None or int(rank) == 0:
+                    rank = 1
+
+                # ToDo: handling for mzid that don't include isDecoy
+                is_decoy = any([pep['isDecoy'] for pep in pep_info['isDecoy']])
+                # accessions = ";".join(pep_info['proteins'])
+                protein1 = pep_info['protein1']
+                protein2 = pep_info['protein2']
+
+                # passThreshold
+                if pep_info['passThreshold']:
+                    pass_threshold = 1
                 else:
-                    old_mod = modifications[[m['id'] for m in modifications].index(mod['id'])]
-                    # check if modname with different mass exists already
-                    for res in mod['aminoAcids']:
-                        if res not in old_mod['aminoAcids']:
-                            old_mod['aminoAcids'].append(res)
+                    pass_threshold = 0
 
-            spec_id_item_index += 1
+                # peptides and linker position
+                pep1 = pep_info['peptides'][0]
+
+                try:
+                    pep2 = pep_info['peptides'][1]
+                except IndexError:
+                    pep2 = ""
+                try:
+                    link_pos1 = pep_info['linkSites'][0]
+                except IndexError:
+                    link_pos1 = -1
+                try:
+                    link_pos2 = pep_info['linkSites'][1]
+                except IndexError:
+                    link_pos2 = -1
+
+                multiple_inj_list_identifications.append(
+                    [spec_id_item_index,
+                     sid_result['id'],
+                     pep1,
+                     pep2,
+                     link_pos1,
+                     link_pos2,
+                     pep_info['precursorCharge'],
+                     pass_threshold,
+                     ms2_tol,
+                     pep_info['ions'],
+                     pep_info["cross-linker modMass"],
+                     rank,
+                     # score,
+                     json.dumps(pep_info['scores']),
+                     is_decoy,
+                     protein1,
+                     protein2,
+                     peak_list_file_name,
+                     sid_result["spectrumID"],
+                     mzid_item_index]
+                )
+
+                # add mods to global modList
+                for mod in pep_info['annotation']['modifications']:
+                    if mod['id'] not in [m['id'] for m in modifications]:
+                        modifications.append(mod)
+                    else:
+                        old_mod = modifications[[m['id'] for m in modifications].index(mod['id'])]
+                        # check if modname with different mass exists already
+                        for res in mod['aminoAcids']:
+                            if res not in old_mod['aminoAcids']:
+                                old_mod['aminoAcids'].append(res)
+
+                spec_id_item_index += 1
 
         mzid_item_index += 1
 
@@ -787,7 +814,7 @@ def parse(mzid_file, peak_list_file_list, unimod_path, cur, con, logger):
             'id': id_string
         })
 
-    for pl_file, scan_id_list in scan_not_found_error.iteritems():
+    for pl_file, scan_id_list in spec_not_found_error.iteritems():
         return_json['errors'].append({
             "type": "",
             "message": "requested scanID(s) not found in peakList file %s" % pl_file,
