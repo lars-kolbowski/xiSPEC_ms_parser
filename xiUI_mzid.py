@@ -583,8 +583,8 @@ class MzIdParser:
         return masses
 
     def main_loop(self, mzid_reader):
-        mzid_item_index = 0
-        spec_id_item_index = 0
+        spec_id = 0
+        identification_id = 0
         spectra = []
         spectrum_identifications = []
 
@@ -604,7 +604,7 @@ class MzIdParser:
             protocol = self.spectra_data_protocol_map[sid_result['spectraData_ref']]
 
             spectra.append([
-                mzid_item_index,
+                spec_id,
                 peak_list,
                 ntpath.basename(peak_list_reader.spectra_data['location']),
                 str(scan_id),
@@ -672,28 +672,31 @@ class MzIdParser:
                     if rank is None or int(rank) == 0:
                         rank = 1
 
+                    experimental_mass_to_charge = spec_id_item['experimentalMassToCharge']
+                    calculated_mass_to_charge = spec_id_item['calculatedMassToCharge']
+
                     ident_data = [
-                        spec_id_item_index,
+                        identification_id,
                         self.upload_id,
-                        mzid_item_index,
+                        spec_id,
                         self.peptide_id_lookup[spec_id_item['peptide_ref']],
                         '',  # pep2
                         charge_state,
                         rank,
                         pass_threshold,
                         ions,
-                        json.dumps(scores)
+                        json.dumps(scores),
+                        experimental_mass_to_charge,
+                        calculated_mass_to_charge
                     ]
 
                     spectrum_ident_dict[id] = ident_data
 
-                    spec_id_item_index += 1
+                    identification_id += 1
 
-            # ToDO: better way to concat arrays, numpy?
-            for spec_ident in spectrum_ident_dict.values():
-                spectrum_identifications.append(spec_ident)
+            spectrum_identifications += spectrum_ident_dict.values()
 
-            mzid_item_index += 1
+            spec_id += 1
 
         # end main loop
         self.logger.info('main loop - done. Time: ' + str(round(time() - main_loop_start_time, 2)) + " sec")
