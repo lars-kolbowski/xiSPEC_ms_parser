@@ -115,13 +115,15 @@ def create_tables(cur, con):
             "id BIGINT, "
             "upload_id INT,"
             "spectrum_id BIGINT, "
-            "pep1_id text, "
-            "pep2_id text, "
-            "charge_state int, "
+            "pep1_id TEXT, "
+            "pep2_id TEXT, "
+            "charge_state INT, "
             "pass_threshold INT, "
-            "rank int,"
-            "ions TEXT, "   # ToDo: find better place to store ions -> might be protocols table (unused atm)
-            "scores JSON)"
+            "rank INT,"
+            "ions TEXT, "   # ToDo: find better place to store ions might be protocols
+            "scores JSON,"  # IS JSON data type valid or does it have to be TEXT
+            "experimental_mass_to_charge FLOAT,"
+            "calculated_mass_to_charge FLOAT)"
         )
         con.commit()
 
@@ -251,8 +253,21 @@ def write_spectra(inj_list, cur, con):
 
 def write_spectrum_identifications(inj_list, cur, con):
     try:
-        cur.executemany("""INSERT INTO spectrum_identifications (id, upload_id, spectrum_id, pep1_id, pep2_id,
-                                charge_state, rank, pass_threshold, ions, scores) VALUES (%s, %s, %s, %s, %s, %s, %s, %s , %s, %s)""", inj_list)
+        cur.executemany("""
+          INSERT INTO spectrum_identifications (
+              'id', 
+              'upload_id', 
+              'spectrum_id', 
+              'pep1_id', 
+              'pep2_id',
+              'charge_state', 
+              'rank', 
+              'pass_threshold', 
+              'ions', 
+              'scores',
+              'experimental_mass_to_charge',
+              'calculated_mass_to_charge'
+          ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s , %s, %s, %s, %s)""", inj_list)
         con.commit()
 
     except psycopg2.Error as e:

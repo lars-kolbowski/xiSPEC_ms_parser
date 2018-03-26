@@ -105,7 +105,9 @@ def create_tables(cur, con):
             "pass_threshold INT, "
             "rank INT,"
             "ions TEXT, "   # ToDo: find better place to store ions might be protocols
-            "scores JSON)"  # IS JSON data type valid or does it have to be TEXT
+            "scores JSON,"  # IS JSON data type valid or does it have to be TEXT
+            "experimental_mass_to_charge FLOAT,"
+            "calculated_mass_to_charge FLOAT)"
         )
         con.commit()
 
@@ -272,8 +274,10 @@ def write_spectrum_identifications(inj_list, cur, con):
               'rank', 
               'pass_threshold', 
               'ions', 
-              'scores'
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ? , ?, ?)""", inj_list)
+              'scores',
+              'experimental_mass_to_charge',
+              'calculated_mass_to_charge'
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ? , ?, ?, ?, ?)""", inj_list)
         con.commit()
 
     except sqlite3.Error as e:
