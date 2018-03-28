@@ -78,7 +78,12 @@ class MzIdParser:
 
         self.logger.info('reading mzid - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
 
+
+    # ToDo: not used atm - can be used for checking if all files are present in temp dir
     def get_peak_list_file_names(self):
+        """
+        :return: list of all used peak list file names
+        """
         peak_list_file_names = []
         for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
             sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
@@ -113,13 +118,18 @@ class MzIdParser:
     def get_sequenceDB_file_names(self):
         pass
 
-    def read_peak_lists(self):
-        # get spectra data
-        spectra_data = {}   # when returned becomes peak_list_readers, can tidy up
+    def set_peak_list_readers(self):
+        """
+        sets self.peak_list_readers by looping through SpectraData elements
+        dictionary:
+            key: spectra_data_ref
+            value: associated peak_list_reader
+        """
+        peak_list_readers = {}
         for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
             sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
 
-            # is there anything we'd like to complain about?
+             # is there anything we'd like to complain about?
             if sp_datum['SpectrumIDFormat'] is None:
                 raise MzIdParseException('SpectraData is missing SpectrumIdFormat')
             if sp_datum['SpectrumIDFormat']['accession'] is None:
@@ -128,6 +138,8 @@ class MzIdParser:
                 raise MzIdParseException('SpectraData is missing FileFormat')
             if sp_datum['FileFormat']['accession'] is None:
                 raise MzIdParseException('SpectraData/FileFormat is missing accession')
+            if sp_datum['location'] is None:
+                raise MzIdParseException('SpectraData is missing location')
 
             sd_id = sp_datum['id']
             peak_list_file_name = ntpath.basename(sp_datum['location'])
@@ -135,24 +147,33 @@ class MzIdParser:
             peak_list_file_path = self.temp_dir + peak_list_file_name
 
             try:
-                peak_list_reader = PeakListReader(peak_list_file_path, sp_datum)
+                peak_list_reader = PeakListReader(
+                    peak_list_file_path,
+                    sp_datum['FileFormat']['accession'],
+                    sp_datum['SpectrumIDFormat']['accession']
+                )
             except IOError:
+                # try gz version
                 try:
-                    peak_list_reader = PeakListReader(PeakListReader.extract_gz(peak_list_file_path + '.gz'), sp_datum)
+                    peak_list_reader = PeakListReader(
+                        PeakListReader.extract_gz(peak_list_file_path + '.gz'),
+                        sp_datum['FileFormat']['accession'],
+                        sp_datum['SpectrumIDFormat']['accession']
+                    )
                 except IOError:
-                    # ToDo: output all missing files not just first encountered
+                    # ToDo: output all missing files not just first encountered. Use get_peak_list_file_names()
                     raise MzIdParseException('Missing peak list file: %s' % ntpath.basename(peak_list_file_path))
 
-            spectra_data[sd_id] = peak_list_reader
+            peak_list_readers[sd_id] = peak_list_reader
 
-        return spectra_data
+        self.peak_list_readers = peak_list_readers
 
     def parse(self):
 
         start_time = time()
 
         # ToDo: more gracefully handle missing files
-        self.peak_list_readers = self.read_peak_lists()
+        self.set_peak_list_readers()
 
         #
         # upload info
@@ -166,6 +187,7 @@ class MzIdParser:
         #
         # Sequences, Peptides, Peptide Evidences (inc. peptide positions), Modifications
 
+        # ToDo: Why do we pass in self.mzid_reader? @CC
         self.parse_db_sequences(self.mzid_reader)
         self.parse_peptides(self.mzid_reader)
         self.parse_peptide_evidences(self.mzid_reader)
@@ -174,7 +196,7 @@ class MzIdParser:
 
         #
         # Fill missing scores with
-        score_fill_start_time = time()
+        # score_fill_start_time = time()
         # self.logger.info('fill in missing scores - start')
         # self.db.fill_in_missing_scores(self.cur, self.con)
         # self.logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
@@ -727,7 +749,7 @@ class MzIdParser:
                 id_string = '; '.join(fragment_parsing_error_scans[:50]) + ' ...'
             else:
                 id_string = '; '.join(fragment_parsing_error_scans)
-                
+
             self.warnings.append({
                 "type": "IonParsing",
                 "message": "mzidentML file does not specify fragment ions.",
