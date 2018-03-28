@@ -201,7 +201,6 @@ class MzIdParser:
         else:
             raise StandardError('unsupported file type: %s' % archive)
 
-    # @staticmethod
     def map_spectra_data_to_protocol(self):
         """
         extract and map spectrumIdentificationProtocol which includes annotation data like fragment tolerance

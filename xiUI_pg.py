@@ -33,6 +33,7 @@ def create_tables(cur, con):
             "analyses JSON,"
             "protocol JSON,"
             "bib JSON,"
+            "spectra_formats JSON,"
             "upload_time DATE, "
             "default_pdb TEXT,"
             "contains_crosslinks BOOLEAN,"

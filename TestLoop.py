@@ -7,7 +7,7 @@ import os
 import urllib
 import gc
 import shutil
-
+import time
 
 from xiUI_mzid import MzIdParser
 from xiUI_mzid import NumpyEncoder
@@ -18,18 +18,18 @@ class TestLoop:
 
     def __init__(self):
 
-        self.exclusion_list = [
-            '2016/04/PXD003564',
-            '2016/04/PXD003565',
-            '2016/04/PXD003566',
-            '2016/04/PXD003567',
-            '2016/04/PXD003568',
-            '2016/05/PXD002905',
-            '2016/10/PXD003935',
-            '2016/10/PXD004572',
-            '2017/05/PXD005403',
-            '2017/06/PXD001767'  # big zip
-        ]
+        # self.exclusion_list = [
+        #     '2016/04/PXD003564',
+        #     '2016/04/PXD003565',
+        #     '2016/04/PXD003566',
+        #     '2016/04/PXD003567',
+        #     '2016/04/PXD003568',
+        #     '2016/05/PXD002905',
+        #     '2016/10/PXD003935',
+        #     '2016/10/PXD004572',
+        #     '2017/05/PXD005403',
+        #     '2017/06/PXD001767'  # big zip
+        # ]
         # logging
         # try:
         #     dev = False
@@ -57,24 +57,24 @@ class TestLoop:
         self.temp_dir = os.path.expanduser('~') + "/parser_temp/"
 
         # connect to DB
-        # try:
-        #     con = db.connect('')
-        #     cur = con.cursor()
-        #
-        # except db.DBException as e:
-        #     self.logger.error(e)
-        #     print(e)
-        #     sys.exit(1)
-        #
-        # # create Database tables
-        # try:
-        #     db.create_tables(cur, con)
-        # except db.DBException as e:
-        #     self.logger.error(e)
-        #     print(e)
-        #     sys.exit(1)
-        #
-        # con.close
+        try:
+            con = db.connect('')
+            cur = con.cursor()
+
+        except db.DBException as e:
+            self.logger.error(e)
+            print(e)
+            sys.exit(1)
+
+        # create Database tables
+        try:
+            db.create_tables(cur, con)
+        except db.DBException as e:
+            self.logger.error(e)
+            print(e)
+            sys.exit(1)
+
+        con.close
 
     def all_years(self):
         files = self.get_ftp_file_list(self.base)
@@ -117,35 +117,26 @@ class TestLoop:
                     self.file(ymp, f)
 
     def file(self, ymp, file_name):
-        path = self.temp_dir + '/' + file_name
-       #         ftp = ftplib.FTP(self.ip)
-        #         ftp.login()  # Username: anonymous password: anonymous@
-        #
-        #         try:
-        #             ftp.cwd(target_dir)
-        #             ftp.retrbinary("RETR " + f, open(path, 'wb').write)
-        #         except ftplib.error_perm as e:
-        #             ftp.quit()
-        #             error_msg = "%s: %s" % (f, e.args[0])
-        #             self.logger.error(error_msg)
-        #             # returnJSON['errors'].append({
-        #             #     "type": "ftpError",
-        #             #     "message": error_msg,
-        #             # })
-        #             # print(json.dumps(returnJSON))
-        #             sys.exit(1)
-        #         ftp.quit()
-        base = 'ftp://' + self.ip + '/' + self.base + '/' + ymp + '/'
-        urllib.urlretrieve(base + file_name, path)
+        path = self.temp_dir + file_name
+        target_dir = '/' + self.base + '/' + ymp
+
+        ftp = self.get_ftp_login()
+
+        try:
+            ftp.cwd(target_dir)
+            ftp.retrbinary("RETR " + file_name, open(path, 'wb').write)
+        except ftplib.error_perm as e:
+            ftp.quit()
+            error_msg = "%s: %s" % (file_name, e.args[0])
+            self.logger.error(error_msg)
+        ftp.quit()
+
         mzId_parser = MzIdParser(path, self.temp_dir, db, self.logger)
         peak_files = mzId_parser.get_peak_list_file_names()
         for peak_file in peak_files:
-            # urllib.urlretrieve(base + peak_file, self.temp_dir + '/' + peak_file)
 
-            ftp = ftplib.FTP(self.ip)
-            ftp.login()  # Uses password: anonymous@
+            ftp = self.get_ftp_login()
             try:
-                target_dir = '/' + self.base + '/' + ymp
                 ftp.cwd(target_dir)
                 self.logger.info('getting ' + peak_file)
                 ftp.retrbinary("RETR " + peak_file,
@@ -172,12 +163,9 @@ class TestLoop:
 
                 error = json.dumps(mzId_error.args, cls=NumpyEncoder)
 
-                spec_id_formats = ','.join(mzId_parser.spectrum_id_formats)
-                file_formats = ','.join(mzId_parser.file_formats)
+                spectra_formats = json.dumps(mzId_parser.mzid_reader.iterfind('SpectraData').next(), cls=NumpyEncoder)
 
                 warnings = json.dumps(mzId_parser.warnings, cls=NumpyEncoder)
-
-                peak_list_files = json.dumps(mzId_parser.peak_list_file_names, cls=NumpyEncoder)
 
                 con = db.connect('')
                 cur = con.cursor()
@@ -186,11 +174,9 @@ class TestLoop:
                 UPDATE uploads SET
                     error_type=%s,
                     upload_error=%s,
-                    spectrum_id_format=%s,
-                    file_format=%s,
-                    upload_warnings=%s,
-                    peak_list_file_names=%s
-                WHERE id = %s""", [type(mzId_error).__name__, error, spec_id_formats, file_formats, warnings, peak_list_files, mzId_parser.upload_id])
+                    spectra_formats=%s,
+                    upload_warnings=%s
+                WHERE id = %s""", [type(mzId_error).__name__, error, spectra_formats, warnings, mzId_parser.upload_id])
                     con.commit()
 
                 except psycopg2.Error as e:
@@ -205,6 +191,15 @@ class TestLoop:
             mzId_parser = None
             gc.collect()
 
+    def get_ftp_login(self):
+        try:
+            ftp = ftplib.FTP(self.ip)
+            ftp.login()  # Uses password: anonymous@
+            return ftp
+        except:
+            print('FTP fail... giving it a few secs...')
+            time.sleep(10)
+            return self.get_ftp_login()
 
     def get_ftp_file_list (self, dir):
         ftp = ftplib.FTP(self.ip)
