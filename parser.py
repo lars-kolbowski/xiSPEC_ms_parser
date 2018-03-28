@@ -49,7 +49,7 @@ try:
 
     # import local files
     import xiUI_mzid as mzidParser
-    import xiSPEC_csv as csvParser
+    import xiUI_csv as csvParser
     import xiSPEC_peakList as peakListParser
 
     # logging
@@ -112,8 +112,8 @@ try:
         # peakList_file = "/media/data/work/xiSPEC_test_files/SL/mscon_PF_20_100_0_B160803_02_new.mgf"
 
         # # mzid has duplicate ids!!! - fixed now with non-flat index
-        identifications_file = "/media/data/work/xiSPEC_test_files/PXD006767/MTases_Trypsin_ETD_search.mzid"
-        peakList_file = "/media/data/work/xiSPEC_test_files/PXD006767/PXD006767.zip"
+        # identifications_file = "/media/data/work/xiSPEC_test_files/PXD006767/MTases_Trypsin_ETD_search.mzid"
+        # peakList_file = "/media/data/work/xiSPEC_test_files/PXD006767/PXD006767.zip"
         # peakList_file = "/media/data/work/xiSPEC_test_files/PXD006767/as.zip"
 
         # HSA-BS3 dataset
@@ -142,6 +142,8 @@ try:
 
         #csv file
         # identifications_file = baseDir + "example.csv"
+        identifications_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/HSA-BS3_example_IDsort.csv"
+        peakList_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
 
         dbName = 'test.db'
         upload_folder = "/".join(identifications_file.split("/")[:-1]) + "/"
@@ -246,19 +248,33 @@ try:
     # else:
     #     peakList_fileList = [peakList_file]
 
-    mzidParser = mzidParser.xiSPEC_MzIdParser(identifications_file, upload_folder, db, logger, dbName)
+    identifications_fileName = ntpath.basename(identifications_file)
+    if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
+        logger.info('parsing mzid start')
+        identifications_fileType = 'mzid'
+        id_parser = mzidParser.xiSPEC_MzIdParser(identifications_file, upload_folder, db, logger, dbName)
+
+    elif identifications_fileName.endswith('.csv'):
+        logger.info('parsing csv start')
+        identifications_fileType = 'csv'
+        id_parser = csvParser.xiSPEC_CsvParser(identifications_file, upload_folder, db, logger, dbName)
+
+        # mgfReader = py_mgf.read(peak_list_file)
+        # peakListArr = [pl for pl in mgfReader]
+    else:
+        raise Exception('Unknown identifications file format!')
 
     # create Database tables
     try:
-        db.create_tables(mzidParser.cur, mzidParser.con)
+        db.create_tables(id_parser.cur, id_parser.con)
     except db.DBException as e:
         logger.error(e)
         print(e)
         sys.exit(1)
 
-    mzidParser.parse()
+    id_parser.parse()
 
-    returnJSON["warnings"] = mzidParser.warnings
+    returnJSON["warnings"] = id_parser.warnings
 
     # elif identifications_fileName.endswith('.csv'):
     #     logger.info('parsing csv start')
