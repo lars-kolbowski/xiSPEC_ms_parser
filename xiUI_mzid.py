@@ -137,7 +137,11 @@ class MzIdParser:
             try:
                 peak_list_reader = PeakListReader(peak_list_file_path, sp_datum)
             except IOError:
-                peak_list_reader = PeakListReader(PeakListReader.unzip_peak_lists(peak_list_file_path + '.gz')[0], sp_datum)
+                try:
+                    peak_list_reader = PeakListReader(PeakListReader.extract_gz(peak_list_file_path + '.gz'), sp_datum)
+                except IOError:
+                    # ToDo: output all missing files not just first encountered
+                    raise MzIdParseException('Missing peak list file: %s' % ntpath.basename(peak_list_file_path))
 
             spectra_data[sd_id] = peak_list_reader
 
@@ -673,7 +677,10 @@ class MzIdParser:
                         rank = 1
 
                     experimental_mass_to_charge = spec_id_item['experimentalMassToCharge']
-                    calculated_mass_to_charge = spec_id_item['calculatedMassToCharge']
+                    try:
+                        calculated_mass_to_charge = spec_id_item['calculatedMassToCharge']
+                    except KeyError:
+                        calculated_mass_to_charge = None
 
                     ident_data = [
                         identification_id,
@@ -720,11 +727,12 @@ class MzIdParser:
                 id_string = '; '.join(fragment_parsing_error_scans[:50]) + ' ...'
             else:
                 id_string = '; '.join(fragment_parsing_error_scans)
-                self.warnings.append({
-                    "type": "IonParsing",
-                    "message": "mzidentML file does not specify fragment ions.",
-                    'id': id_string
-                })
+                
+            self.warnings.append({
+                "type": "IonParsing",
+                "message": "mzidentML file does not specify fragment ions.",
+                'id': id_string
+            })
 
     def upload_info(self, mzid_reader):
         # AnalysisSoftwareList - optional element

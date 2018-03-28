@@ -6,6 +6,7 @@ import re
 import os
 import gzip
 
+
 class PeakListParseError(Exception):
     pass
 
@@ -23,7 +24,7 @@ class PeakListReader:
         elif self.is_mgf():
             self.reader = py_mgf.Reader(pl_path)
         else:
-            raise PeakListParseError("unsupported peak list file type for: %s" % ntpath.basename(self.pl_path))
+            raise PeakListParseError("unsupported peak list file type for: %s" % ntpath.basename(pl_path))
 
     def is_mgf(self):
         return self.spectra_data['FileFormat']['accession'] == 'MS:1001062'
@@ -31,38 +32,48 @@ class PeakListReader:
     def is_mzML(self):
         return self.spectra_data['FileFormat']['accession'] == 'MS:1000584'
 
+
+    @staticmethod
+    def extract_gz(in_file):
+        if in_file.endswith('.gz'):
+            in_f = gzip.open(in_file, 'rb')
+            in_file = in_file.replace(".gz", "")
+            out_f = open(in_file, 'wb')
+            out_f.write(in_f.read())
+            in_f.close()
+            out_f.close()
+
+            return in_file
+
+        else:
+            raise StandardError("unsupported file extension for: %s" % in_file)
+
     @staticmethod
     def unzip_peak_lists(zip_file):
 
         if zip_file.endswith(".zip"):
             zip_ref = zipfile.ZipFile(zip_file, 'r')
             unzip_path = zip_file + '_unzip/'
+            # unzip_path = ntpath.dirname(zip_file) + '/'
             zip_ref.extractall(unzip_path)
             zip_ref.close()
 
-            return_file_list = []
+            return unzip_path
 
-            for root, dir_names, file_names in os.walk(unzip_path):
-                file_names = [f for f in file_names if not f[0] == '.']
-                dir_names[:] = [d for d in dir_names if not d[0] == '.']
-                for file_name in file_names:
-                    os.path.join(root, file_name)
-                    if file_name.lower().endswith('.mgf') or file_name.lower().endswith('.mzml'):
-                        return_file_list.append(root+'/'+file_name)
-                    else:
-                        raise IOError('unsupported file type: %s' % file_name)
+            # return_file_list = []
+            #
+            # for root, dir_names, file_names in os.walk(unzip_path):
+            #     file_names = [f for f in file_names if not f[0] == '.']
+            #     dir_names[:] = [d for d in dir_names if not d[0] == '.']
+            #     for file_name in file_names:
+            #         os.path.join(root, file_name)
+            #         if file_name.lower().endswith('.mgf') or file_name.lower().endswith('.mzml'):
+            #             return_file_list.append(root+'/'+file_name)
+            #         else:
+            #             raise IOError('unsupported file type: %s' % file_name)
+            #
+            # return return_file_list
 
-            return return_file_list
-
-        elif zip_file.endswith('.gz'):
-            in_f = gzip.open(zip_file, 'rb')
-            zip_file = zip_file.replace(".gz", "")
-            out_f = open(zip_file, 'wb')
-            out_f.write(in_f.read())
-            in_f.close()
-            out_f.close()
-
-            return [zip_file]
         else:
             raise StandardError("unsupported file extension for: %s" % zip_file)
 
@@ -154,11 +165,12 @@ class PeakListReader:
         if spec_id_format['accession'] == 'MS:1000774':
             identified_spec_id_format = True
             # ignore_dict_index = True
-            matches = re.match("index=([0-9]+)", spec_id).groups()
             try:
+                matches = re.match("index=([0-9]+)", spec_id).groups()
                 spec_id = int(matches[0])
 
             # try to cast spec_id to int if re doesn't match -> PXD006767 has this format
+            # ToDo: do we want to be stricter?
             except (AttributeError, IndexError):
                 try:
                     spec_id = int(spec_id)
