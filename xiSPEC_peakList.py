@@ -1,6 +1,7 @@
 import ntpath
 import zipfile
 import xiUI_mgfReader as py_mgf
+import ms2Reader as py_msn
 import pymzml
 import re
 import os
@@ -22,6 +23,8 @@ class PeakListReader:
             self.reader = pymzml.run.Reader(pl_path)
         elif self.is_mgf():
             self.reader = py_mgf.Reader(pl_path)
+        elif self.is_msn():
+            self.reader = py_msn.Reader(pl_path)
         else:
             raise PeakListParseError("unsupported peak list file type for: %s" % ntpath.basename(self.pl_path))
 
@@ -30,6 +33,9 @@ class PeakListReader:
 
     def is_mzML(self):
         return self.spectra_data['FileFormat']['accession'] == 'MS:1000584'
+
+    def is_msn(self):
+        return self.spectra_data['FileFormat']['accession'] == 'MS:1001466'
 
     @staticmethod
     def unzip_peak_lists(zip_file):
@@ -47,10 +53,10 @@ class PeakListReader:
                 dir_names[:] = [d for d in dir_names if not d[0] == '.']
                 for file_name in file_names:
                     os.path.join(root, file_name)
-                    if file_name.lower().endswith('.mgf') or file_name.lower().endswith('.mzml'):
-                        return_file_list.append(root+'/'+file_name)
-                    else:
-                        raise IOError('unsupported file type: %s' % file_name)
+                    # if file_name.lower().endswith('.mgf') or file_name.lower().endswith('.mzml'):
+                    return_file_list.append(root+'/'+file_name)
+                    # else:
+                    #     raise IOError('unsupported file type: %s' % file_name)
 
             return return_file_list
 

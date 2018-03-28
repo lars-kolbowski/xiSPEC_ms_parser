@@ -39,12 +39,7 @@ def create_tables(cur, con):
             "upload_error TEXT,"
             "error_type TEXT,"
             "upload_warnings JSON,"
-            "origin TEXT,"
-            "xml_version TEXT,"
-            "file_size BIGINT,"
-            "spectrum_id_format TEXT,"
-            "file_format TEXT,"
-            "parse_time FLOAT)"
+            "origin TEXT)"
         )
 
         # ToDo: not used atm
@@ -138,7 +133,6 @@ def write_upload(inj_list, cur, con):
     INSERT INTO uploads (
         user_id,
         filename,
-        peak_list_file_names,
         analysis_software,
         provider,
         audits,
@@ -147,9 +141,9 @@ def write_upload(inj_list, cur, con):
         protocol,
         bib,
         upload_time,
-        upload_loc
+        origin
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s) RETURNING id AS upload_id""", inj_list)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s) RETURNING id AS upload_id""", inj_list)
         con.commit()
 
     except psycopg2.Error as e:
@@ -274,43 +268,3 @@ def write_spectrum_identifications(inj_list, cur, con):
         raise DBException(e.message)
 
     return True
-
-
-# con = connect(/home/lars/Xi/xiSPEC_ms_parser/dbs/saved/Tmuris_exosomes1.db)
-# cur = con.cursor()
-
-
-def fill_in_missing_scores(cur, con):
-    try:
-        cur.execute("""
-      SELECT DISTINCT scoresJSON.key as scoreKey
-      FROM spectrum_identifications, json_each(spectrum_identifications.scores) AS scoresJSON""")
-
-        all_scores = cur.fetchall()
-        all_scores = set([str(x[0]) for x in all_scores])
-
-        multiple_inj_list = []
-
-        cur.execute('SELECT id, scores FROM spectrum_identifications')
-        res = cur.fetchall()
-
-        for row in res:
-            row_scores = json.loads(row[1])
-            missing = all_scores - set(row_scores.keys())
-            missing_dict = {key: -1 for key in missing}     # ToDo: there are negative scores -> this needs changing
-
-            if len(missing) > 0:
-                row_scores.update(missing_dict)
-                multiple_inj_list.append([json.dumps(row_scores), row[0]])
-                # cur.execute('UPDATE identifications SET allScores=%s WHERE id = row[0]', json.dumps(row_scores))
-
-        cur.executemany("""
-        UPDATE spectrum_identifications
-        SET `allScores` = %s
-        WHERE `id` = %s""", multiple_inj_list)
-
-        con.commit()
-
-    except psycopg2.Error as e:
-        raise DBException(e.message)
-    pass

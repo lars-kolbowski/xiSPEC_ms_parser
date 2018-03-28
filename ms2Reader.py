@@ -26,6 +26,11 @@ import codecs
 from collections import defaultdict as ddict
 
 
+class RegexPatterns(object):
+    params_pattern = re.compile('([A-Z]+)=(.*)')
+    peak_list_pattern = re.compile('(^(?:[0-9.]+\s[0-9.]+\s+)+)', re.M)
+
+
 class ParseError(Exception):
     pass
 
@@ -55,7 +60,6 @@ class Reader(object):
         # self.info contains information extracted from the mgf file
         self.info = dict()
 
-        # self.info['offsets'] = ddict()
         self.info['offsetList'] = []
 
         # self.info['spectra_count'] = 0
@@ -116,7 +120,7 @@ class Reader(object):
         seeker = open(self.info['filename'], 'rb')
 
         self.info['offsets'] = None
-        seeker.seek(0, 2) #  todo: what's this for? - cc
+        seeker.seek(0, 2) #  what's this for? - cc
 
         self._build_index_from_scratch(seeker)
 
@@ -140,21 +144,12 @@ class Reader(object):
             pos = 0
             peak_list_start_pos = None
             for line in fh:
-                if line.strip() == "BEGIN IONS":
+                if not line[0].is_digit():
                     peak_list_start_pos = -1
-                elif line.strip() == "END IONS":
-                    spec_positions.append((peak_list_start_pos, pos))
-                elif not line.startswith('#'):
-                    l = line.split('=')
-                    if len(l) == 1:
-                        if peak_list_start_pos is not None and peak_list_start_pos == -1:
+                else:
+                    if peak_list_start_pos is not None and peak_list_start_pos == -1:
                             peak_list_start_pos = pos
-                    # #  could also be getting charge and rt here
-                    # #  see mgf.py, L194-L203
-                    # else:
-                    #     key = l[0].lower()
-                    #     val = l[1].strip()
-                    #     header[key] = val
+
                 pos = pos + len(line)
 
             return spec_positions
@@ -167,7 +162,7 @@ class Reader(object):
 
         return
 
-    def get_by_id(self, scan_id):
+    def get_by_id(self, scan_id, ignore_dict_index=False):
         """"
          Random access to spectrum peak list in mgf by scanId
          ignore_dict_index: if set to True accessing files by listIndex
