@@ -152,11 +152,7 @@ class MzIdParser:
         # ToDo: more gracefully handle missing files
         self.set_peak_list_readers()
 
-        # ToDo: Why do we pass in self.mzid_reader? @CC
-        # no reason, it makes no sense - it was just historical,
-        # mzid_reader was getting passed in when ti was not yet attribute of class
-        # todo: i'll change it
-        self.parse_upload_info(self.mzid_reader)
+        self.upload_info(self.mzid_reader)
         self.parse_db_sequences(self.mzid_reader)
         self.parse_peptides(self.mzid_reader)
         self.parse_peptide_evidences(self.mzid_reader)
@@ -600,7 +596,7 @@ class MzIdParser:
             spectra.append([
                 spec_id,
                 peak_list,
-                ntpath.basename(peak_list_reader.spectra_data['location']),
+                peak_list_reader.peak_list_path,
                 str(scan_id),
                 protocol['fragmentTolerance'],
                 self.upload_id,
@@ -782,7 +778,7 @@ class MzIdParser:
         mzid_reader.reset()
 
 
-        upload_id = self.db.write_upload([self.user_id, self.mzId_path,
+        upload_id = self.db.write_upload([0, self.mzId_path,
                           analysis_software, provider, audits, samples, analyses, protocols, bibRefs, 'origin'],
                          self.cur, self.con,
                          )

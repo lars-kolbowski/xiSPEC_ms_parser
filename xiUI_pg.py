@@ -78,7 +78,7 @@ def create_tables(cur, con):
         cur.execute("DROP TABLE IF EXISTS modifications")
         cur.execute(
             "CREATE TABLE modifications("
-            "id BIGINT PRIMARY KEY, "
+            "id BIGINT, "
             "upload_id INT,"
             "mod_name TEXT, "
             "mass FLOAT, "
@@ -91,6 +91,7 @@ def create_tables(cur, con):
             "upload_id INT,"
             "peptide_ref text, "
             "dbsequence_ref text, "
+            "protein_accession text, "
             "pep_start int, "
             "is_decoy BOOLEAN)"
         )
@@ -114,7 +115,7 @@ def create_tables(cur, con):
             "pep1_id TEXT, "
             "pep2_id TEXT, "
             "charge_state INT, "
-            "pass_threshold INT, "
+            "pass_threshold BOOLEAN, "
             "rank INT,"
             "ions TEXT, "   # ToDo: find better place to store ions might be protocols
             "scores JSON,"  # IS JSON data type valid or does it have to be TEXT
@@ -200,12 +201,12 @@ def write_modifications(inj_list, cur, con):
     try:
         cur.executemany("""
           INSERT INTO modifications (
-            'id',
-            'upload_id',
-            'mod_name', 
-            'mass', 
-            'residues', 
-            'accession'
+            id,
+            upload_id,
+            mod_name, 
+            mass, 
+            residues, 
+            accession
           )
           VALUES (%s, %s, %s, %s, %s, %s)""", inj_list)
         con.commit()
@@ -221,11 +222,12 @@ def write_peptide_evidences(inj_list, cur, con):
         INSERT INTO peptide_evidences (
             peptide_ref,
             dbsequence_ref,
-            start,
+            protein_accession,
+            pep_start,
             is_decoy,
             upload_id
         )
-        VALUES (%s, %s, %s, %s, %s)""", inj_list)
+        VALUES (%s, %s, %s, %s, %s, %s)""", inj_list)
         con.commit()
 
     except psycopg2.Error as e:
@@ -250,18 +252,18 @@ def write_spectrum_identifications(inj_list, cur, con):
     try:
         cur.executemany("""
           INSERT INTO spectrum_identifications (
-              'id', 
-              'upload_id', 
-              'spectrum_id', 
-              'pep1_id', 
-              'pep2_id',
-              'charge_state', 
-              'rank', 
-              'pass_threshold', 
-              'ions', 
-              'scores',
-              'experimental_mass_to_charge',
-              'calculated_mass_to_charge'
+              id, 
+              upload_id, 
+              spectrum_id, 
+              pep1_id, 
+              pep2_id,
+              charge_state, 
+              rank, 
+              pass_threshold, 
+              ions, 
+              scores,
+              experimental_mass_to_charge,
+              calculated_mass_to_charge
           ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s , %s, %s, %s, %s)""", inj_list)
         con.commit()
 

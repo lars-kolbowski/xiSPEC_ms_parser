@@ -8,8 +8,10 @@ import urllib
 import gc
 import shutil
 import time
+import ntpath
 
 from xiUI_mzid import MzIdParser
+from xiSPEC_peakList import PeakListReader
 from xiUI_mzid import NumpyEncoder
 import xiUI_pg as db
 
@@ -142,18 +144,19 @@ class TestLoop:
                 ftp.retrbinary("RETR " + peak_file,
                                open(self.temp_dir + '/' + peak_file, 'wb').write)
             except ftplib.error_perm as e:
-                raise e
-                # #  check for gzipped
-                # try:
-                #     self.logger.info('getting ' + peak_list_file_name + '.gz')
-                #     ftp.retrbinary("RETR " + peak_list_file_name + '.gz',
-                #                    open(self.temp_dir + '/' + peak_list_file_name + '.gz', 'wb').write)
-                # except ftplib.error_perm as e:
-                #     ftp.close()
-                #     raise e
-                # ftp.close()
-                # peak_list_file_name = ntpath.basename(
-                #     peakListParser.unzip_peak_lists(self.temp_dir + '/' + peak_list_file_name + '.gz')[0])
+                # raise e
+                #  check for gzipped
+                try:
+                    self.logger.info('getting ' + peak_file + '.gz')
+                    # ftp.cwd(target_dir + '/generated/')
+                    ftp.retrbinary("RETR " + peak_file + '.gz',
+                                   open(self.temp_dir + '/' + peak_file + '.gz', 'wb').write)
+                except ftplib.error_perm as e:
+                    ftp.close()
+                    raise e
+                ftp.close()
+                peak_file = ntpath.basename(
+                    PeakListReader.extract_gz(self.temp_dir + '/' + peak_file + '.gz')[0])
             ftp.close()
 
             try:
@@ -183,10 +186,10 @@ class TestLoop:
                     raise db.DBException(e.message)
                 con.close()
 
-            try:
-                shutil.rmtree(self.temp_dir)
-            except OSError:
-                pass
+            # try:
+            #     shutil.rmtree(self.temp_dir)
+            # except OSError:
+            #     pass
             self.mzId_count = self.mzId_count + 1
             mzId_parser = None
             gc.collect()
@@ -229,7 +232,46 @@ class TestLoop:
 
 test_loop = TestLoop()
 
-test_loop.project("2017/05/PXD006574")
-test_loop.project("2015/02/PXD001677")
+
+test_loop.project("2017/11/PXD007748")
+test_loop.project("2016/11/PXD004785")
+test_loop.project("2016/05/PXD002967")
+test_loop.project("2016/09/PXD004499")
+test_loop.project("2015/06/PXD002045")
+test_loop.project("2017/08/PXD007149")
+test_loop.project("2015/06/PXD002048")
+test_loop.project("2015/06/PXD002047")
+# 2015/06/PXD002046
+# 2014/09/PXD001006
+# 2014/09/PXD001000
+# 2016/09/PXD002317
+# 2014/09/PXD000966
+# 2015/06/PXD002044
+# 2015/06/PXD002043
+# 2015/06/PXD002042
+# 2015/06/PXD002041
+# 2016/06/PXD004163
+# 2015/05/PXD002161
+# 2018/01/PXD007913
+# 2017/11/PXD006204
+# 2015/07/PXD002089
+# 2015/07/PXD002088
+# 2015/07/PXD002087
+# 2015/07/PXD002086
+# 2017/07/PXD002901
+# 2015/07/PXD002085
+# 2017/11/PXD007689
+# 2015/07/PXD002084
+# 2015/05/PXD002161
+# 2015/05/PXD002161
+# 2015/07/PXD002083
+# 2015/07/PXD002082
+# 2015/07/PXD002081
+# 2015/07/PXD002080
+# 2015/06/PXD002050
+# 2015/06/PXD002049
+
+# test_loop.project("2017/05/PXD006574")
+# test_loop.project("2015/02/PXD001677")
 
 print("mzId count:" + str(test_loop.mzId_count))
