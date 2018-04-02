@@ -778,13 +778,14 @@ class MzIdParser:
         mzid_reader.reset()
 
 
-        upload_id = self.db.write_upload([0, self.mzId_path,
+        self.upload_id = self.db.write_upload([0, self.mzId_path,
                           analysis_software, provider, audits, samples, analyses, protocols, bibRefs, 'origin'],
                          self.cur, self.con,
                          )
 
         self.logger.info(
             'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
+
 
 
 class xiSPEC_MzIdParser(MzIdParser):

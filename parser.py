@@ -48,11 +48,11 @@ try:
         dname = ''
 
     # import local files
-    import xiUI_mzid as mzidParser
+    from xiUI_mzid import MzIdParser
     import xiUI_csv as csvParser
     import xiSPEC_peakList as peakListParser
 
-    # logging
+    logging
     try:
         dev = False
         logFile = dname + "/log/%s_%s.log" % (args[2], int(time()))
@@ -61,17 +61,17 @@ try:
         dev = True
         logFile = "log/parser_%s.log" % int(time())
 
-    try:
-        os.remove(logFile)
-    except OSError:
-        pass
-    os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
+    # try:
+    #     os.remove(logFile)
+    # except OSError:
+    #     pass
+    # os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
 
     # create logger
-    logging.basicConfig(filename=logFile, level=logging.DEBUG,
-                        format='%(asctime)s %(levelname)s %(name)s %(message)s')
-    # logging.basicConfig(level=logging.DEBUG,
+    # logging.basicConfig(filename=logFile, level=logging.DEBUG,
     #                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(asctime)s %(levelname)s %(name)s %(message)s')
     logger = logging.getLogger(__name__)
 
 except Exception as e:
@@ -84,7 +84,7 @@ try:
     else:
         import xiUI_sqlite as db
 except IndexError:
-    import xiUI_sqlite as db
+    import xiUI_pg as db
 
 returnJSON = {
     "response": "",
@@ -117,8 +117,8 @@ try:
         # peakList_file = "/media/data/work/xiSPEC_test_files/PXD006767/as.zip"
 
         # HSA-BS3 dataset
-        # identifications_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.1.27.59.mzid"
-        # peakList_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
+        identifications_file = baseDir + "/cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzid"
+        peakList_file = baseDir + "/cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
 
         # # large mzid dataset
         # identifications_file = baseDir + "linear/Tmuris_exo/Tmuris_exosomes1.mzid"
@@ -142,8 +142,8 @@ try:
 
         #csv file
         # identifications_file = baseDir + "example.csv"
-        identifications_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/HSA-BS3_example_IDsort.csv"
-        peakList_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
+        # identifications_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/HSA-BS3_example_IDsort.csv"
+        # peakList_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
 
         dbName = 'test.db'
         upload_folder = "/".join(identifications_file.split("/")[:-1]) + "/"
@@ -252,7 +252,7 @@ try:
     if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
         logger.info('parsing mzid start')
         identifications_fileType = 'mzid'
-        id_parser = mzidParser.xiSPEC_MzIdParser(identifications_file, upload_folder, db, logger, dbName)
+        id_parser = MzIdParser(identifications_file, upload_folder, db, logger, dbName)
 
     elif identifications_fileName.endswith('.csv'):
         logger.info('parsing csv start')
