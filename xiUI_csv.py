@@ -144,13 +144,6 @@ class CsvParser:
         # ToDo: more gracefully handle missing files
         self.set_peak_list_readers()
 
-        inj_list_spectrum_identifications = []
-        inj_list_spectra = []
-        inj_list_modifications = []
-        inj_list_peptide_evidences = []
-        inj_list_peptides = []
-
-
         #
         # upload info
         #
@@ -167,7 +160,7 @@ class CsvParser:
         # self.parse_peptides(self.csv_reader)
         # self.parse_peptide_evidences(self.csv_reader)
         # self.map_spectra_data_to_protocol()     # ToDo: does not use self.csv_reader
-        self.main_loop(self.csv_reader)
+        self.main_loop()
 
         #
         # Fill missing scores with
@@ -588,7 +581,116 @@ class CsvParser:
         main_loop_start_time = time()
         self.logger.info('main loop - start')
 
-        for identification_id, id_item in self.csv_reader.iterrows():  # id_item_index, id_item = id_df.iterrows().next()
+        inj_list_peptide_evidences = []
+        inj_list_spectrum_identifications = []
+        inj_list_spectra = []
+        inj_list_modifications = []
+        inj_list_peptides = []
+
+        peptide_id = 0
+        cross_linker_pair_id = 0
+
+        for identification_id, id_item in self.csv_reader.iterrows():  # identification_id, id_item = id_df.iterrows().next()
+
+            #
+            # PEPTIDE EVIDENCES
+            # ToDo: pep_start, dbsequence_ref and isDecoy1-2 split
+            pep_evidence1 = [
+                self.upload_id,     # upload_id
+                id_item.id,         # peptide_ref
+                '',                 # dbsequence_ref
+                id_item.protein1,   # protein_accession
+                '',                 # pep_start
+                id_item.isdecoy     # is_decoy
+            ]
+
+            inj_list_peptide_evidences.append(pep_evidence1)
+
+            if id_item.pepseq2:
+                pep_evidence2 = [
+                    self.upload_id,  # upload_id
+                    id_item.id,  # peptide_ref
+                    '',  # dbsequence_ref
+                    id_item.protein2,  # protein_accession
+                    '',  # pep_start
+                    id_item.isdecoy  # is_decoy
+                ]
+
+                inj_list_peptide_evidences.append(pep_evidence2)
+
+            #
+            # PEPTIDES
+            if id_item.pepseq2:
+                my_cross_linker_pair_id = cross_linker_pair_id
+                cross_linker_pair_id += 1
+            else:
+                my_cross_linker_pair_id = -1
+
+            peptide1 = [
+                peptide_id,                     # id,
+                id_item.pepseq1,                # seq_mods,
+                id_item.linkpos1,               # link_site,
+                id_item.crosslinkermodmass,     # crosslinker_modmass,
+                self.upload_id,                 # upload_id,
+                my_cross_linker_pair_id         # crosslinker_pair_id
+            ]
+            inj_list_peptides.append(peptide1)
+            pep1_id = peptide_id    # save cur pep_id to pep1_id for spectrum_identification
+            peptide_id += 1
+
+            if id_item.pepseq2:
+                peptide2 = [
+                    peptide_id,  # id,
+                    id_item.pepseq2,  # seq_mods,
+                    id_item.linkpos2,  # link_site,
+                    id_item.crosslinkermodmass,  # crosslinker_modmass,
+                    self.upload_id,  # upload_id,
+                    my_cross_linker_pair_id  # crosslinker_pair_id
+                ]
+                inj_list_peptides.append(peptide2)
+                pep2_id = peptide_id  # save cur pep_id to pep1_id for spectrum_identification
+                peptide_id += 1
+            else:
+                pep2_id = None
+
+            #
+            # SPECTRUM IDENTIFCATIONS
+            # ToDo: experimental_mass_to_charge, calculated_mass_to_charge, spectrum_id
+            scores = json.dumps({'score': id_item['score']})
+
+            spectrum_identification = [
+                id_item.id,                 # 'id',     #ToDo: check for uniqueness or use separate id?
+                self.upload_id,             # 'upload_id',
+                spectrum_id,                # 'spectrum_id',
+                pep1_id,                    # 'pep1_id',
+                pep2_id,                    # 'pep2_id',
+                id_item.charge,             # 'charge_state',
+                id_item.rank,               # 'rank',
+                id_item.passthreshold,      # 'pass_threshold',
+                id_item.iontypes,           # 'ions',
+                scores,   # 'scores',
+                '',                         # 'experimental_mass_to_charge',
+                ''                          # 'calculated_mass_to_charge'
+            ]
+            inj_list_spectrum_identifications.append(spectrum_identification)
+
+            #
+            # SPECTRA
+            # ToDo: everything
+            spectrum = [
+                # 'id',
+                # 'peak_list',
+                # 'peak_list_file_name',
+                # 'scan_id',
+                # 'frag_tol',
+                # 'upload_id',
+                # 'spectrum_ref'
+            ]
+            inj_list_spectra.append(spectrum)
+
+            #
+            # MODIFICATIONS
+            # ToDo: everything - need global modList again
 
             # spec_id_set = set()
 
@@ -597,191 +699,191 @@ class CsvParser:
             scan_id = int(id_item['scannumber'])
 
 
-            # peakList
-            try:
-                peak_list_reader = peakListParser.get_reader(peak_list_readers, raw_file_name)
-            except peakListParser.PeakListParseError as e:
-                return_json['errors'].append({
-                    "type": "peakListParseError",
-                    "message": e.args[0],
-                    'id': id_item['id']
-                })
-                continue
-            try:
-                scan = peakListParser.get_scan(peak_list_reader, scan_id)
-            except peakListParser.PeakListParseError:
-                try:
-                    scan_not_found_error[raw_file_name].append(scan_id)
-                except KeyError:
-                    scan_not_found_error[raw_file_name] = [scan_id]
-                continue
-
-            peak_list = peakListParser.get_peak_list(scan, peak_list_reader['fileType'])
-
-            multiple_inj_list_peak_lists.append([identification_id, peak_list])
-
-            # identification id
-            identification_id = id_item['id']
-
-            # rank
-            try:
-                rank = id_item['rank']
-            except KeyError:
-                rank = 1
-
-            # peptides and link positions
-            pep1 = id_item['pepseq1']
-            try:
-                # ToDo: improve error handling for cl peptides
-                pep2 = str(id_item['pepseq2'])
-                if pep2 == 'nan':
-                    pep2 = ''
-                link_pos1 = id_item['linkpos1']
-                link_pos2 = id_item['linkpos2']
-                cl_mod_mass = id_item['crosslinkermodmass']
-            except KeyError:
-                # linear
-                pep2 = ''
-
-            if pep2 == '':
-                link_pos1 = -1
-                link_pos2 = -1
-                cl_mod_mass = 0
-
-            # charge
-            charge = id_item['charge']
-
-            # passThreshold
-            try:
-                pass_threshold = 1 if id_item['passthreshold'] else 0
-            except KeyError:
-                pass_threshold = 1
-
-            # fragment tolerance
-            frag_tol = id_item['fragmenttolerance'].split(' ', 1)
-            if frag_tol[1].lower() == 'parts per million':
-                frag_tol[1] = 'ppm'
-            elif frag_tol[1].lower() == 'dalton':
-                frag_tol[1] = 'Da'
-            if frag_tol[1] not in ['ppm', 'Da']:
-                return_json['errors'].append({
-                    "type": "fragTolParseError",
-                    "message": "unknown fragment tolerance unit: %s\nSupported values are: ppm, Da" % frag_tol[1],
-                    'id': id_item['id']
-                })
-                continue
-            ms2_tol = ' '.join(frag_tol)
-
-            # ion types
-            ion_types = id_item['iontypes'].lower()
-            unknown_ions = [ion for ion in ion_types.split(';') if ion not in ['peptide', 'a', 'b', 'c', 'x', 'y', 'z']]
-            if len(unknown_ions) > 0:
-                return_json['errors'].append({
-                    "type": "ionTypeParseError",
-                    "message": "unknown ion(s) : %s\nSupported values are: peptide, a, b, c, x, y, z" % ';'.join(
-                        unknown_ions),
-                    'id': id_item['id']
-                })
-            # ToDo: could check against mzml fragmentation type and display warning if ions don't match
-
-            # score
-            # score = id_item['score']
-            all_scores = json.dumps({'score': id_item['score']})
-
-            # isDecoy
-            try:
-                is_decoy = 1 if id_item['isdecoy'] else 0
-            except KeyError:
-                is_decoy = 0
-
-            # protein
-            protein1 = id_item['protein1']
-            try:
-                protein2 = id_item['protein2']
-            except KeyError:
-                protein2 = ''
-
-            # create entry
-            multiple_inj_list_identifications.append(
-                [identification_id,
-                 identification_id,
-                 pep1,
-                 pep2,
-                 link_pos1,
-                 link_pos2,
-                 charge,
-                 pass_threshold,
-                 ms2_tol,
-                 ion_types,
-                 cl_mod_mass,
-                 rank,
-                 # score,
-                 all_scores,
-                 is_decoy,
-                 protein1,
-                 protein2,
-                 raw_file_name,
-                 scan_id,
-                 identification_id]
-            )
-
-            try:
-                modifications = re.search('([^A-Z]+)', ''.join([pep1, pep2])).groups()
-            except AttributeError:
-                modifications = []
-
-            for mod in modifications:
-                if mod not in return_json['modifications']:
-                    return_json['modifications'].append(mod)
-
-            #  write to DB
-            if identification_id % 1000 == 0:
-                logger.info('writing 1000 entries to DB')
-                try:
-                    db.write_identifications(multiple_inj_list_identifications, cur, con)
-                    multiple_inj_list_identifications = []
-
-                    db.write_peaklists(multiple_inj_list_peak_lists, cur, con)
-                    multiple_inj_list_peak_lists = []
-
-                except db.DBException as e:
-                    return_json['errors'].append(
-                        {"type": "dbError",
-                         "message": e.args[0],
-                         'id': identification_id
-                         })
-                    return return_json
-
-                # commit changes
-                con.commit()
-
-        # end main loop
-        self.logger.info('main loop - done. Time: ' + str(round(time() - main_loop_start_time, 2)) + " sec")
-
-        # once loop is done write remaining data to DB
-        db_wrap_up_start_time = time()
-        self.logger.info('write spectra to DB - start')
-        try:
-            self.db.write_spectra(spectra, self.cur, self.con)
-            self.db.write_spectrum_identifications(spectrum_identifications, self.cur, self.con)
-            self.con.commit()
-        except Exception as e:
-            raise e
-
-        self.logger.info('write spectra to DB - start - done. Time: '
-                    + str(round(time() - db_wrap_up_start_time, 2)) + " sec")
-
-        # warnings
-        if len(fragment_parsing_error_scans) > 0:
-            if len(fragment_parsing_error_scans) > 50:
-                id_string = '; '.join(fragment_parsing_error_scans[:50]) + ' ...'
-            else:
-                id_string = '; '.join(fragment_parsing_error_scans)
-                self.warnings.append({
-                    "type": "IonParsing",
-                    "message": "mzidentML file does not specify fragment ions.",
-                    'id': id_string
-                })
+        #     # peakList
+        #     try:
+        #         peak_list_reader = peakListParser.get_reader(peak_list_readers, raw_file_name)
+        #     except peakListParser.PeakListParseError as e:
+        #         return_json['errors'].append({
+        #             "type": "peakListParseError",
+        #             "message": e.args[0],
+        #             'id': id_item['id']
+        #         })
+        #         continue
+        #     try:
+        #         scan = peakListParser.get_scan(peak_list_reader, scan_id)
+        #     except peakListParser.PeakListParseError:
+        #         try:
+        #             scan_not_found_error[raw_file_name].append(scan_id)
+        #         except KeyError:
+        #             scan_not_found_error[raw_file_name] = [scan_id]
+        #         continue
+        #
+        #     peak_list = peakListParser.get_peak_list(scan, peak_list_reader['fileType'])
+        #
+        #     multiple_inj_list_peak_lists.append([identification_id, peak_list])
+        #
+        #     # identification id
+        #     identification_id = id_item['id']
+        #
+        #     # rank
+        #     try:
+        #         rank = id_item['rank']
+        #     except KeyError:
+        #         rank = 1
+        #
+        #     # peptides and link positions
+        #     pep1 = id_item['pepseq1']
+        #     try:
+        #         # ToDo: improve error handling for cl peptides
+        #         pep2 = str(id_item['pepseq2'])
+        #         if pep2 == 'nan':
+        #             pep2 = ''
+        #         link_pos1 = id_item['linkpos1']
+        #         link_pos2 = id_item['linkpos2']
+        #         cl_mod_mass = id_item['crosslinkermodmass']
+        #     except KeyError:
+        #         # linear
+        #         pep2 = ''
+        #
+        #     if pep2 == '':
+        #         link_pos1 = -1
+        #         link_pos2 = -1
+        #         cl_mod_mass = 0
+        #
+        #     # charge
+        #     charge = id_item['charge']
+        #
+        #     # passThreshold
+        #     try:
+        #         pass_threshold = 1 if id_item['passthreshold'] else 0
+        #     except KeyError:
+        #         pass_threshold = 1
+        #
+        #     # fragment tolerance
+        #     frag_tol = id_item['fragmenttolerance'].split(' ', 1)
+        #     if frag_tol[1].lower() == 'parts per million':
+        #         frag_tol[1] = 'ppm'
+        #     elif frag_tol[1].lower() == 'dalton':
+        #         frag_tol[1] = 'Da'
+        #     if frag_tol[1] not in ['ppm', 'Da']:
+        #         return_json['errors'].append({
+        #             "type": "fragTolParseError",
+        #             "message": "unknown fragment tolerance unit: %s\nSupported values are: ppm, Da" % frag_tol[1],
+        #             'id': id_item['id']
+        #         })
+        #         continue
+        #     ms2_tol = ' '.join(frag_tol)
+        #
+        #     # ion types
+        #     ion_types = id_item['iontypes'].lower()
+        #     unknown_ions = [ion for ion in ion_types.split(';') if ion not in ['peptide', 'a', 'b', 'c', 'x', 'y', 'z']]
+        #     if len(unknown_ions) > 0:
+        #         return_json['errors'].append({
+        #             "type": "ionTypeParseError",
+        #             "message": "unknown ion(s) : %s\nSupported values are: peptide, a, b, c, x, y, z" % ';'.join(
+        #                 unknown_ions),
+        #             'id': id_item['id']
+        #         })
+        #     # ToDo: could check against mzml fragmentation type and display warning if ions don't match
+        #
+        #     # score
+        #     # score = id_item['score']
+        #     all_scores = json.dumps({'score': id_item['score']})
+        #
+        #     # isDecoy
+        #     try:
+        #         is_decoy = 1 if id_item['isdecoy'] else 0
+        #     except KeyError:
+        #         is_decoy = 0
+        #
+        #     # protein
+        #     protein1 = id_item['protein1']
+        #     try:
+        #         protein2 = id_item['protein2']
+        #     except KeyError:
+        #         protein2 = ''
+        #
+        #     # create entry
+        #     multiple_inj_list_identifications.append(
+        #         [identification_id,
+        #          identification_id,
+        #          pep1,
+        #          pep2,
+        #          link_pos1,
+        #          link_pos2,
+        #          charge,
+        #          pass_threshold,
+        #          ms2_tol,
+        #          ion_types,
+        #          cl_mod_mass,
+        #          rank,
+        #          # score,
+        #          all_scores,
+        #          is_decoy,
+        #          protein1,
+        #          protein2,
+        #          raw_file_name,
+        #          scan_id,
+        #          identification_id]
+        #     )
+        #
+        #     try:
+        #         modifications = re.search('([^A-Z]+)', ''.join([pep1, pep2])).groups()
+        #     except AttributeError:
+        #         modifications = []
+        #
+        #     for mod in modifications:
+        #         if mod not in return_json['modifications']:
+        #             return_json['modifications'].append(mod)
+        #
+        #     #  write to DB
+        #     if identification_id % 1000 == 0:
+        #         logger.info('writing 1000 entries to DB')
+        #         try:
+        #             db.write_identifications(multiple_inj_list_identifications, cur, con)
+        #             multiple_inj_list_identifications = []
+        #
+        #             db.write_peaklists(multiple_inj_list_peak_lists, cur, con)
+        #             multiple_inj_list_peak_lists = []
+        #
+        #         except db.DBException as e:
+        #             return_json['errors'].append(
+        #                 {"type": "dbError",
+        #                  "message": e.args[0],
+        #                  'id': identification_id
+        #                  })
+        #             return return_json
+        #
+        #         # commit changes
+        #         con.commit()
+        #
+        # # end main loop
+        # self.logger.info('main loop - done. Time: ' + str(round(time() - main_loop_start_time, 2)) + " sec")
+        #
+        # # once loop is done write remaining data to DB
+        # db_wrap_up_start_time = time()
+        # self.logger.info('write spectra to DB - start')
+        # try:
+        #     self.db.write_spectra(spectra, self.cur, self.con)
+        #     self.db.write_spectrum_identifications(spectrum_identifications, self.cur, self.con)
+        #     self.con.commit()
+        # except Exception as e:
+        #     raise e
+        #
+        # self.logger.info('write spectra to DB - start - done. Time: '
+        #             + str(round(time() - db_wrap_up_start_time, 2)) + " sec")
+        #
+        # # warnings
+        # if len(fragment_parsing_error_scans) > 0:
+        #     if len(fragment_parsing_error_scans) > 50:
+        #         id_string = '; '.join(fragment_parsing_error_scans[:50]) + ' ...'
+        #     else:
+        #         id_string = '; '.join(fragment_parsing_error_scans)
+        #         self.warnings.append({
+        #             "type": "IonParsing",
+        #             "message": "mzidentML file does not specify fragment ions.",
+        #             'id': id_string
+        #         })
 
     # def upload_info(self, csv_reader):
     #     # AnalysisSoftwareList - optional element
