@@ -27,7 +27,7 @@ class PeakListReader:
             self.reader = pymzml.run.Reader(pl_path)
         elif self.is_mgf():
             self.reader = py_mgf.Reader(pl_path)
-        elif self.is_msn():
+        elif self.is_ms2():
             self.reader = py_msn.Reader(pl_path)
         else:
             raise PeakListParseError("unsupported peak list file type for: %s" % ntpath.basename(pl_path))
@@ -37,6 +37,9 @@ class PeakListReader:
 
     def is_mzML(self):
         return self.file_format_accession == 'MS:1000584'
+
+    def is_ms2(self):
+        return self.file_format_accession == 'MS:1001466'
 
 
     @staticmethod
@@ -53,9 +56,6 @@ class PeakListReader:
 
         else:
             raise StandardError("unsupported file extension for: %s" % in_file)
-
-    def is_msn(self):
-        return self.spectra_data['FileFormat']['accession'] == 'MS:1001466'
 
     @staticmethod
     def unzip_peak_lists(zip_file):
@@ -107,6 +107,9 @@ class PeakListReader:
         elif self.is_mgf():
             peak_list = scan['peaks']
             # peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan['peaks'] if i > 0])
+
+        elif self.is_ms2():
+            peak_list = scan['peaks']
 
         else:   # this should never happen is it would have raise error in constructor
             raise PeakListParseError("unsupported peak list file type")

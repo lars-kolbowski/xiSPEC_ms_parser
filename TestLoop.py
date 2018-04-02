@@ -165,7 +165,7 @@ class TestLoop:
                 self.logger.exception(mzId_error)
 
                 error = json.dumps(mzId_error.args, cls=NumpyEncoder)
-
+                mzId_parser.mzid_reader.reset()
                 spectra_formats = json.dumps(mzId_parser.mzid_reader.iterfind('SpectraData').next(), cls=NumpyEncoder)
 
                 warnings = json.dumps(mzId_parser.warnings, cls=NumpyEncoder)
@@ -232,15 +232,15 @@ class TestLoop:
 
 test_loop = TestLoop()
 
-
-test_loop.project("2017/11/PXD007748")
-test_loop.project("2016/11/PXD004785")
-test_loop.project("2016/05/PXD002967")
-test_loop.project("2016/09/PXD004499")
-test_loop.project("2015/06/PXD002045")
-test_loop.project("2017/08/PXD007149")
-test_loop.project("2015/06/PXD002048")
-test_loop.project("2015/06/PXD002047")
+# mzML
+# test_loop.project("2017/11/PXD007748")
+# test_loop.project("2016/11/PXD004785")
+# test_loop.project("2016/05/PXD002967")
+# test_loop.project("2016/09/PXD004499")
+# test_loop.project("2015/06/PXD002045")
+# test_loop.project("2017/08/PXD007149")
+# test_loop.project("2015/06/PXD002048")
+# test_loop.project("2015/06/PXD002047")
 # 2015/06/PXD002046
 # 2014/09/PXD001006
 # 2014/09/PXD001000
@@ -271,7 +271,8 @@ test_loop.project("2015/06/PXD002047")
 # 2015/06/PXD002050
 # 2015/06/PXD002049
 
-# test_loop.project("2017/05/PXD006574")
-# test_loop.project("2015/02/PXD001677")
+#sim-xl
+test_loop.project("2017/05/PXD006574")
+test_loop.project("2015/02/PXD001677")
 
 print("mzId count:" + str(test_loop.mzId_count))
