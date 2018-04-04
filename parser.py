@@ -274,6 +274,7 @@ try:
 
     id_parser.parse()
 
+    returnJSON['modifications'] = id_parser.unknown_mods
     returnJSON["warnings"] = id_parser.warnings
 
     # elif identifications_fileName.endswith('.csv'):

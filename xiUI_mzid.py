@@ -53,7 +53,11 @@ class MzIdParser:
         # ToDo: AnalysisProtocolCollection->SpectrumIdentificationProtocol->ModificationParams
         # ToDo: atm we get them while looping through the peptides (might be more robust and we're doing it anyway)
         self.modlist = []
+        self.unknown_mods = []
 
+        # ToDo: not used atm
+        # From mzidentML schema 1.2.0:
+        # First of all, the <SpectrumIdentificationProtocol> must contain the CV term 'cross-linking search' (MS:1002494)
         self.contains_crosslinks = False
 
         self.warnings = []
@@ -384,7 +388,7 @@ class MzIdParser:
                 data.append(db_sequence["accession"])
 
             # description, officially not there?
-            if "protein description"  in db_sequence:
+            if "protein description" in db_sequence:
                 data.append(json.dumps(db_sequence["protein description"], cls=NumpyEncoder))
             else:
                 data.append(None)
@@ -630,7 +634,8 @@ class MzIdParser:
             spectra.append([
                 spec_id,
                 peak_list,
-                ntpath.basename(peak_list_reader.spectra_data['location']),
+                # ntpath.basename(peak_list_reader.spectra_data['location']),
+                ntpath.basename(peak_list_reader.peak_list_path),
                 str(scan_id),
                 protocol['fragmentTolerance'],
                 self.upload_id,
@@ -1015,7 +1020,7 @@ class MzIdParser:
 
 
 class xiSPEC_MzIdParser(MzIdParser):
-    def parse_db_sequences(self, mzid_reader):
+    def parse_db_sequences(self):
         pass
 
 
