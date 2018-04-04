@@ -226,7 +226,7 @@ def write_peptide_evidences(inj_list, cur, con):
         INSERT INTO peptide_evidences (
             peptide_ref,
             dbsequence_ref,
-            start,
+            pep_start,
             is_decoy,
             upload_id
         )
