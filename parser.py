@@ -48,8 +48,8 @@ try:
         dname = ''
 
     # import local files
-    import xiUI_mzid as mzidParser
-    import xiUI_csv as csvParser
+    import MzIdParser as mzidParser
+    import CsvParser as csvParser
     import xiSPEC_peakList as peakListParser
 
     # logging
@@ -80,11 +80,11 @@ except Exception as e:
 
 try:
     if args[3] == "pg":
-        import xiUI_pg as db
+        import PostgreSQL as db
     else:
-        import xiUI_sqlite as db
+        import SQLite as db
 except IndexError:
-    import xiUI_sqlite as db
+    import SQLite as db
 
 returnJSON = {
     "response": "",
@@ -225,7 +225,7 @@ try:
         try:
             unzipStartTime = time()
             logger.info('unzipping start')
-            # peakList_fileList = peakListParser.PeakListReader.unzip_peak_lists(peakList_file)
+            # peakList_fileList = peakListParser.PeakListParser.unzip_peak_lists(peakList_file)
             upload_folder = peakListParser.PeakListReader.unzip_peak_lists(peakList_file)
             logger.info('unzipping done. Time: ' + str(round(time() - unzipStartTime, 2)) + " sec")
         except IOError as e:

@@ -5,7 +5,7 @@ import sys
 import numpy as np
 from time import time
 import pandas as pd
-from xiSPEC_peakList import PeakListReader
+from PeakListParser import PeakListParser
 import zipfile
 import gzip
 import os
@@ -179,7 +179,7 @@ class CsvParser:
             peak_list_file_path = self.temp_dir + peak_list_file_name
 
             try:
-                peak_list_reader = PeakListReader(
+                peak_list_reader = PeakListParser(
                     peak_list_file_path,
                     file_format_accession,
                     spectrum_id_format_accesion
@@ -187,8 +187,8 @@ class CsvParser:
             except IOError:
                 # try gz version
                 try:
-                    peak_list_reader = PeakListReader(
-                        PeakListReader.extract_gz(peak_list_file_path + '.gz'),
+                    peak_list_reader = PeakListParser(
+                        PeakListParser.extract_gz(peak_list_file_path + '.gz'),
                         file_format_accession,
                         spectrum_id_format_accesion
                     )

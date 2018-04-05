@@ -7,9 +7,9 @@ import os
 import gc
 import shutil
 
-from xiUI_mzid import MzIdParser
-from xiUI_mzid import NumpyEncoder
-import xiUI_pg as db
+from MzIdParser import MzIdParser
+from MzIdParser import NumpyEncoder
+import PostgreSQL as db
 
 
 class TestLoop:
