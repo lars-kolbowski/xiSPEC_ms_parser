@@ -48,9 +48,9 @@ try:
         dname = ''
 
     # import local files
-    import MzIdParser as mzidParser
-    import CsvParser as csvParser
-    import PeakListParser as peakListParser
+    import MzIdParser
+    import CsvParser
+    import PeakListParser
 
     #logging
     try:
@@ -121,8 +121,8 @@ try:
         peakList_file = baseDir + "/cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
 
         # # large mzid dataset
-        # identifications_file = baseDir + "linear/Tmuris_exo/Tmuris_exosomes1.mzid"
-        # peakList_file = baseDir + "linear/Tmuris_exo/20171027_DDA_JC1.zip"
+        identifications_file = baseDir + "Tmuris_exo/Tmuris_exosomes1.mzid"
+        peakList_file = baseDir + "Tmuris_exo/20171027_DDA_JC1.zip"
 
         # PXD006574
         # identifications_file = baseDir + "PXD006574/monomerResults.mzid.gz"
@@ -226,7 +226,7 @@ try:
             unzipStartTime = time()
             logger.info('unzipping start')
             # peakList_fileList = peakListParser.PeakListParser.unzip_peak_lists(peakList_file)
-            upload_folder = peakListParser.PeakListParser.unzip_peak_lists(peakList_file)
+            upload_folder = PeakListParser.PeakListParser.unzip_peak_lists(peakList_file)
             logger.info('unzipping done. Time: ' + str(round(time() - unzipStartTime, 2)) + " sec")
         except IOError as e:
             logger.error(e.args[0])
@@ -252,12 +252,12 @@ try:
     if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
         logger.info('parsing mzid start')
         identifications_fileType = 'mzid'
-        id_parser = mzidParser.xiSPEC_MzIdParser(identifications_file, upload_folder, db, logger, dbName)
+        id_parser = MzIdParser.xiSPEC_MzIdParser(identifications_file, upload_folder, db, logger, dbName)
 
     elif identifications_fileName.endswith('.csv'):
         logger.info('parsing csv start')
         identifications_fileType = 'csv'
-        id_parser = csvParser.xiSPEC_CsvParser(identifications_file, upload_folder, db, logger, dbName)
+        id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, db, logger, dbName)
 
         # mgfReader = py_mgf.read(peak_list_file)
         # peakListArr = [pl for pl in mgfReader]
@@ -276,14 +276,6 @@ try:
 
     returnJSON['modifications'] = id_parser.unknown_mods
     returnJSON["warnings"] = id_parser.warnings
-
-    # elif identifications_fileName.endswith('.csv'):
-    #     logger.info('parsing csv start')
-    #     identifications_fileType = 'csv'
-    #     id_returnJSON = csvParser.parse(identifications_file, peakList_fileList, cur, con, logger)
-    #     returnJSON.update(id_returnJSON)
-    #     # mgfReader = py_mgf.read(peak_list_file)
-    #     # peakListArr = [pl for pl in mgfReader]
 
     # delete uploaded files after they have been parsed
     if not dev:
