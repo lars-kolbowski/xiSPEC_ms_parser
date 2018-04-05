@@ -1,7 +1,7 @@
 import ntpath
 import zipfile
-import xiUI_mgfReader as py_mgf
 import ms2Reader as py_msn
+import MGF as py_mgf
 import pymzml
 import re
 import os
@@ -16,7 +16,7 @@ class ScanNotFoundException(Exception):
     pass
 
 
-class PeakListReader:
+class PeakListParser:
     def __init__(self, pl_path, file_format_accession, spectrum_id_format_accession):
         # self.spectra_data = spectra_data
         self.file_format_accession = file_format_accession

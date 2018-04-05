@@ -48,11 +48,11 @@ try:
         dname = ''
 
     # import local files
-    from xiUI_mzid import MzIdParser
-    import xiUI_csv as csvParser
-    import xiSPEC_peakList as peakListParser
+    import MzIdParser as mzidParser
+    import CsvParser as csvParser
+    import PeakListParser as peakListParser
 
-    logging
+    #logging
     try:
         dev = False
         logFile = dname + "/log/%s_%s.log" % (args[2], int(time()))
@@ -80,11 +80,11 @@ except Exception as e:
 
 try:
     if args[3] == "pg":
-        import xiUI_pg as db
+        import PostgreSQL as db
     else:
-        import xiUI_sqlite as db
+        import SQLite as db
 except IndexError:
-    import xiUI_pg as db
+    import SQLite as db
 
 returnJSON = {
     "response": "",
@@ -102,7 +102,7 @@ try:
 
     # development testfiles
     if dev:
-        baseDir = "/media/data/work/xiSPEC_test_files/"
+        baseDir = "/home/col/xiSPEC_test_files/"
 
         # identifications_file = baseDir + 'OpenxQuest_example_added_annotations.mzid'
         # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
@@ -225,8 +225,8 @@ try:
         try:
             unzipStartTime = time()
             logger.info('unzipping start')
-            # peakList_fileList = peakListParser.PeakListReader.unzip_peak_lists(peakList_file)
-            upload_folder = peakListParser.PeakListReader.unzip_peak_lists(peakList_file)
+            # peakList_fileList = peakListParser.PeakListParser.unzip_peak_lists(peakList_file)
+            upload_folder = peakListParser.PeakListParser.unzip_peak_lists(peakList_file)
             logger.info('unzipping done. Time: ' + str(round(time() - unzipStartTime, 2)) + " sec")
         except IOError as e:
             logger.error(e.args[0])
@@ -252,7 +252,7 @@ try:
     if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
         logger.info('parsing mzid start')
         identifications_fileType = 'mzid'
-        id_parser = MzIdParser(identifications_file, upload_folder, db, logger, dbName)
+        id_parser = mzidParser.xiSPEC_MzIdParser(identifications_file, upload_folder, db, logger, dbName)
 
     elif identifications_fileName.endswith('.csv'):
         logger.info('parsing csv start')
@@ -274,6 +274,7 @@ try:
 
     id_parser.parse()
 
+    returnJSON['modifications'] = id_parser.unknown_mods
     returnJSON["warnings"] = id_parser.warnings
 
     # elif identifications_fileName.endswith('.csv'):

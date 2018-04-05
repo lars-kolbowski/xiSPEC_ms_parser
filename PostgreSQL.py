@@ -219,7 +219,7 @@ def write_modifications(inj_list, cur, con):
 def write_peptide_evidences(inj_list, cur, con):
     try:
         cur.executemany("""
-        INSERT INTO peptide_evidences (
+        INSERT INTO peptide_evidences (        
             peptide_ref,
             dbsequence_ref,
             protein_accession,

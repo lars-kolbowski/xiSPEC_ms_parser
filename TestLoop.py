@@ -10,10 +10,10 @@ import shutil
 import time
 import ntpath
 
-from xiUI_mzid import MzIdParser
-from xiSPEC_peakList import PeakListReader
-from xiUI_mzid import NumpyEncoder
-import xiUI_pg as db
+from PeakListParser import PeakListParser
+from MzIdParser import MzIdParser
+from MzIdParser import NumpyEncoder
+import PostgreSQL as db
 
 
 class TestLoop:
@@ -156,7 +156,7 @@ class TestLoop:
                     raise e
                 ftp.close()
                 peak_file = ntpath.basename(
-                    PeakListReader.extract_gz(self.temp_dir + '/' + peak_file + '.gz')[0])
+                    PeakListParser.extract_gz(self.temp_dir + '/' + peak_file + '.gz')[0])
             ftp.close()
 
             try:

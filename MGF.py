@@ -150,7 +150,7 @@ class Reader(object):
                         if peak_list_start_pos is not None and peak_list_start_pos == -1:
                             peak_list_start_pos = pos
                     # #  could also be getting charge and rt here
-                    # #  see mgf.py, L194-L203
+                    # #  see MGF.py, L194-L203
                     # else:
                     #     key = l[0].lower()
                     #     val = l[1].strip()

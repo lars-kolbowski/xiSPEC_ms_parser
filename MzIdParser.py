@@ -6,7 +6,7 @@ import sys
 import numpy as np
 from time import time
 #import xiSPEC_peakList as peakListParser
-from xiSPEC_peakList import PeakListReader
+from PeakListParser import PeakListParser
 import zipfile
 import gzip
 import os
@@ -53,7 +53,11 @@ class MzIdParser:
         # ToDo: AnalysisProtocolCollection->SpectrumIdentificationProtocol->ModificationParams
         # ToDo: atm we get them while looping through the peptides (might be more robust and we're doing it anyway)
         self.modlist = []
+        self.unknown_mods = []
 
+        # ToDo: not used atm
+        # From mzidentML schema 1.2.0:
+        # First of all, the <SpectrumIdentificationProtocol> must contain the CV term 'cross-linking search' (MS:1002494)
         self.contains_crosslinks = False
 
         self.warnings = []
@@ -95,7 +99,7 @@ class MzIdParser:
     def get_sequenceDB_file_names(self):
         pass
 
-    def set_peak_list_readers(self):
+    def init_peak_list_readers(self):
         """
         sets self.peak_list_readers by looping through SpectraData elements
         dictionary:
@@ -124,7 +128,7 @@ class MzIdParser:
             peak_list_file_path = self.temp_dir + peak_list_file_name
 
             try:
-                peak_list_reader = PeakListReader(
+                peak_list_reader = PeakListParser(
                     peak_list_file_path,
                     sp_datum['FileFormat']['accession'],
                     sp_datum['SpectrumIDFormat']['accession']
@@ -132,8 +136,8 @@ class MzIdParser:
             except IOError:
                 # try gz version
                 try:
-                    peak_list_reader = PeakListReader(
-                        PeakListReader.extract_gz(peak_list_file_path + '.gz'),
+                    peak_list_reader = PeakListParser(
+                        PeakListParser.extract_gz(peak_list_file_path + '.gz'),
                         sp_datum['FileFormat']['accession'],
                         sp_datum['SpectrumIDFormat']['accession']
                     )
@@ -150,14 +154,25 @@ class MzIdParser:
         start_time = time()
 
         # ToDo: more gracefully handle missing files
-        self.set_peak_list_readers()
+        self.init_peak_list_readers()
 
-        self.upload_info(self.mzid_reader)
-        self.parse_db_sequences(self.mzid_reader)
-        self.parse_peptides(self.mzid_reader)
-        self.parse_peptide_evidences(self.mzid_reader)
-        self.map_spectra_data_to_protocol()     # ToDo: does not use self.mzid_reader
-        self.main_loop(self.mzid_reader)
+        #
+        # upload info
+        #
+        # upload_info_start_time = time()
+        # self.logger.info('getting upload info (provider, etc) - start')
+        # self.parse_upload_info(mzid_reader)
+        # self.logger.info(
+        #     'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
+
+        #
+        # Sequences, Peptides, Peptide Evidences (inc. peptide positions), Modifications
+
+        self.parse_db_sequences()
+        self.parse_peptides()
+        self.parse_peptide_evidences()
+        self.map_spectra_data_to_protocol()
+        self.main_loop()
 
         #
         # Fill missing scores with
@@ -330,15 +345,15 @@ class MzIdParser:
 
         return mod['name']
 
-    def parse_db_sequences(self, mzid_reader):
+    def parse_db_sequences(self):
 
         self.logger.info('parse db sequences - start')
         start_time = time()
         # DBSEQUENCES
         inj_list = []
         # for db_sequence in sequence_collection['DBSequence']:
-        for db_id in mzid_reader._offset_index["DBSequence"].keys():
-            db_sequence = mzid_reader.get_by_id(db_id, tag_id='DBSequence', detailed=True)
+        for db_id in self.mzid_reader._offset_index["DBSequence"].keys():
+            db_sequence = self.mzid_reader.get_by_id(db_id, tag_id='DBSequence', detailed=True)
 
             data = [db_sequence["id"], db_sequence["accession"]]
 
@@ -349,7 +364,7 @@ class MzIdParser:
                 data.append(db_sequence["accession"])
 
             # description, officially not there?
-            if "protein description"  in db_sequence:
+            if "protein description" in db_sequence:
                 data.append(json.dumps(db_sequence["protein description"], cls=NumpyEncoder))
             else:
                 data.append(None)
@@ -375,7 +390,7 @@ class MzIdParser:
 
         self.logger.info('parse db sequences - done. Time: ' + str(round(time() - start_time, 2)) + " sec")
 
-    def parse_peptides(self, mzid_reader):
+    def parse_peptides(self):
         start_time = time()
         self.logger.info('parse peptides, modifications - start')
 
@@ -390,12 +405,11 @@ class MzIdParser:
             # "oxidation": "ox"
         }
 
-
         # PEPTIDES
         peptide_index = 0
         peptide_inj_list = []
-        for pep_id in mzid_reader._offset_index["Peptide"].keys():
-            peptide = mzid_reader.get_by_id(pep_id, tag_id='Peptide', detailed=True)
+        for pep_id in self.mzid_reader._offset_index["Peptide"].keys():
+            peptide = self.mzid_reader.get_by_id(pep_id, tag_id='Peptide', detailed=True)
             # peptide2 = mzid_reader.get_by_id(pep_id, tag_id='Peptide', detailed=True, accession_key=True)
             pep_seq_dict = []
             for aa in peptide['PeptideSequence']:
@@ -510,22 +524,22 @@ class MzIdParser:
 
         self.logger.info('parse peptides, modifications - done. Time: ' + str(round(time() - start_time, 2)) + " sec")
 
-    def parse_peptide_evidences(self, mzid_reader):
+    def parse_peptide_evidences(self):
 
         db_seq_ref_prot_map = {}
 
-        sequence_collection = mzid_reader.iterfind('SequenceCollection').next()
+        sequence_collection = self.mzid_reader.iterfind('SequenceCollection').next()
         for sequence in sequence_collection['DBSequence']:
             db_seq_ref_prot_map[sequence["id"]] = sequence["accession"]
-        mzid_reader.reset()
+            self.mzid_reader.reset()
 
         start_time = time()
         self.logger.info('parse peptide evidences - start')
         #PEPTIDE EVIDENCES
         inj_list = []
         # for peptide_evidence in sequence_collection['PeptideEvidence']:
-        for pep_ev_id in mzid_reader._offset_index["PeptideEvidence"].keys():
-            peptide_evidence = mzid_reader.get_by_id(pep_ev_id, tag_id='PeptideEvidence', detailed=True)
+        for pep_ev_id in self.mzid_reader._offset_index["PeptideEvidence"].keys():
+            peptide_evidence = self.mzid_reader.get_by_id(pep_ev_id, tag_id='PeptideEvidence', detailed=True)
 
             data = []  # peptide_ref, dBSequence_ref, protein_accession, start, upload_id
             data.append(self.peptide_id_lookup[peptide_evidence["peptide_ref"]])  # peptide_ref att, required
@@ -552,7 +566,7 @@ class MzIdParser:
             pass
 
         self.con.commit()
-        mzid_reader.reset()
+        self.mzid_reader.reset()
 
         self.logger.info('parse peptide evidences - done. Time: ' + str(round(time() - start_time, 2)) + " sec")
 
@@ -572,7 +586,7 @@ class MzIdParser:
 
         return masses
 
-    def main_loop(self, mzid_reader):
+    def main_loop(self):
         spec_id = 0
         identification_id = 0
         spectra = []
@@ -585,7 +599,7 @@ class MzIdParser:
         main_loop_start_time = time()
         self.logger.info('main loop - start')
 
-        for sid_result in mzid_reader:
+        for sid_result in self.mzid_reader:
             peak_list_reader = self.peak_list_readers[sid_result['spectraData_ref']]
 
             scan_id = peak_list_reader.parse_scan_id(sid_result["spectrumID"])
@@ -720,62 +734,60 @@ class MzIdParser:
                 'id': id_string
             })
 
-    def upload_info(self, mzid_reader):
+
+    def upload_info(self):
         upload_info_start_time = time()
-        self.logger.info('getting upload info (provider, etc) - start')
-
-
         # AnalysisSoftwareList - optional element
         # see https://groups.google.com/forum/#!topic/pyteomics/Mw4eUHmicyU
-        mzid_reader.schema_info['lists'].add("AnalysisSoftware")
+        self.mzid_reader.schema_info['lists'].add("AnalysisSoftware")
         try:
-            analysis_software = json.dumps(mzid_reader.iterfind('AnalysisSoftwareList').next()['AnalysisSoftware'])
+            analysis_software = json.dumps(self.mzid_reader.iterfind('AnalysisSoftwareList').next()['AnalysisSoftware'])
         except StopIteration:
             analysis_software = '{}'
-        mzid_reader.reset()
+        self.mzid_reader.reset()
 
         # Provider - optional element
         provider = '{}'
         try:
-            provider = json.dumps(mzid_reader.iterfind('Provider').next())
+            provider = json.dumps(self.mzid_reader.iterfind('Provider').next())
         except StopIteration:
             pass
-        mzid_reader.reset()
+        self.mzid_reader.reset()
 
         # AuditCollection - optional element
         audits = '{}'
         try:
-            audits = json.dumps(mzid_reader.iterfind('AuditCollection').next())
+            audits = json.dumps(self.mzid_reader.iterfind('AuditCollection').next())
         except StopIteration:
             audits = '{}'
-        mzid_reader.reset()
+        self.mzid_reader.reset()
 
         # AnalysisSampleCollection - optional element
         samples = '{}'
         try:
-            samples = json.dumps(mzid_reader.iterfind('AnalysisSampleCollection').next()['Sample'])
+            samples = json.dumps(self.mzid_reader.iterfind('AnalysisSampleCollection').next()['Sample'])
         except StopIteration:
             samples = '{}'
-        mzid_reader.reset()
+        self.mzid_reader.reset()
 
         # AnalysisCollection - required element
         analyses = '{}'
-        analyses = json.dumps(mzid_reader.iterfind('AnalysisCollection').next()['SpectrumIdentification'])
-        mzid_reader.reset()
+        analyses = json.dumps(self.mzid_reader.iterfind('AnalysisCollection').next()['SpectrumIdentification'])
+        self.mzid_reader.reset()
 
         # AnalysisProtocolCollection - required element
         protocols ='{}'
-        protocol_collection = mzid_reader.iterfind('AnalysisProtocolCollection').next()
+        protocol_collection = self.mzid_reader.iterfind('AnalysisProtocolCollection').next()
         protocols = protocol_collection['SpectrumIdentificationProtocol']
         protocols = json.dumps(protocols, cls=NumpyEncoder)
-        mzid_reader.reset()
+        self.mzid_reader.reset()
 
         # BibliographicReference - optional element
         bibRefs = []
-        for bib in mzid_reader.iterfind('BibliographicReference'):
+        for bib in self.mzid_reader.iterfind('BibliographicReference'):
             bibRefs.append(bib)
         bibRefs = json.dumps(bibRefs)
-        mzid_reader.reset()
+        self.mzid_reader.reset()
 
 
         self.upload_id = self.db.write_upload([0, self.mzId_path,
@@ -794,16 +806,15 @@ class xiSPEC_MzIdParser(MzIdParser):
         start_time = time()
 
         # ToDo: more gracefully handle missing files
-        self.peak_list_readers = self.read_peak_lists()
+        self.init_peak_list_readers()
 
-        # self.parse_upload_info(self.mzid_reader)
-        self.parse_db_sequences(self.mzid_reader)
-        self.parse_peptides(self.mzid_reader)
-        self.parse_peptide_evidences(self.mzid_reader)
+        # self.parse_upload_info()
+        # self.parse_db_sequences()
+        self.parse_peptides()
+        self.parse_peptide_evidences()
         self.map_spectra_data_to_protocol()     # ToDo: does not use self.mzid_reader
-        self.main_loop(self.mzid_reader)
+        self.main_loop()
 
-        #
         # Fill missing scores with
         score_fill_start_time = time()
         self.logger.info('fill in missing scores - start')
