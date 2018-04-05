@@ -33,18 +33,14 @@ def create_tables(cur, con):
             "analyses JSON,"
             "protocol JSON,"
             "bib JSON,"
+            "spectra_formats JSON,"
             "upload_time DATE, "
             "default_pdb TEXT,"
             "contains_crosslinks BOOLEAN,"
             "upload_error TEXT,"
             "error_type TEXT,"
             "upload_warnings JSON,"
-            "origin TEXT,"
-            "xml_version TEXT,"
-            "file_size BIGINT,"
-            "spectrum_id_format TEXT,"
-            "file_format TEXT,"
-            "parse_time FLOAT)"
+            "origin TEXT)"
         )
 
         # ToDo: not used atm
@@ -82,7 +78,7 @@ def create_tables(cur, con):
         cur.execute("DROP TABLE IF EXISTS modifications")
         cur.execute(
             "CREATE TABLE modifications("
-            "id BIGINT PRIMARY KEY, "
+            "id BIGINT, "
             "upload_id INT,"
             "mod_name TEXT, "
             "mass FLOAT, "
@@ -95,6 +91,7 @@ def create_tables(cur, con):
             "upload_id INT,"
             "peptide_ref text, "
             "dbsequence_ref text, "
+            "protein_accession text, "
             "pep_start int, "
             "is_decoy BOOLEAN)"
         )
@@ -118,7 +115,7 @@ def create_tables(cur, con):
             "pep1_id TEXT, "
             "pep2_id TEXT, "
             "charge_state INT, "
-            "pass_threshold INT, "
+            "pass_threshold BOOLEAN, "
             "rank INT,"
             "ions TEXT, "   # ToDo: find better place to store ions might be protocols
             "scores JSON,"  # IS JSON data type valid or does it have to be TEXT
@@ -138,7 +135,6 @@ def write_upload(inj_list, cur, con):
     INSERT INTO uploads (
         user_id,
         filename,
-        peak_list_file_names,
         analysis_software,
         provider,
         audits,
@@ -147,9 +143,9 @@ def write_upload(inj_list, cur, con):
         protocol,
         bib,
         upload_time,
-        upload_loc
+        origin
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s) RETURNING id AS upload_id""", inj_list)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s) RETURNING id AS upload_id""", inj_list)
         con.commit()
 
     except psycopg2.Error as e:
@@ -205,12 +201,12 @@ def write_modifications(inj_list, cur, con):
     try:
         cur.executemany("""
           INSERT INTO modifications (
-            'id',
-            'upload_id',
-            'mod_name', 
-            'mass', 
-            'residues', 
-            'accession'
+            id,
+            upload_id,
+            mod_name, 
+            mass, 
+            residues, 
+            accession
           )
           VALUES (%s, %s, %s, %s, %s, %s)""", inj_list)
         con.commit()
@@ -223,14 +219,15 @@ def write_modifications(inj_list, cur, con):
 def write_peptide_evidences(inj_list, cur, con):
     try:
         cur.executemany("""
-        INSERT INTO peptide_evidences (
+        INSERT INTO peptide_evidences (        
             peptide_ref,
             dbsequence_ref,
+            protein_accession,
             pep_start,
             is_decoy,
             upload_id
         )
-        VALUES (%s, %s, %s, %s, %s)""", inj_list)
+        VALUES (%s, %s, %s, %s, %s, %s)""", inj_list)
         con.commit()
 
     except psycopg2.Error as e:
@@ -255,18 +252,18 @@ def write_spectrum_identifications(inj_list, cur, con):
     try:
         cur.executemany("""
           INSERT INTO spectrum_identifications (
-              'id', 
-              'upload_id', 
-              'spectrum_id', 
-              'pep1_id', 
-              'pep2_id',
-              'charge_state', 
-              'rank', 
-              'pass_threshold', 
-              'ions', 
-              'scores',
-              'experimental_mass_to_charge',
-              'calculated_mass_to_charge'
+              id, 
+              upload_id, 
+              spectrum_id, 
+              pep1_id, 
+              pep2_id,
+              charge_state, 
+              rank, 
+              pass_threshold, 
+              ions, 
+              scores,
+              experimental_mass_to_charge,
+              calculated_mass_to_charge
           ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s , %s, %s, %s, %s)""", inj_list)
         con.commit()
 
@@ -274,43 +271,3 @@ def write_spectrum_identifications(inj_list, cur, con):
         raise DBException(e.message)
 
     return True
-
-
-# con = connect(/home/lars/Xi/xiSPEC_ms_parser/dbs/saved/Tmuris_exosomes1.db)
-# cur = con.cursor()
-
-
-def fill_in_missing_scores(cur, con):
-    try:
-        cur.execute("""
-      SELECT DISTINCT scoresJSON.key as scoreKey
-      FROM spectrum_identifications, json_each(spectrum_identifications.scores) AS scoresJSON""")
-
-        all_scores = cur.fetchall()
-        all_scores = set([str(x[0]) for x in all_scores])
-
-        multiple_inj_list = []
-
-        cur.execute('SELECT id, scores FROM spectrum_identifications')
-        res = cur.fetchall()
-
-        for row in res:
-            row_scores = json.loads(row[1])
-            missing = all_scores - set(row_scores.keys())
-            missing_dict = {key: -1 for key in missing}     # ToDo: there are negative scores -> this needs changing
-
-            if len(missing) > 0:
-                row_scores.update(missing_dict)
-                multiple_inj_list.append([json.dumps(row_scores), row[0]])
-                # cur.execute('UPDATE identifications SET allScores=%s WHERE id = row[0]', json.dumps(row_scores))
-
-        cur.executemany("""
-        UPDATE spectrum_identifications
-        SET `allScores` = %s
-        WHERE `id` = %s""", multiple_inj_list)
-
-        con.commit()
-
-    except psycopg2.Error as e:
-        raise DBException(e.message)
-    pass
