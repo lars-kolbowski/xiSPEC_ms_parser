@@ -143,7 +143,7 @@ class MzIdParser:
                     )
                 except IOError:
                     # ToDo: output all missing files not just first encountered. Use get_peak_list_file_names()
-                    raise MzIdParseException('Missing peak list file: %s' % ntpath.basename(peak_list_file_path))
+                    raise MzIdParseException('Missing peak list file: %s' % peak_list_file_name)
 
             peak_list_readers[sd_id] = peak_list_reader
 
@@ -610,7 +610,7 @@ class MzIdParser:
             spectra.append([
                 spec_id,
                 peak_list,
-                peak_list_reader.peak_list_path,
+                ntpath.basename(peak_list_reader.peak_list_path),
                 str(scan_id),
                 protocol['fragmentTolerance'],
                 self.upload_id,
