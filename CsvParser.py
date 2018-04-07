@@ -207,15 +207,6 @@ class CsvParser:
         # ToDo: more gracefully handle missing files
         self.set_peak_list_readers()
 
-        #
-        # upload info
-        #
-        # upload_info_start_time = time()
-        # self.logger.info('getting upload info (provider, etc) - start')
-        # self.parse_upload_info(csv_reader)
-        # self.logger.info(
-        #     'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
-
         self.main_loop()
 
         self.logger.info('all done! Total time: ' + str(round(time() - start_time, 2)) + " sec")
@@ -375,9 +366,18 @@ class CsvParser:
             except ValueError:
                 raise CsvParseException('Invalid charge state: %s for id: %s' % (id_item['charge'], id_item['id']))
 
-            # passthreshold - ToDo - nothing to check?
+            # passthreshold
+            if isinstance(id_item['passthreshold'], bool):
+                pass_threshold = id_item['passthreshold']
+            else:
+                raise CsvParseException('Invalid passThreshold value: %s for id: %s' % (id_item['passthreshold'], id_item['id']))
 
             # fragmenttolerance ToDo - regex for fragtol and unit
+
+            if not re.match('^([0-9.]+) (ppm|Da)$', id_item['fragmenttolerance']):
+                raise CsvParseException('Invalid FragmentTolerance value: %s for id: %s' % (id_item['fragmenttolerance'], id_item['id']))
+            else:
+                fragment_tolerance = id_item['fragmenttolerance']
 
             # iontypes
             ions = id_item['iontypes'].split(';')
@@ -391,7 +391,8 @@ class CsvParser:
                 'z'
             ]
             if any([True for ion in ions if ion not in valid_ions]):
-                raise CsvParseException('Unrecognized iontype in: %s for id: %s' % (id_item['iontypes'], id_item['id']))
+                raise CsvParseException('Unrecognized IonType in: %s for id: %s' % (id_item['iontypes'], id_item['id']))
+            ion_types = id_item['iontypes']
 
             # score
             try:
@@ -401,51 +402,75 @@ class CsvParser:
 
             # protein1
             protein_list1 = id_item['protein1'].split(";")
+            protein_list1 = [s.strip() for s in protein_list1]
 
-            # decoy1 - if decoy1 is not set fill list with default values (False)
+            # decoy1 - if decoy1 is not set fill list with default value (0)
             if id_item['decoy1'] == -1:
-                is_decoy_list1 = [False] * len(protein_list1)
+                is_decoy_list1 = [0] * len(protein_list1)
             else:
-                is_decoy_list1 = str(id_item['decoy1']).split(";")
+                is_decoy_list1 = []
+                for decoy in str(id_item['decoy1']).split(";"):
+                    if decoy.lower().strip() == 'true':
+                        is_decoy_list1.append(1)
+                    elif decoy.lower().strip() == 'false':
+                        is_decoy_list1.append(0)
+                    else:
+                        raise CsvParseException(
+                            'Invalid value in Decoy 1: %s for id: %s. Allowed values: True, False.'
+                            % (id_item['decoy1'], id_item['id'])
+                        )
 
-            # pepPos1 - if pepPos1 is not set fill list with default values (-1)
+            # pepPos1 - if pepPos1 is not set fill list with default value (-1)
             # ToDo: might need changing for xiUI where pepPos is not optional
             if id_item['peppos1'] == -1:
                 pep_pos_list1 = [-1] * len(protein_list1)
             else:
                 pep_pos_list1 = id_item['peppos1'].split(";")
+                pep_pos_list1 = [s.strip() for s in pep_pos_list1]
 
             # protein - decoy - pepPos sensibility check
             if not len(protein_list1) == len(is_decoy_list1):
                 raise CsvParseException(
-                    'Inconsistent number of protein to decoy values for protein1 and decoy1!')
+                    'Inconsistent number of protein to decoy values for Protein1 and Decoy1!')
             if not len(protein_list1) == len(pep_pos_list1):
                 raise CsvParseException(
-                    'Inconsistent number of protein to pepPos values for protein1 and pepPos1!')
+                    'Inconsistent number of protein to pepPos values for Protein1 and PepPos1!')
 
             # protein2
             protein_list2 = id_item['protein2'].split(";")
+            protein_list2 = [s.strip() for s in protein_list2]
 
-            # decoy2 - if decoy2 is not set fill list with default values (False)
+            # decoy2 - if decoy2 is not set fill list with default value (0)
             if id_item['decoy2'] == -1:
-                is_decoy_list2 = [False] * len(protein_list2)
+                is_decoy_list2 = [0] * len(protein_list2)
             else:
-                is_decoy_list2 = str(id_item['decoy2']).split(";")
+                is_decoy_list2 = []
+                for decoy in str(id_item['decoy2']).split(";"):
+                    if decoy.lower().strip() == 'true':
+                        is_decoy_list2.append(1)
+                    elif decoy.lower().strip() == 'false':
+                        is_decoy_list2.append(0)
+                    else:
+                        raise CsvParseException(
+                            'Invalid value in Decoy 2: %s for id: %s. Allowed values: True, False.'
+                            % (id_item['decoy2'], id_item['id'])
+                        )
 
-            # pepPos2 - if pepPos2 is not set fill list with default values (-1)
+            # pepPos2 - if pepPos2 is not set fill list with default value (-1)
             # ToDo: might need changing for xiUI where pepPos is not optional
             if id_item['peppos2'] == -1:
                 pep_pos_list2 = [-1] * len(protein_list2)
             else:
                 pep_pos_list2 = id_item['peppos2'].split(";")
+                pep_pos_list2 = [s.strip() for s in pep_pos_list2]
 
             # protein - decoy - pepPos sensibility check
             if not len(protein_list2) == len(is_decoy_list2):
                 raise CsvParseException(
-                    'Inconsistent number of protein to decoy values for protein2 and decoy2!')
+                    'Inconsistent number of protein to decoy values for Protein2 and Decoy2!')
             if not len(protein_list2) == len(pep_pos_list2):
                 raise CsvParseException(
-                    'Inconsistent number of protein to pepPos values for protein2 and pepPos2!')
+                    'Inconsistent number of protein to pepPos values for Protein2 and PepPos2!')
 
             # scannumber
             try:
@@ -455,6 +480,19 @@ class CsvParser:
 
             # peaklistfilename
 
+            # expMZ
+            try:
+                exp_mz = float(id_item['expmz'])
+            except ValueError:
+                raise CsvParseException('Invalid expMZ: %s for id: %s' % (id_item['exmpmz'], id_item['id']))
+            # calcMZ
+            try:
+                calc_mz = float(id_item['calcmz'])
+            except ValueError:
+                raise CsvParseException('Invalid calcMZ: %s for id: %s' % (id_item['calcmz'], id_item['id']))
+
+
+            # Start actual parsing
             #
             # SPECTRA
             peak_list_file_name = id_item['peaklistfilename']
@@ -477,7 +515,7 @@ class CsvParser:
                     peak_list,                      # 'peak_list',
                     peak_list_file_name,            # 'peak_list_file_name',
                     scan_id,                        # 'scan_id',
-                    id_item['fragmenttolerance'],   # 'frag_tol',
+                    fragment_tolerance,             # 'frag_tol',
                     self.upload_id,                 # 'upload_id',
                     'Spec_%s' % spectrum_id,        # 'spectrum_ref' ToDo: clear up id - internal_id ~>front-end (talk to CC)
                 ]
@@ -574,18 +612,18 @@ class CsvParser:
             scores = json.dumps({'score': score})
 
             spectrum_identification = [
-                id_item['id'],              # 'id',
+                id_item['id'],              # 'id', - ToDo: change to internal id
                 self.upload_id,             # 'upload_id',
                 spectrum_id,                # 'spectrum_id',
                 pep1_id,                    # 'pep1_id',
                 pep2_id,                    # 'pep2_id',
                 charge,                     # 'charge_state',
                 rank,                       # 'rank',
-                id_item['passthreshold'],   # 'pass_threshold',
-                id_item['iontypes'],        # 'ions',
+                pass_threshold,             # 'pass_threshold',
+                ion_types,                  # 'ions',
                 scores,                     # 'scores',
-                id_item['expmz'],           # 'experimental_mass_to_charge',
-                id_item['calcmz']           # 'calculated_mass_to_charge'
+                exp_mz,                     # 'experimental_mass_to_charge',
+                calc_mz                     # 'calculated_mass_to_charge'
             ]
             spectrum_identifications.append(spectrum_identification)
 

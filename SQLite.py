@@ -78,7 +78,7 @@ def create_tables(cur, con):
             "dbsequence_ref TEXT, "
             "protein_accession TEXT,"
             "pep_start INT, "
-            "is_decoy BOOLEAN)"
+            "is_decoy INT)"
         )
 
         cur.execute("DROP TABLE IF EXISTS spectra")
@@ -106,8 +106,8 @@ def create_tables(cur, con):
             "rank INT,"
             "ions TEXT, "   # ToDo: find better place to store ions might be protocols
             "scores JSON,"  # IS JSON data type valid or does it have to be TEXT
-            "experimental_mass_to_charge FLOAT,"
-            "calculated_mass_to_charge FLOAT)"
+            "exp_mz FLOAT,"
+            "calc_mz FLOAT)"
         )
         con.commit()
 
@@ -275,8 +275,8 @@ def write_spectrum_identifications(inj_list, cur, con):
               'pass_threshold', 
               'ions', 
               'scores',
-              'experimental_mass_to_charge',
-              'calculated_mass_to_charge'
+              'exp_mz',
+              'calc_mz'
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ? , ?, ?, ?, ?)""", inj_list)
         con.commit()
 
