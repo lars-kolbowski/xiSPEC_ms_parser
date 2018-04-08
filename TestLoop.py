@@ -20,18 +20,18 @@ class TestLoop:
 
     def __init__(self):
 
-        # self.exclusion_list = [
-        #     '2016/04/PXD003564',
-        #     '2016/04/PXD003565',
-        #     '2016/04/PXD003566',
-        #     '2016/04/PXD003567',
-        #     '2016/04/PXD003568',
-        #     '2016/05/PXD002905',
-        #     '2016/10/PXD003935',
-        #     '2016/10/PXD004572',
-        #     '2017/05/PXD005403',
-        #     '2017/06/PXD001767'  # big zip
-        # ]
+        self.exclusion_list = [
+            '2016/04/PXD003564',
+            '2016/04/PXD003565',
+            '2016/04/PXD003566',
+            '2016/04/PXD003567',
+            '2016/04/PXD003568',
+            '2016/05/PXD002905',
+            '2016/10/PXD003935',
+            '2016/10/PXD004572',
+            '2017/05/PXD005403',
+            '2017/06/PXD001767'  # big zip
+        ]
         # logging
         # try:
         #     dev = False
@@ -108,22 +108,25 @@ class TestLoop:
             target_dir = self.base + '/' + ymp
             files = self.get_ftp_file_list(target_dir)
             print ('>> ' + ymp)
-            try:
-                os.mkdir(self.temp_dir)
-            except OSError:
-                pass
 
             for f in files:
                 if f.lower().endswith('mzid') or f.lower().endswith('mzid.gz'):
                     print(f)
                     self.file(ymp, f)
+                    break
 
     def file(self, ymp, file_name):
+        #  make temp dir
+        try:
+            os.mkdir(self.temp_dir)
+        except OSError:
+            pass
+
         path = self.temp_dir + file_name
         target_dir = '/' + self.base + '/' + ymp
-
         ftp = self.get_ftp_login()
 
+        # fetch mzId file from pride
         try:
             ftp.cwd(target_dir)
             ftp.retrbinary("RETR " + file_name, open(path, 'wb').write)
@@ -131,12 +134,40 @@ class TestLoop:
             ftp.quit()
             error_msg = "%s: %s" % (file_name, e.args[0])
             self.logger.error(error_msg)
+            raise e
         ftp.quit()
 
-        mzId_parser = MzIdParser(path, self.temp_dir, db, self.logger)
+        # init parser
+        try:
+            mzId_parser = MzIdParser(path, self.temp_dir, db, self.logger, origin=ymp)
+        except Exception as mzId_error:
+            error = json.dumps(mzId_error.args, cls=NumpyEncoder)
+
+            con = db.connect('')
+            cur = con.cursor()
+            try:
+                cur.execute("""
+                        INSERT INTO uploads (
+                            user_id,
+                            origin,
+                            filename,
+                            error_type,
+                            upload_error)
+                        VALUES (%s, %s, %s, %s, %s)""",
+                            [0, ymp, file_name, type(mzId_error).__name__, error])
+                con.commit()
+            except psycopg2.Error as e:
+                raise db.DBException(e.message)
+            con.close()
+            return
+
+        # write upload info to db
+        mzId_parser.upload_info()
+
+        # fetch peak list files from pride
         peak_files = mzId_parser.get_peak_list_file_names()
         for peak_file in peak_files:
-
+            # peak_file = ntpath.basename(peak_file)
             ftp = self.get_ftp_login()
             try:
                 ftp.cwd(target_dir)
@@ -144,7 +175,7 @@ class TestLoop:
                 ftp.retrbinary("RETR " + peak_file,
                                open(self.temp_dir + '/' + peak_file, 'wb').write)
             except ftplib.error_perm as e:
-                # raise e
+                self.logger.info('missing file: ' + peak_file + " (checking for .gz)")
                 #  check for gzipped
                 try:
                     self.logger.info('getting ' + peak_file + '.gz')
@@ -153,46 +184,66 @@ class TestLoop:
                                    open(self.temp_dir + '/' + peak_file + '.gz', 'wb').write)
                 except ftplib.error_perm as e:
                     ftp.close()
-                    raise e
+                    self.logger.info('missing file: ' + peak_file + '.gz')
+
+                    warnings = json.dumps(mzId_parser.warnings, cls=NumpyEncoder)
+
+                    con = db.connect('')
+                    cur = con.cursor()
+                    try:
+                        cur.execute("""
+                        UPDATE uploads SET
+                            error_type=%s,
+                            upload_error=%s,
+                            upload_warnings=%s
+                        WHERE id = %s""", ["Couldn't fetch file from FTP", peak_file, warnings,
+                                       mzId_parser.upload_id])
+                        con.commit()
+                    except psycopg2.Error as e:
+                        raise db.DBException(e.message)
+                    con.close()
+                    return
                 ftp.close()
-                peak_file = ntpath.basename(
-                    PeakListParser.extract_gz(self.temp_dir + '/' + peak_file + '.gz')[0])
+                # peak_file = ntpath.basename(
+                #     PeakListParser.extract_gz(self.temp_dir + '/' + peak_file + '.gz')[0])
             ftp.close()
 
+        # actually parse
+        try:
+            mzId_parser.parse()
+        except Exception as mzId_error:
+            self.logger.exception(mzId_error)
+
+            error = json.dumps(mzId_error.args, cls=NumpyEncoder)
+            mzId_parser.mzid_reader.reset()
+            spectra_formats = json.dumps(mzId_parser.mzid_reader.iterfind('SpectraData').next(), cls=NumpyEncoder)
+            mzId_parser.mzid_reader.reset()
+
+            warnings = json.dumps(mzId_parser.warnings, cls=NumpyEncoder)
+
+            con = db.connect('')
+            cur = con.cursor()
             try:
-                mzId_parser.parse()
-            except Exception as mzId_error:
-                self.logger.exception(mzId_error)
+                cur.execute("""
+            UPDATE uploads SET
+                error_type=%s,
+                upload_error=%s,
+                spectra_formats=%s,
+                upload_warnings=%s
+            WHERE id = %s""", [type(mzId_error).__name__, error, spectra_formats, warnings, mzId_parser.upload_id])
+                con.commit()
 
-                error = json.dumps(mzId_error.args, cls=NumpyEncoder)
-                mzId_parser.mzid_reader.reset()
-                spectra_formats = json.dumps(mzId_parser.mzid_reader.iterfind('SpectraData').next(), cls=NumpyEncoder)
+            except psycopg2.Error as e:
+                raise db.DBException(e.message)
+            con.close()
 
-                warnings = json.dumps(mzId_parser.warnings, cls=NumpyEncoder)
-
-                con = db.connect('')
-                cur = con.cursor()
-                try:
-                    cur.execute("""
-                UPDATE uploads SET
-                    error_type=%s,
-                    upload_error=%s,
-                    spectra_formats=%s,
-                    upload_warnings=%s
-                WHERE id = %s""", [type(mzId_error).__name__, error, spectra_formats, warnings, mzId_parser.upload_id])
-                    con.commit()
-
-                except psycopg2.Error as e:
-                    raise db.DBException(e.message)
-                con.close()
-
-            # try:
-            #     shutil.rmtree(self.temp_dir)
-            # except OSError:
-            #     pass
-            self.mzId_count = self.mzId_count + 1
-            mzId_parser = None
-            gc.collect()
+        try:
+            shutil.rmtree(self.temp_dir)
+        except OSError:
+            pass
+        self.mzId_count = self.mzId_count + 1
+        mzId_parser = None
+        gc.collect()
 
     def get_ftp_login(self):
         try:
@@ -231,6 +282,14 @@ class TestLoop:
 
 
 test_loop = TestLoop()
+#
+test_loop.month("2012/12")
+test_loop.year("2013")
+test_loop.year("2014")
+test_loop.year("2015")
+test_loop.year("2016")
+test_loop.year("2017")
+test_loop.year("2018")
 
 # mzML
 # test_loop.project("2017/11/PXD007748")
@@ -272,7 +331,9 @@ test_loop = TestLoop()
 # 2015/06/PXD002049
 
 #sim-xl
-test_loop.project("2017/05/PXD006574")
-test_loop.project("2015/02/PXD001677")
+# test_loop.project("2017/05/PXD006574")
+# test_loop.project("2015/02/PXD001677")
 
+#missing file
+# test_loop.project("2013/09/PXD000443")
 print("mzId count:" + str(test_loop.mzId_count))
