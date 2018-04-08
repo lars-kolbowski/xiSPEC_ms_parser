@@ -730,6 +730,7 @@ class MzIdParser:
 
     def upload_info(self):
         upload_info_start_time = time()
+        self.logger.info('parse upload info - start')
 
         peak_list_file_names = json.dumps(self.get_peak_list_file_names(), cls=NumpyEncoder)
 
