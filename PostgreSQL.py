@@ -135,6 +135,8 @@ def write_upload(inj_list, cur, con):
     INSERT INTO uploads (
         user_id,
         filename,
+        peak_list_file_names,
+        spectra_formats,
         analysis_software,
         provider,
         audits,
@@ -143,9 +145,10 @@ def write_upload(inj_list, cur, con):
         protocol,
         bib,
         upload_time,
-        origin
+        origin,
+        upload_warnings
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s) RETURNING id AS upload_id""", inj_list)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s, %s) RETURNING id AS upload_id""", inj_list)
         con.commit()
 
     except psycopg2.Error as e:

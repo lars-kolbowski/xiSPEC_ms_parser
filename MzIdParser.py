@@ -26,13 +26,14 @@ class MzIdParser:
     """
 
     """
-    def __init__(self, mzId_path, temp_dir, db, logger, db_name=''):
+    def __init__(self, mzId_path, temp_dir, db, logger, db_name='', origin=''):
         """
 
         :param mzId_path: path to mzidentML file
         :param temp_dir: absolute path to temp dir for unzipping/storing files
         :param db: database python module to use (xiUI_pg or xiSPEC_sqlite)
-        :param logger: logger to use
+        :param db_name: db name for SQLite
+        :param origin: ftp dir of pride project
         """
 
         self.upload_id = 0
@@ -44,6 +45,7 @@ class MzIdParser:
         self.temp_dir = temp_dir
         self.db = db
         self.logger = logger
+        self.origin = origin
 
         self.spectra_data_protocol_map = {}
         # ToDo: Might change to pyteomics unimod obo module
@@ -156,23 +158,14 @@ class MzIdParser:
         # ToDo: more gracefully handle missing files
         self.init_peak_list_readers()
 
-        #
-        # upload info
-        #
-        # upload_info_start_time = time()
-        # self.logger.info('getting upload info (provider, etc) - start')
-        # self.parse_upload_info(mzid_reader)
-        # self.logger.info(
-        #     'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
-
-        #
-        # Sequences, Peptides, Peptide Evidences (inc. peptide positions), Modifications
-
+        #self.upload_info()
         self.parse_db_sequences()
         self.parse_peptides()
         self.parse_peptide_evidences()
         self.map_spectra_data_to_protocol()
         self.main_loop()
+
+        #todo - write modifications?
 
         #
         # Fill missing scores with
@@ -737,6 +730,15 @@ class MzIdParser:
 
     def upload_info(self):
         upload_info_start_time = time()
+
+        peak_list_file_names = json.dumps(self.get_peak_list_file_names(), cls=NumpyEncoder)
+
+        spectra_formats = []
+        for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
+            sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
+            spectra_formats.append(sp_datum)
+        spectra_formats = json.dumps(spectra_formats, cls=NumpyEncoder)
+
         # AnalysisSoftwareList - optional element
         # see https://groups.google.com/forum/#!topic/pyteomics/Mw4eUHmicyU
         self.mzid_reader.schema_info['lists'].add("AnalysisSoftware")
@@ -790,8 +792,8 @@ class MzIdParser:
         self.mzid_reader.reset()
 
 
-        self.upload_id = self.db.write_upload([0, self.mzId_path,
-                          analysis_software, provider, audits, samples, analyses, protocols, bibRefs, 'origin'],
+        self.upload_id = self.db.write_upload([0, self.mzId_path, peak_list_file_names, spectra_formats,
+                          analysis_software, provider, audits, samples, analyses, protocols, bibRefs, self.origin, self.warnings],
                          self.cur, self.con,
                          )
 
@@ -808,12 +810,14 @@ class xiSPEC_MzIdParser(MzIdParser):
         # ToDo: more gracefully handle missing files
         self.init_peak_list_readers()
 
-        # self.parse_upload_info()
+        # self.upload_info()
         # self.parse_db_sequences()
         self.parse_peptides()
         self.parse_peptide_evidences()
-        self.map_spectra_data_to_protocol()     # ToDo: does not use self.mzid_reader
+        self.map_spectra_data_to_protocol()
         self.main_loop()
+
+        #todo - write modifications?
 
         # Fill missing scores with
         score_fill_start_time = time()
