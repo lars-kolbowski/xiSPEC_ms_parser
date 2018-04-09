@@ -166,8 +166,6 @@ class MzIdParser:
         self.map_spectra_data_to_protocol()
         self.main_loop()
 
-        #todo - write modifications?
-
         #
         # Fill missing scores with
         # score_fill_start_time = time()
@@ -818,8 +816,6 @@ class xiSPEC_MzIdParser(MzIdParser):
         self.parse_peptide_evidences()
         self.map_spectra_data_to_protocol()
         self.main_loop()
-
-        #todo - write modifications?
 
         # Fill missing scores with
         score_fill_start_time = time()
