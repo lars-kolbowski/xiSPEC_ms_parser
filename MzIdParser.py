@@ -112,7 +112,8 @@ class MzIdParser:
         for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
             sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
 
-             # is there anything we'd like to complain about?
+            # is there anything we'd like to complain about?
+            # todo -these aren't raising exceptions as expected, getting KeyError instead- cc
             if sp_datum['SpectrumIDFormat'] is None:
                 raise MzIdParseException('SpectraData is missing SpectrumIdFormat')
             if sp_datum['SpectrumIDFormat']['accession'] is None:
