@@ -59,24 +59,24 @@ class TestLoop:
         self.temp_dir = os.path.expanduser('~') + "/parser_temp/"
 
         # connect to DB
-        try:
-            con = db.connect('')
-            cur = con.cursor()
-
-        except db.DBException as e:
-            self.logger.error(e)
-            print(e)
-            sys.exit(1)
-
-        # create Database tables
-        try:
-            db.create_tables(cur, con)
-        except db.DBException as e:
-            self.logger.error(e)
-            print(e)
-            sys.exit(1)
-
-        con.close
+        # try:
+        #     con = db.connect('')
+        #     cur = con.cursor()
+        #
+        # except db.DBException as e:
+        #     self.logger.error(e)
+        #     print(e)
+        #     sys.exit(1)
+        #
+        # # create Database tables
+        # try:
+        #     db.create_tables(cur, con)
+        # except db.DBException as e:
+        #     self.logger.error(e)
+        #     print(e)
+        #     sys.exit(1)
+        #
+        # con.close
 
     def all_years(self):
         files = self.get_ftp_file_list(self.base)
@@ -168,14 +168,34 @@ class TestLoop:
         peak_files = mzId_parser.get_peak_list_file_names()
         for peak_file in peak_files:
             # peak_file = ntpath.basename(peak_file)
+
+            if peak_file == '':
+                ftp.close()
+                print('Spectra data missing location att')
+                warnings = json.dumps(mzId_parser.warnings, cls=NumpyEncoder)
+                con = db.connect('')
+                cur = con.cursor()
+                try:
+                    cur.execute("""
+                    UPDATE uploads SET
+                        error_type=%s,
+                        upload_error=%s,
+                        upload_warnings=%s
+                    WHERE id = %s""", ['Spectra data missing location att?', '', warnings, mzId_parser.upload_id])
+                    con.commit()
+                except psycopg2.Error as e:
+                    raise db.DBException(e.message)
+                con.close()
+                return
+
             ftp = self.get_ftp_login()
             try:
                 ftp.cwd(target_dir)
-                self.logger.info('getting ' + peak_file)
+                print('getting ' + peak_file)
                 ftp.retrbinary("RETR " + peak_file,
-                               open(self.temp_dir + '/' + peak_file, 'wb').write)
+                               open(self.temp_dir + peak_file, 'wb').write)
             except ftplib.error_perm as e:
-                self.logger.info('missing file: ' + peak_file + " (checking for .gz)")
+                print('missing file: ' + peak_file + " (checking for .gz)")
                 #  check for gzipped
                 try:
                     self.logger.info('getting ' + peak_file + '.gz')
@@ -184,7 +204,7 @@ class TestLoop:
                                    open(self.temp_dir + '/' + peak_file + '.gz', 'wb').write)
                 except ftplib.error_perm as e:
                     ftp.close()
-                    self.logger.info('missing file: ' + peak_file + '.gz')
+                    print('missing file: ' + peak_file + '.gz')
 
                     warnings = json.dumps(mzId_parser.warnings, cls=NumpyEncoder)
 
@@ -196,8 +216,7 @@ class TestLoop:
                             error_type=%s,
                             upload_error=%s,
                             upload_warnings=%s
-                        WHERE id = %s""", ["Couldn't fetch file from FTP", peak_file, warnings,
-                                       mzId_parser.upload_id])
+                        WHERE id = %s""", ["Missing file?", peak_file, warnings, mzId_parser.upload_id])
                         con.commit()
                     except psycopg2.Error as e:
                         raise db.DBException(e.message)
@@ -252,7 +271,7 @@ class TestLoop:
             return ftp
         except:
             print('FTP fail... giving it a few secs...')
-            time.sleep(10)
+            time.sleep(20)
             return self.get_ftp_login()
 
     def get_ftp_file_list (self, dir):
@@ -283,9 +302,16 @@ class TestLoop:
 
 test_loop = TestLoop()
 #
-test_loop.month("2012/12")
-test_loop.year("2013")
-test_loop.year("2014")
+test_loop.month("2014/05")
+test_loop.month("2014/06")
+test_loop.month("2014/07")
+test_loop.month("2014/08")
+test_loop.month("2014/09")
+test_loop.month("2014/10")
+test_loop.month("2014/11")
+test_loop.month("2014/12")
+# test_loop.year("2013")
+# test_loop.year("2014")
 test_loop.year("2015")
 test_loop.year("2016")
 test_loop.year("2017")
@@ -336,4 +362,8 @@ test_loop.year("2018")
 
 #missing file
 # test_loop.project("2013/09/PXD000443")
+
+#prob
+# test_loop.project("2014/04/PXD000579")
+
 print("mzId count:" + str(test_loop.mzId_count))
