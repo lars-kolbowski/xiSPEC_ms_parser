@@ -20,18 +20,18 @@ class TestLoop:
 
     def __init__(self):
 
-        self.exclusion_list = [
-            '2016/04/PXD003564',
-            '2016/04/PXD003565',
-            '2016/04/PXD003566',
-            '2016/04/PXD003567',
-            '2016/04/PXD003568',
-            '2016/05/PXD002905',
-            '2016/10/PXD003935',
-            '2016/10/PXD004572',
-            '2017/05/PXD005403',
-            '2017/06/PXD001767'  # big zip
-        ]
+        self.exclusion_list = []
+        #     '2016/04/PXD003564',
+        #     '2016/04/PXD003565',
+        #     '2016/04/PXD003566',
+        #     '2016/04/PXD003567',
+        #     '2016/04/PXD003568',
+        #     '2016/05/PXD002905',
+        #     '2016/10/PXD003935',
+        #     '2016/10/PXD004572',
+        #     '2017/05/PXD005403',
+        #     '2017/06/PXD001767'  # big zip
+        # ]
         # logging
         # try:
         #     dev = False
@@ -59,24 +59,24 @@ class TestLoop:
         self.temp_dir = os.path.expanduser('~') + "/parser_temp/"
 
         # connect to DB
-        # try:
-        #     con = db.connect('')
-        #     cur = con.cursor()
-        #
-        # except db.DBException as e:
-        #     self.logger.error(e)
-        #     print(e)
-        #     sys.exit(1)
-        #
-        # # create Database tables
-        # try:
-        #     db.create_tables(cur, con)
-        # except db.DBException as e:
-        #     self.logger.error(e)
-        #     print(e)
-        #     sys.exit(1)
-        #
-        # con.close
+        try:
+            con = db.connect('')
+            cur = con.cursor()
+
+        except db.DBException as e:
+            self.logger.error(e)
+            print(e)
+            sys.exit(1)
+
+        # create Database tables
+        try:
+            db.create_tables(cur, con)
+        except db.DBException as e:
+            self.logger.error(e)
+            print(e)
+            sys.exit(1)
+
+        con.close
 
     def all_years(self):
         files = self.get_ftp_file_list(self.base)
@@ -101,8 +101,8 @@ class TestLoop:
 
     def project(self, ymp):
         pxd = ymp.split('/')[-1]
-        prideAPI = urllib.urlopen('https://www.ebi.ac.uk:443/pride/ws/archive/project/' + pxd).read()
-        pride = json.loads(prideAPI)
+        # todo: defend against not getting response from pride api
+        pride = get_pride_info(pxd)
 
         if pride['submissionType'] == 'COMPLETE':
             target_dir = self.base + '/' + ymp
@@ -113,7 +113,7 @@ class TestLoop:
                 if f.lower().endswith('mzid') or f.lower().endswith('mzid.gz'):
                     print(f)
                     self.file(ymp, f)
-                    break
+                    # break
 
     def file(self, ymp, file_name):
         #  make temp dir
@@ -198,7 +198,8 @@ class TestLoop:
                 print('missing file: ' + peak_file + " (checking for .gz)")
                 #  check for gzipped
                 try:
-                    self.logger.info('getting ' + peak_file + '.gz')
+                    os.remove(self.temp_dir + peak_file)
+                    print('getting ' + peak_file + '.gz')
                     # ftp.cwd(target_dir + '/generated/')
                     ftp.retrbinary("RETR " + peak_file + '.gz',
                                    open(self.temp_dir + '/' + peak_file + '.gz', 'wb').write)
@@ -299,23 +300,32 @@ class TestLoop:
         ftp.quit()
         return files
 
+    @staticmethod
+    def get_pride_info (pxd):
+        time.sleep(1)
+        try:
+            prideAPI = urllib.urlopen('https://www.ebi.ac.uk:443/pride/ws/archive/project/' + pxd).read()
+            pride = json.loads(prideAPI)
+            return pride
+        except Exception:
+            print ("failed to get " + pxd + "from pride api. Will try again in 5 secs.")
+            time.sleep(5)
+            return TestLoop.get_pride_info(pxd)
+
 
 test_loop = TestLoop()
-#
-test_loop.month("2014/05")
-test_loop.month("2014/06")
-test_loop.month("2014/07")
-test_loop.month("2014/08")
-test_loop.month("2014/09")
-test_loop.month("2014/10")
-test_loop.month("2014/11")
-test_loop.month("2014/12")
-# test_loop.year("2013")
-# test_loop.year("2014")
-test_loop.year("2015")
-test_loop.year("2016")
-test_loop.year("2017")
-test_loop.year("2018")
+
+
+test_loop.month('2012/12')
+test_loop.year('2013')
+test_loop.year('2014')
+test_loop.year('2015')
+test_loop.year('2016')
+test_loop.year('2017')
+test_loop.year('2018')
+
+
+
 
 # mzML
 # test_loop.project("2017/11/PXD007748")
