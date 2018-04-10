@@ -9,7 +9,6 @@ from PeakListParser import PeakListParser
 import zipfile
 import gzip
 import os
-# import psycopg2
 
 
 class CsvParseException(Exception):
@@ -37,6 +36,7 @@ class CsvParser:
     ]
 
     optional_cols = [
+        # 'spectrum_id' $ ToDo: get rid of this? select alternatives by scannumber and peaklistfilename?
         'rank',
         'fragmenttolerance',
         'iontypes',
@@ -194,7 +194,7 @@ class CsvParser:
                     )
                 except IOError:
                     # ToDo: output all missing files not just first encountered. Use get_peak_list_file_names()?
-                    raise CsvParseException('Missing peak list file: %s' % ntpath.basename(peak_list_file_path))
+                    raise CsvParseException('Missing peak list file: %s' % peak_list_file_name)
 
             peak_list_readers[peak_list_file_name] = peak_list_reader
 
@@ -372,8 +372,7 @@ class CsvParser:
             else:
                 raise CsvParseException('Invalid passThreshold value: %s for id: %s' % (id_item['passthreshold'], id_item['id']))
 
-            # fragmenttolerance ToDo - regex for fragtol and unit
-
+            # fragmenttolerance
             if not re.match('^([0-9.]+) (ppm|Da)$', id_item['fragmenttolerance']):
                 raise CsvParseException('Invalid FragmentTolerance value: %s for id: %s' % (id_item['fragmenttolerance'], id_item['id']))
             else:
@@ -391,7 +390,10 @@ class CsvParser:
                 'z'
             ]
             if any([True for ion in ions if ion not in valid_ions]):
-                raise CsvParseException('Unrecognized IonType in: %s for id: %s' % (id_item['iontypes'], id_item['id']))
+                raise CsvParseException(
+                    'Unsupported IonType in: %s for id: %s! Supported ions are: peptide;a;b;c;x;y;z.'
+                    % (id_item['iontypes'], id_item['id'])
+                )
             ion_types = id_item['iontypes']
 
             # score
@@ -431,10 +433,10 @@ class CsvParser:
             # protein - decoy - pepPos sensibility check
             if not len(protein_list1) == len(is_decoy_list1):
                 raise CsvParseException(
-                    'Inconsistent number of protein to decoy values for Protein1 and Decoy1!')
+                    'Inconsistent number of protein to decoy values for Protein1 and Decoy1 for id: %s!' % id_item['id'])
             if not len(protein_list1) == len(pep_pos_list1):
                 raise CsvParseException(
-                    'Inconsistent number of protein to pepPos values for Protein1 and PepPos1!')
+                    'Inconsistent number of protein to pepPos values for Protein1 and PepPos1 for id: %s!' % id_item['id'])
 
             # protein2
             protein_list2 = id_item['protein2'].split(";")
@@ -467,10 +469,10 @@ class CsvParser:
             # protein - decoy - pepPos sensibility check
             if not len(protein_list2) == len(is_decoy_list2):
                 raise CsvParseException(
-                    'Inconsistent number of protein to decoy values for Protein2 and Decoy2!')
+                    'Inconsistent number of protein to decoy values for Protein2 and Decoy2 for id: %s!' % id_item['id'])
             if not len(protein_list2) == len(pep_pos_list2):
                 raise CsvParseException(
-                    'Inconsistent number of protein to pepPos values for Protein2 and PepPos2!')
+                    'Inconsistent number of protein to pepPos values for Protein2 and PepPos2! for id: %s!' % id_item['id'])
 
             # scannumber
             try:
@@ -661,7 +663,6 @@ class CsvParser:
 
 
 class xiSPEC_CsvParser(CsvParser):
-    # ToDo: adjust to xiUI needs
     required_cols = [
         'id',
         'scannumber',
@@ -712,7 +713,6 @@ class xiSPEC_CsvParser(CsvParser):
         'expmz': -1,  # ToDo: required in mzid - also make required col?
         'calcmz': -1
     }
-
 
     def parse_db_sequences(self, csv_reader):
         pass
