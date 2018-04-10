@@ -1,6 +1,6 @@
 import ntpath
 import zipfile
-import ms2Reader as py_msn
+import Ms2Reader as py_msn
 import MGF as py_mgf
 import pymzml
 import re
@@ -218,12 +218,16 @@ class PeakListParser:
 
         if not identified_spec_id_format:
             # ToDo: display warning or throw error? depending on strict mode or not?
-            matches = re.findall("([0-9]+)", spec_id)
-
+            # matches = re.findall("([0-9]+)", spec_id)
+            match = re.match("(.*)([0-9]+)", spec_id)
             try:
-                spec_id = int(matches[-1])
+                # spec_id = int(matches[-1])
+                spec_id = match.group(2)
             except IndexError:
                 raise PeakListParseError("failed to parse spectrumID from %s" % spec_id)
+
+            #
+            # spec_id = match.group(2)
 
         return spec_id
 
