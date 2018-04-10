@@ -43,6 +43,9 @@ class MzIdParser:
             self.mzId_path = mzId_path
         self.peak_list_readers = {}  # peak list readers indexed by spectraData_ref
         self.temp_dir = temp_dir
+        if not self.temp_dir.endswith('/'):
+            self.temp_dir += '/'
+
         self.db = db
         self.logger = logger
         self.origin = origin
@@ -146,7 +149,7 @@ class MzIdParser:
                     )
                 except IOError:
                     # ToDo: output all missing files not just first encountered. Use get_peak_list_file_names()
-                    raise MzIdParseException('Missing peak list file: %s' % peak_list_file_name)
+                    raise MzIdParseException('Missing peak list file: %s' % peak_list_file_path)
 
             peak_list_readers[sd_id] = peak_list_reader
 
