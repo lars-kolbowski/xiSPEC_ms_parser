@@ -102,7 +102,7 @@ class TestLoop:
     def project(self, ymp):
         pxd = ymp.split('/')[-1]
         # todo: defend against not getting response from pride api
-        pride = get_pride_info(pxd)
+        pride = TestLoop.get_pride_info(pxd)
 
         if pride['submissionType'] == 'COMPLETE':
             target_dir = self.base + '/' + ymp
