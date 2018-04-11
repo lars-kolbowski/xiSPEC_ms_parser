@@ -282,7 +282,7 @@ class MzIdParser:
             except KeyError:
                 self.warnings.append({
                     "type": "mzidParseError",
-                    "message": "could not parse ms2tolerance. Falling back to default values.",
+                    "message": "could not parse ms2tolerance. Falling back to default: 10 ppm.",
                     # 'id': id_string
                 })
                 frag_tol_value = '10'
@@ -619,19 +619,19 @@ class MzIdParser:
                 # get suitable id
                 if 'cross-link spectrum identification item' in spec_id_item.keys():
                     self.contains_crosslinks = True
-                    id = spec_id_item['cross-link spectrum identification item']
+                    cross_link_id = spec_id_item['cross-link spectrum identification item']
                 else:  # assuming linear
                     # misusing 'cross-link spectrum identification item' for linear peptides with negative index
                     #specIdItem['cross-link spectrum identification item'] = linear_index
                     #spec_id_set.add(get_cross_link_identifier(specIdItem))
 
-                    id = linear_index
+                    cross_link_id = linear_index
                     linear_index -= 1
 
                 # check if seen it before
-                if id in spectrum_ident_dict.keys():
+                if cross_link_id in spectrum_ident_dict.keys():
                     # do crosslink specific stuff
-                    ident_data = spectrum_ident_dict.get(id)
+                    ident_data = spectrum_ident_dict.get(cross_link_id)
                     ident_data[4] = self.peptide_id_lookup[spec_id_item['peptide_ref']]
                 else:
                     # do stuff common to linears and crosslinks
@@ -679,6 +679,7 @@ class MzIdParser:
 
                     ident_data = [
                         identification_id,
+                        # spec_id_item['id'],
                         self.upload_id,
                         spec_id,
                         self.peptide_id_lookup[spec_id_item['peptide_ref']],
@@ -692,7 +693,7 @@ class MzIdParser:
                         calculated_mass_to_charge
                     ]
 
-                    spectrum_ident_dict[id] = ident_data
+                    spectrum_ident_dict[cross_link_id] = ident_data
 
                     identification_id += 1
 
