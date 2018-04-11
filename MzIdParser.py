@@ -433,7 +433,8 @@ class MzIdParser:
                             continue
 
                     # link_index = 0  # TODO: multilink support
-
+                    # mod_location is 0-based for assigning modifications to correct amino acid
+                    # mod['location'] is 1-based with 0 being n-terminal and len(pep)+1 being C-terminal
                     if mod['location'] == 0:
                         mod_location = 0
                         n_terminal_mod = True
@@ -476,7 +477,8 @@ class MzIdParser:
 
                     # add CL locations
                     if 'cross-link donor' in mod.keys() or 'cross-link acceptor' in mod.keys() or 'cross-link receiver' in mod.keys():
-                        link_site = mod_location
+                        # use mod['location'] for link-site (1-based in database in line with mzIdentML specifications)
+                        link_site = mod['location']
                         # return_dict['linkSites'].append(
                         #     {"id": link_index, "peptideId": pep_index, "linkSite": mod_location - 1})
                     if 'cross-link acceptor' in mod.keys():
