@@ -95,7 +95,12 @@ class MzIdParser:
         """
         peak_list_file_names = []
         for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
-            sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
+            # can crash here if
+            # lxml.etree.XMLSyntaxError: Input is not proper UTF-8, indicate encoding !
+            try:
+                sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
+            except Exception as e:
+                raise MzIdParseException(e)
             peak_list_file_name = ntpath.basename(sp_datum['location'])
             peak_list_file_names.append(peak_list_file_name)
 
