@@ -25,7 +25,7 @@ class CsvParser:
     """
     # ToDo: adjust to xiUI needs
     required_cols = [
-        'scannumber',
+        'scanid',
         'charge',
         'pepseq1',
         'protein1',
@@ -35,7 +35,7 @@ class CsvParser:
     ]
 
     optional_cols = [
-        # 'spectrum_id' $ ToDo: get rid of this? select alternatives by scannumber and peaklistfilename?
+        # 'spectrum_id' $ ToDo: get rid of this? select alternatives by scanid and peaklistfilename?
         'rank',
         'fragmenttolerance',
         'iontypes',
@@ -273,7 +273,7 @@ class CsvParser:
         peptides = []
 
         # list of spectra that were already seen - index in list is spectrum_id
-        # combination of peaklistfilename and scannumber is a unique identifier
+        # combination of peaklistfilename and scanid is a unique identifier
         seen_spectra = []
 
         # list of peptides that were already seen - index in list is peptide_id
@@ -474,11 +474,11 @@ class CsvParser:
                 raise CsvParseException(
                     'Inconsistent number of protein to pepPos values for Protein2 and PepPos2! for row: %s!' % row_number)
 
-            # scannumber
+            # scanid
             try:
-                scan_id = int(id_item['scannumber'])
+                scan_id = int(id_item['scanid'])
             except ValueError:
-                raise CsvParseException('Invalid scanNumber: %s for row: %s' % (id_item['scannumber'], row_number))
+                raise CsvParseException('Invalid scanid: %s for row: %s' % (id_item['scanid'], row_number))
 
             # peaklistfilename
 
@@ -664,7 +664,7 @@ class CsvParser:
 
 class xiSPEC_CsvParser(CsvParser):
     required_cols = [
-        'scannumber',
+        'scanid',
         'charge',
         'pepseq1',
         'protein1',
