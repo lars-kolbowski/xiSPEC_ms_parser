@@ -492,7 +492,14 @@ class MzIdParser:
             peptide_seq_with_mods = ''.join([''.join([x['aminoAcid'], x['Modification']]) for x in pep_seq_dict])
 
             # data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
-            data = [peptide_index, peptide_seq_with_mods, link_site, crosslinker_modmass, self.upload_id, value]
+            data = [
+                peptide_index,      # debug use mzid peptide['id'],
+                peptide_seq_with_mods,
+                link_site,
+                crosslinker_modmass,
+                self.upload_id,
+                value
+            ]
 
             peptide_inj_list.append(data)
             self.peptide_id_lookup[peptide['id']] = peptide_index
@@ -538,22 +545,42 @@ class MzIdParser:
         for pep_ev_id in self.mzid_reader._offset_index["PeptideEvidence"].keys():
             peptide_evidence = self.mzid_reader.get_by_id(pep_ev_id, tag_id='PeptideEvidence', detailed=True)
 
-            data = []  # peptide_ref, dBSequence_ref, protein_accession, start, upload_id
-            data.append(self.peptide_id_lookup[peptide_evidence["peptide_ref"]])  # peptide_ref att, required
-            data.append(peptide_evidence["dBSequence_ref"])  # DBSequence_ref att, required
-            data.append(db_seq_ref_prot_map[peptide_evidence["dBSequence_ref"]])
+            # data = []  # peptide_ref, dBSequence_ref, protein_accession, start, upload_id
+            # data.append(self.peptide_id_lookup[peptide_evidence["peptide_ref"]])  # peptide_ref att, required
+            # data.append(peptide_evidence["dBSequence_ref"])  # DBSequence_ref att, required
+            # data.append(db_seq_ref_prot_map[peptide_evidence["dBSequence_ref"]])
+            #
+            # if "start" in peptide_evidence:
+            #     data.append(peptide_evidence["start"])  # start att, optional
+            # else:
+            #     data.append(-1)
+            #
+            # if "isDecoy" in peptide_evidence:
+            #     data.append(peptide_evidence["isDecoy"])  # isDecoy att, optional
+            # else:
+            #     data.append(None)
+            #
+            # data.append(self.upload_id)
 
+            pep_start = -1
             if "start" in peptide_evidence:
-                data.append(peptide_evidence["start"])  # start att, optional
-            else:
-                data.append(-1)
+                pep_start = peptide_evidence["start"]    # start att, optional
 
+            is_decoy = None
             if "isDecoy" in peptide_evidence:
-                data.append(peptide_evidence["isDecoy"])  # isDecoy att, optional
-            else:
-                data.append(None)
+                is_decoy = peptide_evidence["isDecoy"]   # isDecoy att, optional
 
-            data.append(self.upload_id)
+            peptide_ref = self.peptide_id_lookup[peptide_evidence["peptide_ref"]]
+            # peptide_ref = peptide_evidence["peptide_ref"]     # debug use mzid peptide['id'],
+
+            data = [
+                peptide_ref,       #' peptide_ref',
+                peptide_evidence["dBSequence_ref"],                             # 'dbsequence_ref',
+                db_seq_ref_prot_map[peptide_evidence["dBSequence_ref"]],        #'protein_accession',
+                pep_start,                                                      # 'pep_start',
+                is_decoy,       # 'is_decoy',
+                self.upload_id  # 'upload_id'
+            ]
 
             inj_list.append(data)
 
@@ -635,6 +662,7 @@ class MzIdParser:
                     # do crosslink specific stuff
                     ident_data = spectrum_ident_dict.get(cross_link_id)
                     ident_data[4] = self.peptide_id_lookup[spec_id_item['peptide_ref']]
+                    # ident_data[4] = spec_id_item['peptide_ref'] # debug
                 else:
                     # do stuff common to linears and crosslinks
                     charge_state = spec_id_item['chargeState']
@@ -684,7 +712,7 @@ class MzIdParser:
                         # spec_id_item['id'],
                         self.upload_id,
                         spec_id,
-                        self.peptide_id_lookup[spec_id_item['peptide_ref']],
+                        self.peptide_id_lookup[spec_id_item['peptide_ref']],    # debug use spec_id_item['peptide_ref'],
                         '',  # pep2
                         charge_state,
                         rank,
