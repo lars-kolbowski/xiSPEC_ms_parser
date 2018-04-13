@@ -59,24 +59,24 @@ class TestLoop:
         self.temp_dir = os.path.expanduser('~') + "/parser_temp/"
 
         # connect to DB
-        # try:
-        #     con = db.connect('')
-        #     cur = con.cursor()
-        #
-        # except db.DBException as e:
-        #     self.logger.error(e)
-        #     print(e)
-        #     sys.exit(1)
-        #
-        # # create Database tables
-        # try:
-        #     db.create_tables(cur, con)
-        # except db.DBException as e:
-        #     self.logger.error(e)
-        #     print(e)
-        #     sys.exit(1)
-        #
-        # con.close
+        try:
+            con = db.connect('')
+            cur = con.cursor()
+
+        except db.DBException as e:
+            self.logger.error(e)
+            print(e)
+            sys.exit(1)
+
+        # create Database tables
+        try:
+            db.create_tables(cur, con)
+        except db.DBException as e:
+            self.logger.error(e)
+            print(e)
+            sys.exit(1)
+
+        con.close
 
     def all_years(self):
         files = self.get_ftp_file_list(self.base)
@@ -318,6 +318,7 @@ class TestLoop:
                 print error_msg
 
         ftp.quit()
+        files.reverse()
         return files
 
     @staticmethod
@@ -380,18 +381,19 @@ test_loop = TestLoop()
 
 # crash at 2015/05/PXD001428 (out of memory / thrashing)
 
-test_loop.month('2015/06')
-test_loop.month('2015/07')
-test_loop.month('2015/08')
-test_loop.month('2015/09')
-test_loop.month('2015/10')
-test_loop.month('2015/11')
-test_loop.month('2015/12')
+# test_loop.month('2015/06')
+# test_loop.month('2015/07')
+# test_loop.month('2015/08')
+# test_loop.month('2015/09')
+# test_loop.month('2015/10')
+# test_loop.month('2015/11')
+# test_loop.month('2015/12')
 
 
-test_loop.year('2016')
-test_loop.year('2017')
 test_loop.year('2018')
+test_loop.year('2017')
+test_loop.year('2016')
+test_loop.year('2015')
 
 
 # mzML
