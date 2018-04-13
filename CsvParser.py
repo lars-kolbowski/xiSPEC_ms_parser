@@ -25,8 +25,7 @@ class CsvParser:
     """
     # ToDo: adjust to xiUI needs
     required_cols = [
-        'id',
-        'scannumber',
+        'scanid',
         'charge',
         'pepseq1',
         'protein1',
@@ -36,7 +35,7 @@ class CsvParser:
     ]
 
     optional_cols = [
-        # 'spectrum_id' $ ToDo: get rid of this? select alternatives by scannumber and peaklistfilename?
+        # 'spectrum_id' $ ToDo: get rid of this? select alternatives by scanid and peaklistfilename?
         'rank',
         'fragmenttolerance',
         'iontypes',
@@ -55,8 +54,6 @@ class CsvParser:
     ]
 
     default_values = {
-        # 'id',
-        # 'scannumber',
         'rank': 1,
         'pepseq1': '',
         'pepseq2': '',
@@ -276,7 +273,7 @@ class CsvParser:
         peptides = []
 
         # list of spectra that were already seen - index in list is spectrum_id
-        # combination of peaklistfilename and scannumber is a unique identifier
+        # combination of peaklistfilename and scanid is a unique identifier
         seen_spectra = []
 
         # list of peptides that were already seen - index in list is peptide_id
@@ -285,13 +282,16 @@ class CsvParser:
 
         cross_linker_pair_count = 0
 
-        # ID VALIDITY CHECK - unique ids
-        if len(self.csv_reader['id'].unique()) < len(self.csv_reader):
-            duplicate_ids = self.csv_reader[self.csv_reader.duplicated('id', keep=False)].id.tolist()
-            duplicate_ids = [str(i) for i in duplicate_ids]
-            raise CsvParseException('Duplicate ids found: %s' % "; ".join(duplicate_ids))
+        # # ID VALIDITY CHECK - unique ids
+        # if len(self.csv_reader['id'].unique()) < len(self.csv_reader):
+        #     duplicate_ids = self.csv_reader[self.csv_reader.duplicated('id', keep=False)].id.tolist()
+        #     duplicate_ids = [str(i) for i in duplicate_ids]
+        #     raise CsvParseException('Duplicate ids found: %s' % "; ".join(duplicate_ids))
 
         for identification_id, id_item in self.csv_reader.iterrows():  # identification_id, id_item = id_df.iterrows().next()
+
+            # 1 based row number
+            row_number = identification_id + 1
 
             #
             # VALIDITY CHECKS & TYPE CONVERSIONS - ToDo: move type checks/conversions to col level in parse()?
@@ -302,7 +302,7 @@ class CsvParser:
             except KeyError:
                 rank = 1    # ToDo: create default values in parse()
             except ValueError:
-                raise CsvParseException('Invalid rank: %s for id: %s' % (id_item['rank'], id_item['id']))
+                raise CsvParseException('Invalid rank: %s for row: %s' % (id_item['rank'], row_number))
 
             # pepSeq
 
@@ -317,13 +317,13 @@ class CsvParser:
             invalid_char_pattern_pepseq = '([^GALMFWKQESPVICYHRNDTa-z:0-9(.)\-]+)'
             # pepSeq - 1
             if id_item['pepseq1'] == '':
-                raise CsvParseException('Missing PepSeq1 for id: %s' % id_item['id'])
+                raise CsvParseException('Missing PepSeq1 for row: %s' % row_number)
 
             invalid_char_match = re.match(invalid_char_pattern_pepseq, id_item['pepseq1'])
             if invalid_char_match:
                 invalid_chars = "; ".join(invalid_char_match.groups())
                 raise CsvParseException(
-                    'Invalid character(s) found in PepSeq1: %s for id: %s' % (invalid_chars, id_item['id'])
+                    'Invalid character(s) found in PepSeq1: %s for row: %s' % (invalid_chars, row_number)
                 )
             pepseq1 = id_item['pepseq1']
             # pepSeq - 2
@@ -335,7 +335,7 @@ class CsvParser:
                 if invalid_char_match:
                     invalid_chars = "; ".join(invalid_char_match.groups())
                     raise CsvParseException(
-                        'Invalid character(s) found in PepSeq2: %s for id: %s' % (invalid_chars, id_item['id'])
+                        'Invalid character(s) found in PepSeq2: %s for row: %s' % (invalid_chars, row_number)
                     )
             pepseq2 = id_item['pepseq2']
             # LinkPos
@@ -343,38 +343,38 @@ class CsvParser:
             try:
                 linkpos1 = int(id_item['linkpos1'])
             except ValueError:
-                raise CsvParseException('Invalid LinkPos1: %s for id: %s' % (id_item['linkpos1'], id_item['id']))
+                raise CsvParseException('Invalid LinkPos1: %s for row: %s' % (id_item['linkpos1'], row_number))
 
             # LinkPos - 2
             try:
                 linkpos2 = int(id_item['linkpos2'])
             except ValueError:
-                raise CsvParseException('Invalid LinkPos2: %s for id: %s' % (id_item['linkpos2'], id_item['id']))
+                raise CsvParseException('Invalid LinkPos2: %s for row: %s' % (id_item['linkpos2'], row_number))
 
             if (linkpos1 == -1 and not linkpos2 == -1) or (linkpos1 == -1 and not linkpos2 == -1):
-                raise CsvParseException('Incomplete cross-link site information for id: %s' % id_item['id'])
+                raise CsvParseException('Incomplete cross-link site information for row: %s' % row_number)
 
             # CrossLinkerModMass
             try:
                 cross_link_mod_mass = float(id_item['crosslinkermodmass'])
             except ValueError:
-                raise CsvParseException('Invalid CrossLinkerModMass: %s for id: %s' % (id_item['crosslinkermodmass'], id_item['id']))
+                raise CsvParseException('Invalid CrossLinkerModMass: %s for row: %s' % (id_item['crosslinkermodmass'], row_number))
 
             # charge
             try:
                 charge = int(id_item['charge'])
             except ValueError:
-                raise CsvParseException('Invalid charge state: %s for id: %s' % (id_item['charge'], id_item['id']))
+                raise CsvParseException('Invalid charge state: %s for row: %s' % (id_item['charge'], row_number))
 
             # passthreshold
             if isinstance(id_item['passthreshold'], bool):
                 pass_threshold = id_item['passthreshold']
             else:
-                raise CsvParseException('Invalid passThreshold value: %s for id: %s' % (id_item['passthreshold'], id_item['id']))
+                raise CsvParseException('Invalid passThreshold value: %s for row: %s' % (id_item['passthreshold'], row_number))
 
             # fragmenttolerance
             if not re.match('^([0-9.]+) (ppm|Da)$', id_item['fragmenttolerance']):
-                raise CsvParseException('Invalid FragmentTolerance value: %s for id: %s' % (id_item['fragmenttolerance'], id_item['id']))
+                raise CsvParseException('Invalid FragmentTolerance value: %s for row: %s' % (id_item['fragmenttolerance'], row_number))
             else:
                 fragment_tolerance = id_item['fragmenttolerance']
 
@@ -391,8 +391,8 @@ class CsvParser:
             ]
             if any([True for ion in ions if ion not in valid_ions]):
                 raise CsvParseException(
-                    'Unsupported IonType in: %s for id: %s! Supported ions are: peptide;a;b;c;x;y;z.'
-                    % (id_item['iontypes'], id_item['id'])
+                    'Unsupported IonType in: %s for row: %s! Supported ions are: peptide;a;b;c;x;y;z.'
+                    % (id_item['iontypes'], row_number)
                 )
             ion_types = id_item['iontypes']
 
@@ -400,7 +400,7 @@ class CsvParser:
             try:
                 score = float(id_item['score'])
             except ValueError:
-                raise CsvParseException('Invalid score: %s for id: %s' % (id_item['score'], id_item['id']))
+                raise CsvParseException('Invalid score: %s for row: %s' % (id_item['score'], row_number))
 
             # protein1
             protein_list1 = id_item['protein1'].split(";")
@@ -418,8 +418,8 @@ class CsvParser:
                         is_decoy_list1.append(0)
                     else:
                         raise CsvParseException(
-                            'Invalid value in Decoy 1: %s for id: %s. Allowed values: True, False.'
-                            % (id_item['decoy1'], id_item['id'])
+                            'Invalid value in Decoy 1: %s for row: %s. Allowed values: True, False.'
+                            % (id_item['decoy1'], row_number)
                         )
 
             # pepPos1 - if pepPos1 is not set fill list with default value (-1)
@@ -433,10 +433,10 @@ class CsvParser:
             # protein - decoy - pepPos sensibility check
             if not len(protein_list1) == len(is_decoy_list1):
                 raise CsvParseException(
-                    'Inconsistent number of protein to decoy values for Protein1 and Decoy1 for id: %s!' % id_item['id'])
+                    'Inconsistent number of protein to decoy values for Protein1 and Decoy1 for row: %s!' % row_number)
             if not len(protein_list1) == len(pep_pos_list1):
                 raise CsvParseException(
-                    'Inconsistent number of protein to pepPos values for Protein1 and PepPos1 for id: %s!' % id_item['id'])
+                    'Inconsistent number of protein to pepPos values for Protein1 and PepPos1 for row: %s!' % row_number)
 
             # protein2
             protein_list2 = id_item['protein2'].split(";")
@@ -454,8 +454,8 @@ class CsvParser:
                         is_decoy_list2.append(0)
                     else:
                         raise CsvParseException(
-                            'Invalid value in Decoy 2: %s for id: %s. Allowed values: True, False.'
-                            % (id_item['decoy2'], id_item['id'])
+                            'Invalid value in Decoy 2: %s for row: %s. Allowed values: True, False.'
+                            % (id_item['decoy2'], row_number)
                         )
 
             # pepPos2 - if pepPos2 is not set fill list with default value (-1)
@@ -469,16 +469,16 @@ class CsvParser:
             # protein - decoy - pepPos sensibility check
             if not len(protein_list2) == len(is_decoy_list2):
                 raise CsvParseException(
-                    'Inconsistent number of protein to decoy values for Protein2 and Decoy2 for id: %s!' % id_item['id'])
+                    'Inconsistent number of protein to decoy values for Protein2 and Decoy2 for row: %s!' % row_number)
             if not len(protein_list2) == len(pep_pos_list2):
                 raise CsvParseException(
-                    'Inconsistent number of protein to pepPos values for Protein2 and PepPos2! for id: %s!' % id_item['id'])
+                    'Inconsistent number of protein to pepPos values for Protein2 and PepPos2! for row: %s!' % row_number)
 
-            # scannumber
+            # scanid
             try:
-                scan_id = int(id_item['scannumber'])
+                scan_id = int(id_item['scanid'])
             except ValueError:
-                raise CsvParseException('Invalid scanNumber: %s for id: %s' % (id_item['scannumber'], id_item['id']))
+                raise CsvParseException('Invalid scanid: %s for row: %s' % (id_item['scanid'], row_number))
 
             # peaklistfilename
 
@@ -486,12 +486,12 @@ class CsvParser:
             try:
                 exp_mz = float(id_item['expmz'])
             except ValueError:
-                raise CsvParseException('Invalid expMZ: %s for id: %s' % (id_item['exmpmz'], id_item['id']))
+                raise CsvParseException('Invalid expMZ: %s for row: %s' % (id_item['exmpmz'], row_number))
             # calcMZ
             try:
                 calc_mz = float(id_item['calcmz'])
             except ValueError:
-                raise CsvParseException('Invalid calcMZ: %s for id: %s' % (id_item['calcmz'], id_item['id']))
+                raise CsvParseException('Invalid calcMZ: %s for row: %s' % (id_item['calcmz'], row_number))
 
 
             # Start actual parsing
@@ -614,7 +614,7 @@ class CsvParser:
             scores = json.dumps({'score': score})
 
             spectrum_identification = [
-                id_item['id'],              # 'id', - ToDo: change to internal id
+                identification_id,          # 'id',
                 self.upload_id,             # 'upload_id',
                 spectrum_id,                # 'spectrum_id',
                 pep1_id,                    # 'pep1_id',
@@ -664,8 +664,7 @@ class CsvParser:
 
 class xiSPEC_CsvParser(CsvParser):
     required_cols = [
-        'id',
-        'scannumber',
+        'scanid',
         'charge',
         'pepseq1',
         'protein1',
@@ -693,8 +692,6 @@ class xiSPEC_CsvParser(CsvParser):
     ]
 
     default_values = {
-        # 'id',
-        # 'scannumber',
         'rank': 1,
         'pepseq1': '',
         'pepseq2': '',

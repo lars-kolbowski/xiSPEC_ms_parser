@@ -209,20 +209,24 @@ class PeakListParser:
         # MS:1001530 mzML unique identifier:
         # Used for referencing mzML. The value of the spectrum ID attribute is referenced directly.
         elif self.spectrum_id_format_accession == 'MS:1001530':
-            matches = re.search("scan=([0-9]+)", spec_id).groups()
-            try:
-                spec_id = int(matches[0])
-                identified_spec_id_format = True
-            except IndexError:
-                pass
+            # ToDo: pymzML uses scan number as index and not the spectrumID attribute therefore
+            # ToDo: we resort to using the default way of parsing the spec_id, i.e. using the last number in the string
+            # ToDo: This might change if we are going to use a different (more standards compliant approach)
+            identified_spec_id_format = False
+            # matches = re.search("scan=([0-9]+)", spec_id).groups()
+            # try:
+            #     spec_id = int(matches[0])
+            #     identified_spec_id_format = True
+            # except IndexError:
+            #     pass
 
         if not identified_spec_id_format:
             # ToDo: display warning or throw error? depending on strict mode or not?
-            # matches = re.findall("([0-9]+)", spec_id)
-            match = re.match("(.*)([0-9]+)", spec_id)
+            matches = re.findall("([0-9]+)", spec_id)
+            # match = re.match("(.*)([0-9]+)", spec_id)
             try:
-                # spec_id = int(matches[-1])
-                spec_id = match.group(2)
+                spec_id = int(matches[-1])
+                # spec_id = match.group(2)
             except IndexError:
                 raise PeakListParseError("failed to parse spectrumID from %s" % spec_id)
 

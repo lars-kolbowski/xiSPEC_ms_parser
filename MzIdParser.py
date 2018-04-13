@@ -287,7 +287,7 @@ class MzIdParser:
             except KeyError:
                 self.warnings.append({
                     "type": "mzidParseError",
-                    "message": "could not parse ms2tolerance. Falling back to default values.",
+                    "message": "could not parse ms2tolerance. Falling back to default: 10 ppm.",
                     # 'id': id_string
                 })
                 frag_tol_value = '10'
@@ -438,7 +438,8 @@ class MzIdParser:
                             continue
 
                     # link_index = 0  # TODO: multilink support
-
+                    # mod_location is 0-based for assigning modifications to correct amino acid
+                    # mod['location'] is 1-based with 0 being n-terminal and len(pep)+1 being C-terminal
                     if mod['location'] == 0:
                         mod_location = 0
                         n_terminal_mod = True
@@ -481,7 +482,8 @@ class MzIdParser:
 
                     # add CL locations
                     if 'cross-link donor' in mod.keys() or 'cross-link acceptor' in mod.keys() or 'cross-link receiver' in mod.keys():
-                        link_site = mod_location
+                        # use mod['location'] for link-site (1-based in database in line with mzIdentML specifications)
+                        link_site = mod['location']
                         # return_dict['linkSites'].append(
                         #     {"id": link_index, "peptideId": pep_index, "linkSite": mod_location - 1})
                     if 'cross-link acceptor' in mod.keys():
@@ -495,7 +497,14 @@ class MzIdParser:
             peptide_seq_with_mods = ''.join([''.join([x['aminoAcid'], x['Modification']]) for x in pep_seq_dict])
 
             # data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
-            data = [peptide_index, peptide_seq_with_mods, link_site, crosslinker_modmass, self.upload_id, value]
+            data = [
+                peptide_index,      # debug use mzid peptide['id'],
+                peptide_seq_with_mods,
+                link_site,
+                crosslinker_modmass,
+                self.upload_id,
+                value
+            ]
 
             peptide_inj_list.append(data)
             self.peptide_id_lookup[peptide['id']] = peptide_index
@@ -541,22 +550,42 @@ class MzIdParser:
         for pep_ev_id in self.mzid_reader._offset_index["PeptideEvidence"].keys():
             peptide_evidence = self.mzid_reader.get_by_id(pep_ev_id, tag_id='PeptideEvidence', detailed=True)
 
-            data = []  # peptide_ref, dBSequence_ref, protein_accession, start, upload_id
-            data.append(self.peptide_id_lookup[peptide_evidence["peptide_ref"]])  # peptide_ref att, required
-            data.append(peptide_evidence["dBSequence_ref"])  # DBSequence_ref att, required
-            data.append(db_seq_ref_prot_map[peptide_evidence["dBSequence_ref"]])
+            # data = []  # peptide_ref, dBSequence_ref, protein_accession, start, upload_id
+            # data.append(self.peptide_id_lookup[peptide_evidence["peptide_ref"]])  # peptide_ref att, required
+            # data.append(peptide_evidence["dBSequence_ref"])  # DBSequence_ref att, required
+            # data.append(db_seq_ref_prot_map[peptide_evidence["dBSequence_ref"]])
+            #
+            # if "start" in peptide_evidence:
+            #     data.append(peptide_evidence["start"])  # start att, optional
+            # else:
+            #     data.append(-1)
+            #
+            # if "isDecoy" in peptide_evidence:
+            #     data.append(peptide_evidence["isDecoy"])  # isDecoy att, optional
+            # else:
+            #     data.append(None)
+            #
+            # data.append(self.upload_id)
 
+            pep_start = -1
             if "start" in peptide_evidence:
-                data.append(peptide_evidence["start"])  # start att, optional
-            else:
-                data.append(-1)
+                pep_start = peptide_evidence["start"]    # start att, optional
 
+            is_decoy = None
             if "isDecoy" in peptide_evidence:
-                data.append(peptide_evidence["isDecoy"])  # isDecoy att, optional
-            else:
-                data.append(None)
+                is_decoy = peptide_evidence["isDecoy"]   # isDecoy att, optional
 
-            data.append(self.upload_id)
+            peptide_ref = self.peptide_id_lookup[peptide_evidence["peptide_ref"]]
+            # peptide_ref = peptide_evidence["peptide_ref"]     # debug use mzid peptide['id'],
+
+            data = [
+                peptide_ref,       #' peptide_ref',
+                peptide_evidence["dBSequence_ref"],                             # 'dbsequence_ref',
+                db_seq_ref_prot_map[peptide_evidence["dBSequence_ref"]],        #'protein_accession',
+                pep_start,                                                      # 'pep_start',
+                is_decoy,       # 'is_decoy',
+                self.upload_id  # 'upload_id'
+            ]
 
             inj_list.append(data)
 
@@ -624,20 +653,21 @@ class MzIdParser:
                 # get suitable id
                 if 'cross-link spectrum identification item' in spec_id_item.keys():
                     self.contains_crosslinks = True
-                    id = spec_id_item['cross-link spectrum identification item']
+                    cross_link_id = spec_id_item['cross-link spectrum identification item']
                 else:  # assuming linear
                     # misusing 'cross-link spectrum identification item' for linear peptides with negative index
                     #specIdItem['cross-link spectrum identification item'] = linear_index
                     #spec_id_set.add(get_cross_link_identifier(specIdItem))
 
-                    id = linear_index
+                    cross_link_id = linear_index
                     linear_index -= 1
 
                 # check if seen it before
-                if id in spectrum_ident_dict.keys():
+                if cross_link_id in spectrum_ident_dict.keys():
                     # do crosslink specific stuff
-                    ident_data = spectrum_ident_dict.get(id)
+                    ident_data = spectrum_ident_dict.get(cross_link_id)
                     ident_data[4] = self.peptide_id_lookup[spec_id_item['peptide_ref']]
+                    # ident_data[4] = spec_id_item['peptide_ref'] # debug
                 else:
                     # do stuff common to linears and crosslinks
                     charge_state = spec_id_item['chargeState']
@@ -684,9 +714,10 @@ class MzIdParser:
 
                     ident_data = [
                         identification_id,
+                        # spec_id_item['id'],
                         self.upload_id,
                         spec_id,
-                        self.peptide_id_lookup[spec_id_item['peptide_ref']],
+                        self.peptide_id_lookup[spec_id_item['peptide_ref']],    # debug use spec_id_item['peptide_ref'],
                         '',  # pep2
                         charge_state,
                         rank,
@@ -697,7 +728,7 @@ class MzIdParser:
                         calculated_mass_to_charge
                     ]
 
-                    spectrum_ident_dict[id] = ident_data
+                    spectrum_ident_dict[cross_link_id] = ident_data
 
                     identification_id += 1
 
