@@ -20,18 +20,18 @@ class TestLoop:
 
     def __init__(self):
 
-        self.exclusion_list = [
-            '2016/04/PXD003564',
-            '2016/04/PXD003565',
-            '2016/04/PXD003566',
-            '2016/04/PXD003567',
-            '2016/04/PXD003568',
-            '2016/05/PXD002905',
-            '2016/10/PXD003935',
-            '2016/10/PXD004572',
-            '2017/05/PXD005403',
-            '2017/06/PXD001767'  # big zip
-        ]
+        self.exclusion_list = []
+        #     '2016/04/PXD003564',
+        #     '2016/04/PXD003565',
+        #     '2016/04/PXD003566',
+        #     '2016/04/PXD003567',
+        #     '2016/04/PXD003568',
+        #     '2016/05/PXD002905',
+        #     '2016/10/PXD003935',
+        #     '2016/10/PXD004572',
+        #     '2017/05/PXD005403',
+        #     '2017/06/PXD001767'  # big zip
+        # ]
         # logging
         # try:
         #     dev = False
@@ -101,8 +101,8 @@ class TestLoop:
 
     def project(self, ymp):
         pxd = ymp.split('/')[-1]
-        prideAPI = urllib.urlopen('https://www.ebi.ac.uk:443/pride/ws/archive/project/' + pxd).read()
-        pride = json.loads(prideAPI)
+        # todo: defend against not getting response from pride api
+        pride = TestLoop.get_pride_info(pxd)
 
         if pride['submissionType'] == 'COMPLETE':
             target_dir = self.base + '/' + ymp
@@ -113,7 +113,7 @@ class TestLoop:
                 if f.lower().endswith('mzid') or f.lower().endswith('mzid.gz'):
                     print(f)
                     self.file(ymp, f)
-                    break
+                    # break
 
     def file(self, ymp, file_name):
         #  make temp dir
@@ -161,8 +161,29 @@ class TestLoop:
             con.close()
             return
 
-        # write upload info to db
-        mzId_parser.upload_info()
+        try:
+            # write upload info to db
+            mzId_parser.upload_info()
+        except Exception as mzId_error:
+            self.logger.exception(mzId_error)
+
+            error = json.dumps(mzId_error.args, cls=NumpyEncoder)
+
+            con = db.connect('')
+            cur = con.cursor()
+            try:
+                cur.execute("""
+                UPDATE uploads SET
+                    error_type=%s,
+                    upload_error=%s,
+                    spectra_formats=%s,
+                    upload_warnings=%s
+                WHERE id = %s""", [type(mzId_error).__name__ + " (thrown in func upload_info)", error, mzId_parser.upload_id])
+                con.commit()
+
+            except psycopg2.Error as e:
+                raise db.DBException(e.message)
+            con.close()
 
         # fetch peak list files from pride
         peak_files = mzId_parser.get_peak_list_file_names()
@@ -198,7 +219,8 @@ class TestLoop:
                 print('missing file: ' + peak_file + " (checking for .gz)")
                 #  check for gzipped
                 try:
-                    self.logger.info('getting ' + peak_file + '.gz')
+                    os.remove(self.temp_dir + peak_file)
+                    print('getting ' + peak_file + '.gz')
                     # ftp.cwd(target_dir + '/generated/')
                     ftp.retrbinary("RETR " + peak_file + '.gz',
                                    open(self.temp_dir + '/' + peak_file + '.gz', 'wb').write)
@@ -275,8 +297,7 @@ class TestLoop:
             return self.get_ftp_login()
 
     def get_ftp_file_list (self, dir):
-        ftp = ftplib.FTP(self.ip)
-        ftp.login()
+        ftp = self.get_ftp_login()
         try:
             ftp.cwd(dir)
         except ftplib.error_perm as e:
@@ -299,23 +320,79 @@ class TestLoop:
         ftp.quit()
         return files
 
+    @staticmethod
+    def get_pride_info (pxd):
+        time.sleep(1)
+        try:
+            prideAPI = urllib.urlopen('https://www.ebi.ac.uk:443/pride/ws/archive/project/' + pxd).read()
+            pride = json.loads(prideAPI)
+            return pride
+        except Exception:
+            print ("failed to get " + pxd + "from pride api. Will try again in 5 secs.")
+            time.sleep(5)
+            return TestLoop.get_pride_info(pxd)
+
 
 test_loop = TestLoop()
-#
-test_loop.month("2014/05")
-test_loop.month("2014/06")
-test_loop.month("2014/07")
-test_loop.month("2014/08")
-test_loop.month("2014/09")
-test_loop.month("2014/10")
-test_loop.month("2014/11")
-test_loop.month("2014/12")
-# test_loop.year("2013")
-# test_loop.year("2014")
-test_loop.year("2015")
-test_loop.year("2016")
-test_loop.year("2017")
-test_loop.year("2018")
+
+
+# test_loop.month('2012/12')
+# test_loop.year('2013')
+# test_loop.year('2014')
+
+# crashed at >> 2014/11/PXD001267
+# F100626.mzid.gz
+#   File "/var/www/html/xiUI/xiSPEC_ms_parser/TestLoop.py", line 165, in file
+#     mzId_parser.upload_info()
+#   File "/var/www/html/xiUI/xiSPEC_ms_parser/MzIdParser.py", line 737, in upload_info
+#     peak_list_file_names = json.dumps(self.get_peak_list_file_names(), cls=NumpyEncoder)
+#   File "/var/www/html/xiUI/xiSPEC_ms_parser/MzIdParser.py", line 98, in get_peak_list_file_names
+#     sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
+#   File "/var/www/html/xiUI/xiSPEC_ms_parser/python_env/local/lib/python2.7/site-packages/pyteomics/xml.py", line 65, in wrapped
+#     return func(self, *args, **kwargs)
+#   File "/var/www/html/xiUI/xiSPEC_ms_parser/python_env/local/lib/python2.7/site-packages/pyteomics/xml.py", line 992, in get_by_id
+#     elem = self._find_by_id_reset(elem_id, id_key=id_key)
+#   File "/var/www/html/xiUI/xiSPEC_ms_parser/python_env/local/lib/python2.7/site-packages/pyteomics/xml.py", line 65, in wrapped
+#     return func(self, *args, **kwargs)
+#   File "/var/www/html/xiUI/xiSPEC_ms_parser/python_env/local/lib/python2.7/site-packages/pyteomics/xml.py", line 957, in _find_by_id_reset
+#     return self._find_by_id_no_reset(elem_id, id_key=id_key)
+#   File "/var/www/html/xiUI/xiSPEC_ms_parser/python_env/local/lib/python2.7/site-packages/pyteomics/xml.py", line 515, in _find_by_id_no_reset
+#     self._source, events=('start', 'end'), remove_comments=True):
+#   File "src/lxml/iterparse.pxi", line 208, in lxml.etree.iterparse.__next__ (src/lxml/etree.c:155963)
+#   File "/home/col/parser_temp/F100626.mzid", line 28551
+# lxml.etree.XMLSyntaxError: Input is not proper UTF-8, indicate encoding !
+# Bytes: 0xE9 0x65 0x73 0x20, line 28551, column 94
+
+# could be some missing from 2014/11
+
+# test_loop.month('2014/12')
+
+# crashed at >> 2015/02/PXD000164 - I unplugged net cable
+
+# test_loop.year('2015')
+
+# test_loop.month('2015/02') - problems do this month again
+
+# test_loop.month('2015/03') # crash, >> 2015/03/PXD000980
+
+# test_loop.month('2015/04')
+# test_loop.month('2015/05')
+
+# crash at 2015/05/PXD001428 (out of memory / thrashing)
+
+test_loop.month('2015/06')
+test_loop.month('2015/07')
+test_loop.month('2015/08')
+test_loop.month('2015/09')
+test_loop.month('2015/10')
+test_loop.month('2015/11')
+test_loop.month('2015/12')
+
+
+test_loop.year('2016')
+test_loop.year('2017')
+test_loop.year('2018')
+
 
 # mzML
 # test_loop.project("2017/11/PXD007748")

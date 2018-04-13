@@ -144,15 +144,19 @@ class Reader(object):
             pos = 0
             peak_list_start_pos = None
             for line in fh:
-                if not line[0].isdigit():
-                    peak_list_start_pos = -1
-                else:
-                    if peak_list_start_pos is not None and peak_list_start_pos == -1:
+                if line[0].isdigit():
+                    if peak_list_start_pos is None or peak_list_start_pos == -1:
                         peak_list_start_pos = pos
+
+                elif peak_list_start_pos is not None and peak_list_start_pos != -1:
                         spec_positions.append((peak_list_start_pos, pos))
+                        peak_list_start_pos = -1
 
                 pos = pos + len(line)
 
+            # last one
+            if peak_list_start_pos != -1:
+                spec_positions.append((peak_list_start_pos, pos))
             return spec_positions
 
         indices = get_data_indices(seeker)
@@ -169,9 +173,6 @@ class Reader(object):
          ignore_dict_index: if set to True accessing files by listIndex
 
          """
-
-        if scan_id == 1935:
-            pass
 
         peak_list = None
         position = self.info['offsetList'][scan_id]
