@@ -59,24 +59,24 @@ class TestLoop:
         self.temp_dir = os.path.expanduser('~') + "/parser_temp/"
 
         # connect to DB
-        # try:
-        #     con = db.connect('')
-        #     cur = con.cursor()
-        #
-        # except db.DBException as e:
-        #     self.logger.error(e)
-        #     print(e)
-        #     sys.exit(1)
-        #
-        # # create Database tables
-        # try:
-        #     db.create_tables(cur, con)
-        # except db.DBException as e:
-        #     self.logger.error(e)
-        #     print(e)
-        #     sys.exit(1)
-        #
-        # con.close
+        try:
+            con = db.connect('')
+            cur = con.cursor()
+
+        except db.DBException as e:
+            self.logger.error(e)
+            print(e)
+            sys.exit(1)
+
+        # create Database tables
+        try:
+            db.create_tables(cur, con)
+        except db.DBException as e:
+            self.logger.error(e)
+            print(e)
+            sys.exit(1)
+
+        con.close
 
     def all_years(self):
         files = self.get_ftp_file_list(self.base)
@@ -173,17 +173,19 @@ class TestLoop:
             cur = con.cursor()
             try:
                 cur.execute("""
-                UPDATE uploads SET
-                    error_type=%s,
-                    upload_error=%s,
-                    spectra_formats=%s,
-                    upload_warnings=%s
-                WHERE id = %s""", [type(mzId_error).__name__ + " (thrown in func upload_info)", error, mzId_parser.upload_id])
+                        INSERT INTO uploads (
+                            user_id,
+                            origin,
+                            filename,
+                            error_type,
+                            upload_error)
+                        VALUES (%s, %s, %s, %s, %s)""", [0, ymp, file_name, type(mzId_error).__name__, error])
                 con.commit()
 
             except psycopg2.Error as e:
                 raise db.DBException(e.message)
             con.close()
+            return
 
         # fetch peak list files from pride
         peak_files = mzId_parser.get_peak_list_file_names()
@@ -318,6 +320,7 @@ class TestLoop:
                 print error_msg
 
         ftp.quit()
+        files.reverse()
         return files
 
     @staticmethod
@@ -380,18 +383,22 @@ test_loop = TestLoop()
 
 # crash at 2015/05/PXD001428 (out of memory / thrashing)
 
-test_loop.month('2015/06')
-test_loop.month('2015/07')
-test_loop.month('2015/08')
-test_loop.month('2015/09')
-test_loop.month('2015/10')
-test_loop.month('2015/11')
-test_loop.month('2015/12')
+# test_loop.month('2015/06')
+# test_loop.month('2015/07')
+# test_loop.month('2015/08')
+# test_loop.month('2015/09')
+# test_loop.month('2015/10')
+# test_loop.month('2015/11')
+# test_loop.month('2015/12')
 
+# crash at >> 2018/04/PXD008493 (out of memory / thrashing)
 
-test_loop.year('2016')
+# test_loop.project("2017/12/PXD006591")
+
+# test_loop.year('2018')
 test_loop.year('2017')
-test_loop.year('2018')
+test_loop.year('2016')
+test_loop.year('2015')
 
 
 # mzML
