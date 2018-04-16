@@ -736,6 +736,19 @@ class MzIdParser:
 
             spec_id += 1
 
+            if spec_id % 1000 == 0:
+                self.logger.info('writing 1000 entries (1000 spectra and their idents) to DB')
+                try:
+                    self.db.write_spectra(spectra, self.cur, self.con)
+                    spectra = []
+                    self.db.write_spectrum_identifications(spectrum_identifications, self.cur, self.con)
+                    spectrum_identifications = []
+                    self.con.commit()
+                except Exception as e:
+                    raise e
+                # commit changes
+                self.con.commit()
+
         # end main loop
         self.logger.info('main loop - done. Time: ' + str(round(time() - main_loop_start_time, 2)) + " sec")
 

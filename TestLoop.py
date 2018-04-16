@@ -173,17 +173,19 @@ class TestLoop:
             cur = con.cursor()
             try:
                 cur.execute("""
-                UPDATE uploads SET
-                    error_type=%s,
-                    upload_error=%s,
-                    spectra_formats=%s,
-                    upload_warnings=%s
-                WHERE id = %s""", [type(mzId_error).__name__ + " (thrown in func upload_info)", error, mzId_parser.upload_id])
+                        INSERT INTO uploads (
+                            user_id,
+                            origin,
+                            filename,
+                            error_type,
+                            upload_error)
+                        VALUES (%s, %s, %s, %s, %s)""", [0, ymp, file_name, type(mzId_error).__name__, error])
                 con.commit()
 
             except psycopg2.Error as e:
                 raise db.DBException(e.message)
             con.close()
+            return
 
         # fetch peak list files from pride
         peak_files = mzId_parser.get_peak_list_file_names()
@@ -389,8 +391,11 @@ test_loop = TestLoop()
 # test_loop.month('2015/11')
 # test_loop.month('2015/12')
 
+# crash at >> 2018/04/PXD008493 (out of memory / thrashing)
 
-test_loop.year('2018')
+# test_loop.project("2017/12/PXD006591")
+
+# test_loop.year('2018')
 test_loop.year('2017')
 test_loop.year('2016')
 test_loop.year('2015')
