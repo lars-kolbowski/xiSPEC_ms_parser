@@ -60,7 +60,6 @@ class Reader(object):
         # self.info contains information extracted from the mgf file
         self.info = dict()
 
-        self.info['offsets'] = ddict()
         self.info['offsetList'] = []
 
         # self.info['spectra_count'] = 0
@@ -136,7 +135,7 @@ class Reader(object):
     def _build_index_from_scratch(self, seeker):
         """Build an index of spectra data with offsets by parsing the file."""
 
-        def get_data_indices(fh, chunksize=100000000, lookback_size=100):
+        def get_data_indices(fh):
             """Get a list with binary file indices of spectra in mgf file."""
             spec_positions = []
 
@@ -145,23 +144,13 @@ class Reader(object):
             pos = 0
             peak_list_start_pos = None
             for line in fh:
-                if len(spec_positions) == 1935:
-                    pass
-                if line.strip() == "BEGIN IONS":
+                if not line[0].isdigit():
                     peak_list_start_pos = -1
-                elif line.strip() == "END IONS":
-                    spec_positions.append((peak_list_start_pos, pos))
-                elif not line.startswith('#'):
-                    l = line.split('=')
-                    if len(l) == 1:
-                        if peak_list_start_pos is not None and peak_list_start_pos == -1:
-                            peak_list_start_pos = pos
-                    # #  could also be getting charge and rt here
-                    # #  see mgf.py, L194-L203
-                    # else:
-                    #     key = l[0].lower()
-                    #     val = l[1].strip()
-                    #     header[key] = val
+                else:
+                    if peak_list_start_pos is not None and peak_list_start_pos == -1:
+                        peak_list_start_pos = pos
+                        spec_positions.append((peak_list_start_pos, pos))
+
                 pos = pos + len(line)
 
             return spec_positions
@@ -189,11 +178,10 @@ class Reader(object):
         start_pos = position[0]
         end_pos = position[1]
 
-        if (start_pos == -1):  # empty scan
+        if start_pos == -1:  # empty scan
             self.spectrum['peaks'] = ''
             # self.spectrum['params'] = params
             return self.spectrum
-
 
         self.seeker.seek(start_pos, 0)
         peak_list = self.seeker.read(end_pos - start_pos)

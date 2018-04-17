@@ -9,6 +9,29 @@ from time import time
 import re
 import getopt
 
+
+# try:
+#     opts, args = getopt.getopt(sys.argv[1:], "fi:p:u:", [])
+# except getopt.GetoptError:
+#     print('parser.py (-f) -i <identifications file> -p <peak list file> -u <upload folder>')
+#     sys.exit(2)
+#
+# use_ftp = False
+# for o, a in opts:
+#
+#     if o == "-f":
+#         import ftplib
+#         use_ftp = True
+#
+#     if o == "-i":
+#         identifications_file = a
+#
+#     if o == "-p":
+#         peakList_file = a
+#
+#     if o == "-u":
+#         upload_folder = a
+
 try:
     opts, args = getopt.getopt(sys.argv[1:], "f", [])
 except getopt.GetoptError:
@@ -25,11 +48,11 @@ try:
         dname = ''
 
     # import local files
-    import xiSPEC_mzid as mzidParser
-    import xiSPEC_csv as csvParser
-    from xiSPEC_peakList import unzip_peak_lists
+    import MzIdParser
+    import CsvParser
+    import PeakListParser
 
-    # logging
+    #logging
     try:
         dev = False
         logFile = dname + "/log/%s_%s.log" % (args[2], int(time()))
@@ -38,14 +61,16 @@ try:
         dev = True
         logFile = "log/parser_%s.log" % int(time())
 
-    try:
-        os.remove(logFile)
-    except OSError:
-        pass
-    os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
+    # try:
+    #     os.remove(logFile)
+    # except OSError:
+    #     pass
+    # os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
 
     # create logger
-    logging.basicConfig(filename=logFile, level=logging.DEBUG,
+    # logging.basicConfig(filename=logFile, level=logging.DEBUG,
+    #                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
+    logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s %(levelname)s %(name)s %(message)s')
     logger = logging.getLogger(__name__)
 
@@ -55,12 +80,11 @@ except Exception as e:
 
 try:
     if args[3] == "pg":
-        import xiUI_pg as db
+        import PostgreSQL as db
     else:
-        import xiSPEC_sqlite as db
+        import SQLite as db
 except IndexError:
-    import xiSPEC_sqlite as db
-
+    import SQLite as db
 
 returnJSON = {
     "response": "",
@@ -78,7 +102,8 @@ try:
 
     # development testfiles
     if dev:
-        baseDir = "/media/data/work/xiSPEC_test_files/"
+        baseDir = "/home/col/xiSPEC_test_files/"
+
         # identifications_file = baseDir + 'OpenxQuest_example_added_annotations.mzid'
         # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
         # peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf"
@@ -89,14 +114,15 @@ try:
         # # mzid has duplicate ids!!! - fixed now with non-flat index
         # identifications_file = "/media/data/work/xiSPEC_test_files/PXD006767/MTases_Trypsin_ETD_search.mzid"
         # peakList_file = "/media/data/work/xiSPEC_test_files/PXD006767/PXD006767.zip"
+        # peakList_file = "/media/data/work/xiSPEC_test_files/PXD006767/as.zip"
 
-        # small mzid dataset
-        identifications_file = baseDir + "DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
-        peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
+        # HSA-BS3 dataset
+        identifications_file = baseDir + "/cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzid"
+        peakList_file = baseDir + "/cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
 
         # # large mzid dataset
-        # identifications_file = baseDir + "Tmuris_exo/Tmuris_exosomes1.mzid"
-        # peakList_file = baseDir + "Tmuris_exo/20171027_DDA_JC1.zip"
+        identifications_file = baseDir + "Tmuris_exo/Tmuris_exosomes1.mzid"
+        peakList_file = baseDir + "Tmuris_exo/20171027_DDA_JC1.zip"
 
         # PXD006574
         # identifications_file = baseDir + "PXD006574/monomerResults.mzid.gz"
@@ -108,7 +134,7 @@ try:
         # identifications_file = baseDir + "PXD001677/result_DynamicDBReduction.mzid"
         # peakList_file = baseDir + "PXD001677/result_DynamicDBReduction-specId.pride.mgf.gz"
         # identifications_file = baseDir + "PXD001677/result_NormalMode.mzid"
-        # peakList_file = baseDir + "PXD001677/result_NormalMode-specId.pride.mgf.gz"
+        # peakList_file = baseDir + "PXD001677/result_NormalMode-specId.pride.mgf"
 
         # PXD007836 - mzid 1.1.0
         # identifications_file = baseDir + "PXD007836/data.mzid"
@@ -116,8 +142,11 @@ try:
 
         #csv file
         # identifications_file = baseDir + "example.csv"
+        # identifications_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/HSA-BS3_example_IDsort.csv"
+        # peakList_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
 
         dbName = 'test.db'
+        upload_folder = "/".join(identifications_file.split("/")[:-1]) + "/"
 
     else:
         if '-f' in [o[0] for o in opts]:
@@ -185,34 +214,19 @@ except Exception as e:
     print(e)
     sys.exit(1)
 
-# connect to DB
-try:
-    con = db.connect(dbName)
-    cur = con.cursor()
-
-except db.DBException as e:
-    logger.error(e)
-    print(e)
-    sys.exit(1)
-
-# create Database tables
-try:
-    db.create_tables(cur, con)
-except db.DBException as e:
-    logger.error(e)
-    print(e)
-    sys.exit(1)
 
 # parsing
 startTime = time()
 try:
     # check for peak list zip file
-    peakList_fileName = ntpath.basename(peakList_file)
-    if re.search(".*\.(gz|zip)$", peakList_fileName):
+    # peakList_fileName = ntpath.basename(peakList_file)
+    # if re.search(".*\.(zip)$", peakList_fileName):
+    if peakList_file.endswith('.zip'):
         try:
             unzipStartTime = time()
             logger.info('unzipping start')
-            peakList_fileList = unzip_peak_lists(peakList_file)
+            # peakList_fileList = peakListParser.PeakListParser.unzip_peak_lists(peakList_file)
+            upload_folder = PeakListParser.PeakListParser.unzip_peak_lists(peakList_file)
             logger.info('unzipping done. Time: ' + str(round(time() - unzipStartTime, 2)) + " sec")
         except IOError as e:
             logger.error(e.args[0])
@@ -230,25 +244,38 @@ try:
             })
             print(json.dumps(returnJSON))
             sys.exit(1)
+    #
+    # else:
+    #     peakList_fileList = [peakList_file]
 
-    else:
-        peakList_fileList = [peakList_file]
-
-    # Identification File
     identifications_fileName = ntpath.basename(identifications_file)
     if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
         logger.info('parsing mzid start')
         identifications_fileType = 'mzid'
-        id_returnJSON = mzidParser.parse(identifications_file, peakList_fileList, unimodPath, cur,  con, logger)
-        returnJSON.update(id_returnJSON)
+        id_parser = MzIdParser.xiSPEC_MzIdParser(identifications_file, upload_folder, db, logger, dbName)
 
     elif identifications_fileName.endswith('.csv'):
         logger.info('parsing csv start')
         identifications_fileType = 'csv'
-        id_returnJSON = csvParser.parse(identifications_file, peakList_fileList, cur, con, logger)
-        returnJSON.update(id_returnJSON)
+        id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, db, logger, dbName)
+
         # mgfReader = py_mgf.read(peak_list_file)
         # peakListArr = [pl for pl in mgfReader]
+    else:
+        raise Exception('Unknown identifications file format!')
+
+    # create Database tables
+    try:
+        db.create_tables(id_parser.cur, id_parser.con)
+    except db.DBException as e:
+        logger.error(e)
+        print(e)
+        sys.exit(1)
+
+    id_parser.parse()
+
+    returnJSON['modifications'] = id_parser.unknown_mods
+    returnJSON["warnings"] = id_parser.warnings
 
     # delete uploaded files after they have been parsed
     if not dev:
@@ -256,6 +283,7 @@ try:
         shutil.rmtree(upload_folder)
 
 except Exception as e:
+    # print(e)
     logger.exception(e)
     returnJSON['errors'].append(
         {"type": "Error", "message": e.args[0]})
@@ -276,6 +304,6 @@ if len(returnJSON["errors"]) > 100:
 
 print(json.dumps(returnJSON, indent=4))
 
-if con:
-    con.close()
+# if con:
+#     con.close()
 logger.info('all done! Total time: ' + str(round(time() - startTime, 2)) + " sec")
