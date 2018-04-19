@@ -95,7 +95,12 @@ class MzIdParser:
         """
         peak_list_file_names = []
         for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
-            sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
+            # can crash here if
+            # lxml.etree.XMLSyntaxError: Input is not proper UTF-8, indicate encoding !
+            try:
+                sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
+            except Exception as e:
+                raise MzIdParseException(e)
             peak_list_file_name = ntpath.basename(sp_datum['location'])
             peak_list_file_names.append(peak_list_file_name)
 
@@ -730,6 +735,19 @@ class MzIdParser:
             spectrum_identifications += spectrum_ident_dict.values()
 
             spec_id += 1
+
+            if spec_id % 1000 == 0:
+                self.logger.info('writing 1000 entries (1000 spectra and their idents) to DB')
+                try:
+                    self.db.write_spectra(spectra, self.cur, self.con)
+                    spectra = []
+                    self.db.write_spectrum_identifications(spectrum_identifications, self.cur, self.con)
+                    spectrum_identifications = []
+                    self.con.commit()
+                except Exception as e:
+                    raise e
+                # commit changes
+                self.con.commit()
 
         # end main loop
         self.logger.info('main loop - done. Time: ' + str(round(time() - main_loop_start_time, 2)) + " sec")
