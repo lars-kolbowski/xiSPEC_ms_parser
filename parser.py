@@ -179,6 +179,8 @@ try:
                     "type": "ftpError",
                     "message": error_msg,
                 })
+                print(json.dumps(returnJSON))
+                sys.exit(1)
 
             try:
                 ftp.cwd(id_file_path)
