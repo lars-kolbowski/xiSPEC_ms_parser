@@ -168,8 +168,17 @@ try:
             pl_file_name = args[1].split("/")[-1]
             peakList_file = upload_folder + pl_file_name
 
+            try:
             ftp = ftplib.FTP('ftp.pride.ebi.ac.uk')
             ftp.login()
+            # ToDO: more specific except clause
+            except:
+                error_msg = "general ftp connection error! Please try again later."
+                logger.error(error_msg)
+                returnJSON['errors'].append({
+                    "type": "ftpError",
+                    "message": error_msg,
+                })
 
             try:
                 ftp.cwd(id_file_path)
