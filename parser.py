@@ -169,8 +169,8 @@ try:
             peakList_file = upload_folder + pl_file_name
 
             try:
-            ftp = ftplib.FTP('ftp.pride.ebi.ac.uk')
-            ftp.login()
+                ftp = ftplib.FTP('ftp.pride.ebi.ac.uk')
+                ftp.login()
             # ToDO: more specific except clause
             except:
                 error_msg = "general ftp connection error! Please try again later."
