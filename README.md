@@ -1,15 +1,55 @@
-xiSPEC_ms_parser
+# xiSPEC_ms_parser
 
-mkdir ../uploads
+Back-end parser for xiSPEC mass spectrometry visualization tool.
 
-virtualenv python_env
 
-source python_env/bin/activate
+### Requirements:
+python2.7
 
-pip install -r requirements.txt //pyteomics module has some changes so for the time being you need to checkout HEAD again afterwards
+virtualenv
 
-sqlite3 dbs/xiSPEC.db
+sqlite3
 
-CREATE TABLE "access_log" ( `id` INTEGER PRIMARY KEY AUTOINCREMENT, `ip` TEXT, `date` TEXT, `db_id` INTEGER );
+### Installation
 
-CREATE TABLE "databases" ( `id` INTEGER PRIMARY KEY AUTOINCREMENT, `name` TEXT UNIQUE, `pass` TEXT, `share` TEXT UNIQUE, `ip` TEXT, `date` TEXT );
+Clone git repository into your web-server directory (e.g. /var/www/html):
+
+```git clone https://github.com/Rappsilber-Laboratory/xiSPEC_ms_parser.git```
+
+cd into the repository:
+
+```cd xiSPEC_ms_parser```
+
+Create uploads directory (permissions?):
+
+```mkdir ../uploads```
+
+Change owner of uploads directory to www-data:
+
+```sudo chown www-data:www-data ../uploads/```
+
+Change owner of log directory to www-data:
+
+```sudo chown www-data:www-data log```
+
+Change owner of dbs directory (and sub directories) to www-data:
+
+```sudo chown -R www-data:www-data dbs```
+
+
+
+Create python virtualenv:
+
+```virtualenv --no-site-packages python_env```
+
+Activate virtualenv:
+
+```source python_env/bin/activate```
+
+Install dependencies:
+
+```pip install -r requirements.txt```
+
+pyteomics module has some changes so for the time being you need to reset to HEAD again after installing the dependencies
+
+```git reset --hard HEAD```
