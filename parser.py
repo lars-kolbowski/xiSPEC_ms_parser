@@ -61,17 +61,17 @@ try:
         dev = True
         logFile = "log/parser_%s.log" % int(time())
 
-    # try:
-    #     os.remove(logFile)
-    # except OSError:
-    #     pass
-    # os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
+    try:
+        os.remove(logFile)
+    except OSError:
+        pass
+    os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
 
     # create logger
-    # logging.basicConfig(filename=logFile, level=logging.DEBUG,
-    #                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
-    logging.basicConfig(level=logging.DEBUG,
+    logging.basicConfig(filename=logFile, level=logging.DEBUG,
                         format='%(asctime)s %(levelname)s %(name)s %(message)s')
+    # logging.basicConfig(level=logging.DEBUG,
+    #                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
     logger = logging.getLogger(__name__)
 
 except Exception as e:
@@ -168,8 +168,19 @@ try:
             pl_file_name = args[1].split("/")[-1]
             peakList_file = upload_folder + pl_file_name
 
-            ftp = ftplib.FTP('ftp.pride.ebi.ac.uk')
-            ftp.login()
+            try:
+                ftp = ftplib.FTP('ftp.pride.ebi.ac.uk')
+                ftp.login()
+            # ToDO: more specific except clause
+            except:
+                error_msg = "general ftp connection error! Please try again later."
+                logger.error(error_msg)
+                returnJSON['errors'].append({
+                    "type": "ftpError",
+                    "message": error_msg,
+                })
+                print(json.dumps(returnJSON))
+                sys.exit(1)
 
             try:
                 ftp.cwd(id_file_path)
