@@ -32,10 +32,6 @@ Change owner of log directory to www-data:
 
 ```sudo chown www-data:www-data log```
 
-Change owner of dbs directory (and sub directories) to www-data:
-
-```sudo chown -R www-data:www-data dbs```
-
 
 
 Create python virtualenv:
@@ -53,3 +49,8 @@ Install dependencies:
 pyteomics module has some changes so for the time being you need to reset to HEAD again after installing the dependencies
 
 ```git reset --hard HEAD```
+
+
+Change owner of dbs directory (and sub directories) to www-data:
+
+```sudo chown -R www-data:www-data dbs```
