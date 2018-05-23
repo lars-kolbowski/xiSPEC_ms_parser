@@ -396,9 +396,9 @@ test_loop = TestLoop()
 # test_loop.project("2017/12/PXD006591")
 
 # test_loop.year('2018')
-test_loop.year('2017')
-test_loop.year('2016')
-test_loop.year('2015')
+# test_loop.year('2017')
+# test_loop.year('2016')
+# test_loop.year('2015')
 
 
 # mzML

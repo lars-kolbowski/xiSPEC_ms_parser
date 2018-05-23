@@ -78,13 +78,13 @@ except Exception as e:
     print (e)
     sys.exit(1)
 
-try:
-    if args[3] == "pg":
-        import PostgreSQL as db
-    else:
-        import SQLite as db
-except IndexError:
-    import SQLite as db
+# try:
+#     if args[3] == "pg":
+#         import PostgreSQL as db
+#     else:
+#         import SQLite as db
+# except IndexError:
+import PostgreSQL as db
 
 returnJSON = {
     "response": "",
@@ -263,7 +263,7 @@ try:
     if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
         logger.info('parsing mzid start')
         identifications_fileType = 'mzid'
-        id_parser = MzIdParser.xiSPEC_MzIdParser(identifications_file, upload_folder, db, logger, dbName)
+        id_parser = MzIdParser.MzIdParser(identifications_file, upload_folder, db, logger)
 
     elif identifications_fileName.endswith('.csv'):
         logger.info('parsing csv start')
@@ -276,12 +276,12 @@ try:
         raise Exception('Unknown identifications file format!')
 
     # create Database tables
-    try:
-        db.create_tables(id_parser.cur, id_parser.con)
-    except db.DBException as e:
-        logger.error(e)
-        print(e)
-        sys.exit(1)
+    # try:
+    #     db.create_tables(id_parser.cur, id_parser.con)
+    # except db.DBException as e:
+    #     logger.error(e)
+    #     print(e)
+    #     sys.exit(1)
 
     id_parser.parse()
 

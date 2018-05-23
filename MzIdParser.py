@@ -77,7 +77,7 @@ class MzIdParser:
             print(e)
             sys.exit(1)
 
-        self.logger.info('reading mzid - start')
+        self.logger.info('reading mzid - start ' + self.mzId_path)
         self.start_time = time()
         # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
         try:
