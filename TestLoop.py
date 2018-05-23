@@ -295,7 +295,7 @@ class TestLoop:
             return ftp
         except:
             print('FTP fail... giving it a few secs...')
-            time.sleep(20)
+            time.sleep(200)
             return self.get_ftp_login()
 
     def get_ftp_file_list (self, dir):
@@ -451,3 +451,35 @@ test_loop = TestLoop()
 # test_loop.project("2014/04/PXD000579")
 
 print("mzId count:" + str(test_loop.mzId_count))
+
+
+# need to defend against Connection reset by peer
+# getting 160315_210_AN_10_f14.mgf
+# Traceback (most recent call last):
+#   File "/var/www/html/xiUI/xiSPEC_ms_parser/TestLoop.py", line 399, in <module>
+#     test_loop.year('2017')
+#   File "/var/www/html/xiUI/xiSPEC_ms_parser/TestLoop.py", line 90, in year
+#     self.month(y + '/' + f)
+#   File "/var/www/html/xiUI/xiSPEC_ms_parser/TestLoop.py", line 98, in month
+#     self.project(ymp)
+#   File "/var/www/html/xiUI/xiSPEC_ms_parser/TestLoop.py", line 115, in project
+#     self.file(ymp, f)
+#   File "/var/www/html/xiUI/xiSPEC_ms_parser/TestLoop.py", line 219, in file
+#     open(self.temp_dir + peak_file, 'wb').write)
+#   File "/usr/lib/python2.7/ftplib.py", line 414, in retrbinary
+#     conn = self.transfercmd(cmd, rest)
+#   File "/usr/lib/python2.7/ftplib.py", line 376, in transfercmd
+#     return self.ntransfercmd(cmd, rest)[0]
+#   File "/usr/lib/python2.7/ftplib.py", line 339, in ntransfercmd
+#     resp = self.sendcmd(cmd)
+#   File "/usr/lib/python2.7/ftplib.py", line 249, in sendcmd
+#     return self.getresp()
+#   File "/usr/lib/python2.7/ftplib.py", line 215, in getresp
+#     resp = self.getmultiline()
+#   File "/usr/lib/python2.7/ftplib.py", line 201, in getmultiline
+#     line = self.getline()
+#   File "/usr/lib/python2.7/ftplib.py", line 186, in getline
+#     line = self.file.readline(self.maxline + 1)
+#   File "/usr/lib/python2.7/socket.py", line 480, in readline
+#     data = self._sock.recv(self._rbufsize)
+# socket.error: [Errno 104] Connection reset by peer

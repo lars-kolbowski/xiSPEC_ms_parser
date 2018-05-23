@@ -575,6 +575,12 @@ class MzIdParser:
             if "isDecoy" in peptide_evidence:
                 is_decoy = peptide_evidence["isDecoy"]   # isDecoy att, optional
 
+            # cc hack
+            if is_decoy == True:
+                is_decoy = 1
+            else:
+                is_decoy = 0
+
             peptide_ref = self.peptide_id_lookup[peptide_evidence["peptide_ref"]]
             # peptide_ref = peptide_evidence["peptide_ref"]     # debug use mzid peptide['id'],
 

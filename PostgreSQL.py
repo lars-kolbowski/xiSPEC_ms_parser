@@ -93,7 +93,7 @@ def create_tables(cur, con):
             "dbsequence_ref text, "
             "protein_accession text, "
             "pep_start int, "
-            "is_decoy BOOLEAN)"
+            "is_decoy INT)"
         )
         cur.execute("DROP TABLE IF EXISTS spectra")
         cur.execute(
@@ -104,7 +104,7 @@ def create_tables(cur, con):
             "peak_list_file_name text, "
             "scan_id TEXT, "
             "frag_tol TEXT,"
-            "spectrum_id TEXT)"
+            "spectrum_ref TEXT)"
         )
         cur.execute("DROP TABLE IF EXISTS spectrum_identifications")
         cur.execute(
@@ -241,7 +241,7 @@ def write_peptide_evidences(inj_list, cur, con):
 
 def write_spectra(inj_list, cur, con):
     try:
-        cur.executemany("""INSERT INTO spectra (id, peak_list, peak_list_file_name, scan_id, frag_tol, upload_id, spectrum_id)
+        cur.executemany("""INSERT INTO spectra (id, peak_list, peak_list_file_name, scan_id, frag_tol, upload_id, spectrum_ref)
                             VALUES (%s, %s, %s, %s, %s, %s, %s)""", inj_list)
         con.commit()
 
