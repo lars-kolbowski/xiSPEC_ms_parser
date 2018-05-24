@@ -45,14 +45,14 @@ def create_tables(cur, con):
 
         # ToDo: not used atm
         # might be a good place to save ions here?
-        cur.execute("DROP TABLE IF EXISTS protocols")
-        cur.execute(
-            "CREATE TABLE protocols("
-            "id text PRIMARY KEY, "
-            "upload_id INT,"
-            "protocol JSON,"
-            "ms2_tol FLOAT)"
-        )
+        # cur.execute("DROP TABLE IF EXISTS protocols")
+        # cur.execute(
+        #     "CREATE TABLE protocols("
+        #     "id text PRIMARY KEY, "
+        #     "upload_id INT,"
+        #     "protocol JSON,"
+        #     "ms2_tol FLOAT)"
+        # )
 
         cur.execute("DROP TABLE IF EXISTS db_sequences")
         cur.execute(

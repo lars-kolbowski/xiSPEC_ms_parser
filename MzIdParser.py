@@ -167,19 +167,12 @@ class MzIdParser:
         # ToDo: more gracefully handle missing files
         self.init_peak_list_readers()
 
-        #self.upload_info()
+        self.upload_info()
         self.parse_db_sequences()
         self.parse_peptides()
         self.parse_peptide_evidences()
         self.map_spectra_data_to_protocol()
         self.main_loop()
-
-        #
-        # Fill missing scores with
-        # score_fill_start_time = time()
-        # self.logger.info('fill in missing scores - start')
-        # self.db.fill_in_missing_scores(self.cur, self.con)
-        # self.logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
 
         self.logger.info('all done! Total time: ' + str(round(time() - start_time, 2)) + " sec")
 
