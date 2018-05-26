@@ -9,7 +9,7 @@ from PeakListParser import PeakListParser
 import zipfile
 import gzip
 import os
-
+import pyteomics.fasta as py_fasta
 
 class CsvParseException(Exception):
     pass
@@ -116,6 +116,18 @@ class CsvParser:
             print(e)
             sys.exit(1)
 
+        self.logger.info('reading fasta - start')
+        self.start_time = time()
+
+        self.fasta = {}
+        fasta_iterator = py_fasta.read(self.temp_dir + "HSA.fasta")
+        for (a, b) in fasta_iterator:
+            # self.logger.info("" + a  b)
+            header = py_fasta.parse(a)
+            self.fasta[header['id']] = b
+        self.logger.info('reading fasta - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
+
+
         self.logger.info('reading csv - start')
         self.start_time = time()
         # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
@@ -140,7 +152,6 @@ class CsvParser:
         except Exception as e:
             raise CsvParseException(type(e).__name__, e.args)
 
-        self.logger.info('reading csv - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
 
     # ToDo: not used atm - can be used for checking if all files are present in temp dir
     def get_peak_list_file_names(self):
@@ -271,7 +282,7 @@ class CsvParser:
         spectrum_identifications = []
         spectra = []
         peptides = []
-
+        proteins = set()
         # list of spectra that were already seen - index in list is spectrum_id
         # combination of peaklistfilename and scanid is a unique identifier
         seen_spectra = []
@@ -405,6 +416,8 @@ class CsvParser:
             # protein1
             protein_list1 = id_item['protein1'].split(";")
             protein_list1 = [s.strip() for s in protein_list1]
+            for p in protein_list1:
+                proteins.add(p)
 
             # decoy1 - if decoy1 is not set fill list with default value (0)
             if id_item['decoy1'] == -1:
@@ -642,6 +655,25 @@ class CsvParser:
                 if mod not in self.unknown_mods:
                     self.unknown_mods.append(mod)
 
+
+        # DBSEQUENCES
+        db_sequences = []
+        # for db_sequence in sequence_collection['DBSequence']:
+        for prot in proteins:
+            try:
+                seq = self.fasta[prot]
+            except Exception as ke:
+                seq = "NO SEQUENCE"
+            data = [prot, prot, prot, "", seq, 0]
+
+            # is_decoy - not thereseq = self.fasta[prot]
+            # data.append("false")
+
+            # data.append(self.upload_id)
+
+            db_sequences.append(data)
+
+
         # end main loop
         self.logger.info('main loop - done. Time: ' + str(round(time() - main_loop_start_time, 2)) + " sec")
 
@@ -654,7 +686,11 @@ class CsvParser:
             self.db.write_peptides(peptides, self.cur, self.con)
             self.db.write_spectra(spectra, self.cur, self.con)
             self.db.write_spectrum_identifications(spectrum_identifications, self.cur, self.con)
+            self.db.write_db_sequences(db_sequences, self.cur, self.con)
             self.con.commit()
+
+
+
         except Exception as e:
             raise e
 
