@@ -60,15 +60,15 @@ try:
     except IndexError:
         dev = True
         logFile = "log/parser_%s.log" % int(time())
-
-    try:
-        os.remove(logFile)
-    except OSError:
-        pass
-    os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
+    #
+    # try:
+    #     os.remove(logFile)
+    # except OSError:
+    #     pass
+    # os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
 
     # create logger
-    logging.basicConfig(filename=logFile, level=logging.DEBUG,
+    logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s %(levelname)s %(name)s %(message)s')
     # logging.basicConfig(level=logging.DEBUG,
     #                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
@@ -117,12 +117,14 @@ try:
         # peakList_file = "/media/data/work/xiSPEC_test_files/PXD006767/as.zip"
 
         # HSA-BS3 dataset
-        identifications_file = baseDir + "/cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzid"
-        peakList_file = baseDir + "/cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
+        # identifications_file = baseDir + "/cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzid"
+        # peakList_file = baseDir + "/cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
+        identifications_file = baseDir + "/cross-link/HSA/test_HSA_PSM_xiFDR1.1.26.58.csv"
+        peakList_file = baseDir + "/cross-link/HSA/E180510_02_Orbi2_TD_IN_160_HSA_10kDa_10p.mzML"
 
         # # large mzid dataset
-        identifications_file = baseDir + "Tmuris_exo/Tmuris_exosomes1.mzid"
-        peakList_file = baseDir + "Tmuris_exo/20171027_DDA_JC1.zip"
+        # identifications_file = baseDir + "Tmuris_exo/Tmuris_exosomes1.mzid"
+        # peakList_file = baseDir + "Tmuris_exo/20171027_DDA_JC1.zip"
 
         # PXD006574
         # identifications_file = baseDir + "PXD006574/monomerResults.mzid.gz"
