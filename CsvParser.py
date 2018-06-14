@@ -116,6 +116,14 @@ class CsvParser:
             print(e)
             sys.exit(1)
 
+        #peak_list_file_names = json.dumps(self.get_peak_list_file_names(), cls=NumpyEncoder)
+
+        self.upload_id = self.db.write_upload([0, self.csv_path, "{}", "{}",
+                          "{}", "{}", "{}", "{}", "{}", "{}", "{}", "{}", self.warnings],
+                         self.cur, self.con,
+                         )
+
+
         self.logger.info('reading fasta - start')
         self.start_time = time()
 

@@ -60,7 +60,7 @@ try:
     except IndexError:
         dev = True
         logFile = "log/parser_%s.log" % int(time())
-    #
+
     # try:
     #     os.remove(logFile)
     # except OSError:
@@ -68,10 +68,10 @@ try:
     # os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
 
     # create logger
+    # logging.basicConfig(filename=logFile, level=logging.DEBUG,
+    #                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
     logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s %(levelname)s %(name)s %(message)s')
-    # logging.basicConfig(level=logging.DEBUG,
-    #                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
     logger = logging.getLogger(__name__)
 
 except Exception as e:
@@ -123,8 +123,8 @@ try:
         peakList_file = baseDir + "/cross-link/HSA/E180510_02_Orbi2_TD_IN_160_HSA_10kDa_10p.mzML"
 
         # # large mzid dataset
-        # identifications_file = baseDir + "Tmuris_exo/Tmuris_exosomes1.mzid"
-        # peakList_file = baseDir + "Tmuris_exo/20171027_DDA_JC1.zip"
+        # identifications_file = baseDir + "linear/Tmuris_exo/Tmuris_exosomes1.mzid"
+        # peakList_file = baseDir + "linear/Tmuris_exo/20171027_DDA_JC1.zip"
 
         # PXD006574
         # identifications_file = baseDir + "PXD006574/monomerResults.mzid.gz"
