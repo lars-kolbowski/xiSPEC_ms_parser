@@ -287,6 +287,7 @@ try:
 
     id_parser.parse()
 
+    returnJSON['upload_id'] = id_parser.upload_id
     returnJSON['modifications'] = id_parser.unknown_mods
     returnJSON["warnings"] = id_parser.warnings
 
