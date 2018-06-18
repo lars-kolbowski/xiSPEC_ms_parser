@@ -122,7 +122,7 @@ class CsvParser:
                           "{}", "{}", "{}", "{}", "{}", "{}", "{}", "{}", self.warnings],
                          self.cur, self.con,
                          )
-
+        self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)
 
         self.logger.info('reading fasta - start')
         self.start_time = time()
