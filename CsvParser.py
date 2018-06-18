@@ -672,7 +672,7 @@ class CsvParser:
                 seq = self.fasta[prot]
             except Exception as ke:
                 seq = "NO SEQUENCE"
-            data = [prot, prot, prot, "", seq, 0]
+            data = [prot, prot, prot, "", seq, self.upload_id]
 
             # is_decoy - not thereseq = self.fasta[prot]
             # data.append("false")
