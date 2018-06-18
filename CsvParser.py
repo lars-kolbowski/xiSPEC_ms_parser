@@ -128,11 +128,12 @@ class CsvParser:
         self.start_time = time()
 
         self.fasta = {}
-        fasta_iterator = py_fasta.read(self.temp_dir + "HSA.fasta")
-        for (a, b) in fasta_iterator:
-            # self.logger.info("" + a  b)
-            header = py_fasta.parse(a)
-            self.fasta[header['id']] = b
+        for file in self.get_sequenceDB_file_names():
+            fasta_iterator = py_fasta.read(self.temp_dir + "/" + file)
+            for (a, b) in fasta_iterator:
+                # self.logger.info("" + a  b)
+                header = py_fasta.parse(a)
+                self.fasta[header['id']] = b
         self.logger.info('reading fasta - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
 
 
@@ -169,7 +170,11 @@ class CsvParser:
         return self.csv_reader.peaklistfilename.unique()
 
     def get_sequenceDB_file_names(self):
-        pass
+        fasta_files = []
+        for file in os.listdir(self.temp_dir):
+            if file.endswith(".fasta"):
+                fasta_files.append(file)
+        return fasta_files
 
     def set_peak_list_readers(self):
         """
