@@ -26,7 +26,7 @@ class MzIdParser:
     """
 
     """
-    def __init__(self, mzId_path, temp_dir, db, logger, db_name='', origin=''):
+    def __init__(self, mzId_path, temp_dir, user_id, db, logger, db_name='', origin=''):
         """
 
         :param mzId_path: path to mzidentML file
@@ -45,6 +45,8 @@ class MzIdParser:
         self.temp_dir = temp_dir
         if not self.temp_dir.endswith('/'):
             self.temp_dir += '/'
+
+        self.user_id = user_id
 
         self.db = db
         self.logger = logger
@@ -843,7 +845,7 @@ class MzIdParser:
         self.mzid_reader.reset()
 
 
-        self.upload_id = self.db.write_upload([0, self.mzId_path, peak_list_file_names, spectra_formats,
+        self.upload_id = self.db.write_upload([self.user_id, os.path.basename(self.mzId_path), peak_list_file_names, spectra_formats,
                           analysis_software, provider, audits, samples, analyses, protocols, bibRefs, self.origin, self.warnings],
                          self.cur, self.con,
                          )

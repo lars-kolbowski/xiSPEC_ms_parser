@@ -215,6 +215,7 @@ try:
             identifications_file = args[0]
             peakList_file = args[1]
             upload_folder = "../uploads/" + args[2]
+            user_id = args[3]
 
         dbfolder = "dbs/tmp/"
         try:
@@ -265,12 +266,12 @@ try:
     if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
         logger.info('parsing mzid start')
         identifications_fileType = 'mzid'
-        id_parser = MzIdParser.MzIdParser(identifications_file, upload_folder, db, logger)
+        id_parser = MzIdParser.MzIdParser(identifications_file, upload_folder, user_id, db, logger)
 
     elif identifications_fileName.endswith('.csv'):
         logger.info('parsing csv start')
         identifications_fileType = 'csv'
-        id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, db, logger, dbName)
+        id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, user_id, db, logger, dbName)
 
         # mgfReader = py_mgf.read(peak_list_file)
         # peakListArr = [pl for pl in mgfReader]

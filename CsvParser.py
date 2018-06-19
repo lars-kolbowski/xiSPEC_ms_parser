@@ -72,7 +72,7 @@ class CsvParser:
         'calcmz': -1
     }
 
-    def __init__(self, csv_path, temp_dir, db, logger, db_name=''):
+    def __init__(self, csv_path, temp_dir, user_id, db, logger, db_name=''):
         """
 
         :param csv_path: path to csv file
@@ -91,6 +91,8 @@ class CsvParser:
         self.temp_dir = temp_dir
         if not self.temp_dir.endswith('/'):
             self.temp_dir += '/'
+
+        self.user_id = user_id
 
         self.db = db
         self.logger = logger
@@ -118,7 +120,7 @@ class CsvParser:
 
         #peak_list_file_names = json.dumps(self.get_peak_list_file_names(), cls=NumpyEncoder)
 
-        self.upload_id = self.db.write_upload([0, self.csv_path, "{}", "{}",
+        self.upload_id = self.db.write_upload([self.user_id, os.path.basename(self.csv_path), "{}", "{}",
                           "{}", "{}", "{}", "{}", "{}", "{}", "{}", "{}", self.warnings],
                          self.cur, self.con,
                          )
