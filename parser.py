@@ -61,17 +61,17 @@ try:
         dev = True
         logFile = "log/parser_%s.log" % int(time())
 
-    # try:
-    #     os.remove(logFile)
-    # except OSError:
-    #     pass
-    # os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
+    try:
+        os.remove(logFile)
+    except OSError:
+        pass
+    os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
 
     # create logger
-    # logging.basicConfig(filename=logFile, level=logging.DEBUG,
-    #                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
-    logging.basicConfig(level=logging.DEBUG,
+    logging.basicConfig(filename=logFile, level=logging.DEBUG,
                         format='%(asctime)s %(levelname)s %(name)s %(message)s')
+    # logging.basicConfig(level=logging.DEBUG,
+    #                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
     logger = logging.getLogger(__name__)
 
 except Exception as e:

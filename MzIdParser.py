@@ -36,7 +36,7 @@ class MzIdParser:
         :param origin: ftp dir of pride project
         """
 
-        self.upload_id = 0
+        # self.upload_id = 0
         if mzId_path.endswith('.gz') or mzId_path.endswith('.zip'):
             self.mzId_path = MzIdParser.extract_mzid(mzId_path)
         else:
@@ -849,6 +849,8 @@ class MzIdParser:
                           analysis_software, provider, audits, samples, analyses, protocols, bibRefs, self.origin, self.warnings],
                          self.cur, self.con,
                          )
+
+        self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)
 
         self.logger.info(
             'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
