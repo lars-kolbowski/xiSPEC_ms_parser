@@ -122,6 +122,7 @@ class CsvParser:
         try:
             self.csv_reader = pd.read_csv(self.csv_path)
             self.csv_reader.columns = [x.lower().replace(" ", "") for x in self.csv_reader.columns]
+            self.meta_columns = [col for col in self.csv_reader.columns if col.startswith('meta_')]
 
             # check required cols
             for required_col in self.required_cols:
@@ -338,6 +339,7 @@ class CsvParser:
                         'Invalid character(s) found in PepSeq2: %s for row: %s' % (invalid_chars, row_number)
                     )
             pepseq2 = id_item['pepseq2']
+
             # LinkPos
             # LinkPos - 1
             try:
@@ -474,13 +476,13 @@ class CsvParser:
                 raise CsvParseException(
                     'Inconsistent number of protein to pepPos values for Protein2 and PepPos2! for row: %s!' % row_number)
 
-            # scanid
+            # scanId
             try:
                 scan_id = int(id_item['scanid'])
             except ValueError:
                 raise CsvParseException('Invalid scanid: %s for row: %s' % (id_item['scanid'], row_number))
 
-            # peaklistfilename
+            # peakListFilename
 
             # expMZ
             try:
@@ -493,8 +495,8 @@ class CsvParser:
             except ValueError:
                 raise CsvParseException('Invalid calcMZ: %s for row: %s' % (id_item['calcmz'], row_number))
 
-
-            # Start actual parsing
+            #
+            # -----Start actual parsing------
             #
             # SPECTRA
             peak_list_file_name = id_item['peaklistfilename']
@@ -612,7 +614,9 @@ class CsvParser:
             # SPECTRUM IDENTIFICATIONS
             # ToDo: experimental_mass_to_charge, calculated_mass_to_charge
             scores = json.dumps({'score': score})
-
+            meta_data_dict = id_item[self.meta_columns].to_dict()
+            meta_data_dict = {k.replace('meta_', ''): v for k, v in meta_data_dict.items()}
+            meta_data = json.dumps(meta_data_dict)
             spectrum_identification = [
                 identification_id,          # 'id',
                 self.upload_id,             # 'upload_id',
@@ -625,7 +629,8 @@ class CsvParser:
                 ion_types,                  # 'ions',
                 scores,                     # 'scores',
                 exp_mz,                     # 'experimental_mass_to_charge',
-                calc_mz                     # 'calculated_mass_to_charge'
+                calc_mz,                    # 'calculated_mass_to_charge'
+                meta_data
             ]
             spectrum_identifications.append(spectrum_identification)
 

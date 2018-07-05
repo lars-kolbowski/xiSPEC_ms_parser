@@ -104,10 +104,11 @@ def create_tables(cur, con):
             "charge_state INT, "
             "pass_threshold INT, "
             "rank INT,"
-            "ions TEXT, "   # ToDo: find better place to store ions might be protocols
+            "ions TEXT, "   # ToDo: find better place to store ions - might be protocols
             "scores JSON,"  # IS JSON data type valid or does it have to be TEXT
             "exp_mz FLOAT,"
-            "calc_mz FLOAT)"
+            "calc_mz FLOAT,"
+            "meta_data JSON)"
         )
         con.commit()
 
@@ -276,8 +277,9 @@ def write_spectrum_identifications(inj_list, cur, con):
               'ions', 
               'scores',
               'exp_mz',
-              'calc_mz'
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ? , ?, ?, ?, ?)""", inj_list)
+              'calc_mz',
+              'meta_data'
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ? , ?, ?, ?, ?, ?)""", inj_list)
         con.commit()
 
     except sqlite3.Error as e:
