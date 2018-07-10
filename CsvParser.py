@@ -72,7 +72,7 @@ class CsvParser:
         'calcmz': -1
     }
 
-    def __init__(self, csv_path, temp_dir, user_id, db, logger, db_name=''):
+    def __init__(self, csv_path, temp_dir, peak_list_dir, user_id, db, logger, db_name=''):
         """
 
         :param csv_path: path to csv file
@@ -91,6 +91,9 @@ class CsvParser:
         self.temp_dir = temp_dir
         if not self.temp_dir.endswith('/'):
             self.temp_dir += '/'
+        self.peak_list_dir = peak_list_dir
+        if not self.peak_list_dir.endswith('/'):
+            self.peak_list_dir += '/'
 
         self.user_id = user_id
 
@@ -174,7 +177,7 @@ class CsvParser:
     def get_sequenceDB_file_names(self):
         fasta_files = []
         for file in os.listdir(self.temp_dir):
-            if file.endswith(".fasta"):
+            if file.endswith(".fasta") or file.endswith(".FASTA"):
                 fasta_files.append(file)
         return fasta_files
 
@@ -199,7 +202,7 @@ class CsvParser:
             else:
                 raise CsvParseException("Unsupported peak list file type for: %s" % peak_list_file_name)
 
-            peak_list_file_path = self.temp_dir + peak_list_file_name
+            peak_list_file_path = self.peak_list_dir + peak_list_file_name
 
             try:
                 peak_list_reader = PeakListParser(

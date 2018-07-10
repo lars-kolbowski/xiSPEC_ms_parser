@@ -26,7 +26,7 @@ class MzIdParser:
     """
 
     """
-    def __init__(self, mzId_path, temp_dir, user_id, db, logger, db_name='', origin=''):
+    def __init__(self, mzId_path, temp_dir, peak_list_dir, user_id, db, logger, db_name='', origin=''):
         """
 
         :param mzId_path: path to mzidentML file
@@ -45,6 +45,9 @@ class MzIdParser:
         self.temp_dir = temp_dir
         if not self.temp_dir.endswith('/'):
             self.temp_dir += '/'
+        self.peak_list_dir = peak_list_dir
+        if not self.peak_list_dir.endswith('/'):
+            self.peak_list_dir += '/'
 
         self.user_id = user_id
 
@@ -138,7 +141,7 @@ class MzIdParser:
             sd_id = sp_datum['id']
             peak_list_file_name = ntpath.basename(sp_datum['location'])
 
-            peak_list_file_path = self.temp_dir + peak_list_file_name
+            peak_list_file_path = self.peak_list_dir + peak_list_file_name
 
             try:
                 peak_list_reader = PeakListParser(
