@@ -102,7 +102,7 @@ try:
 
     # development testfiles
     if dev:
-        baseDir = "/home/col/xiSPEC_test_files/"
+        baseDir = "/media/data/work/xiSPEC_test_files/"
 
         # identifications_file = baseDir + 'OpenxQuest_example_added_annotations.mzid'
         # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
@@ -116,13 +116,21 @@ try:
         # peakList_file = "/media/data/work/xiSPEC_test_files/PXD006767/PXD006767.zip"
         # peakList_file = "/media/data/work/xiSPEC_test_files/PXD006767/as.zip"
 
-        # HSA-BS3 dataset
-        identifications_file = baseDir + "/cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzid"
-        peakList_file = baseDir + "/cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
+        # # HSA-BS3 dataset
+        # identifications_file = baseDir + "/cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzid"
+        # peakList_file = baseDir + "/cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
+
+        # small mzid dataset
+        # identifications_file = baseDir + "DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
+        # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
 
         # # large mzid dataset
-        identifications_file = baseDir + "Tmuris_exo/Tmuris_exosomes1.mzid"
-        peakList_file = baseDir + "Tmuris_exo/20171027_DDA_JC1.zip"
+        # identifications_file = baseDir + "Tmuris_exo/Tmuris_exosomes1.mzid"
+        # peakList_file = baseDir + "Tmuris_exo/20171027_DDA_JC1.zip"
+
+        # SL
+        # identifications_file = baseDir + "/cross-link/xiFDR/pc_revision/B160803_02_26_57.mzid"
+        # peakList_file = baseDir + "/cross-link/xiFDR/pc_revision/B160803_02_Lumos_LK_IN_190_PC_BS3_HCD_DT_1.mzML"
 
         # PXD006574
         # identifications_file = baseDir + "PXD006574/monomerResults.mzid.gz"
@@ -130,18 +138,17 @@ try:
         # identifications_file = baseDir + "PXD006574/dimerResultsToPRIDE.mzid.gz"
         # peakList_file = baseDir + "PXD006574/dimerResultsToPRIDE-specId.pride.mgf.gz"
 
-        # PXD001677 - ?
-        # identifications_file = baseDir + "PXD001677/result_DynamicDBReduction.mzid"
-        # peakList_file = baseDir + "PXD001677/result_DynamicDBReduction-specId.pride.mgf.gz"
-        # identifications_file = baseDir + "PXD001677/result_NormalMode.mzid"
-        # peakList_file = baseDir + "PXD001677/result_NormalMode-specId.pride.mgf"
+        # # PXD001677 - ms2 peak list file
+        # identifications_file = baseDir + "cross-link/PXD001677/result_DynamicDBReduction_Plus_Report_Ions-specId.pride.mgf.gz"
+        # peakList_file = baseDir + "cross-link/PXD001677/result_DynamicDBReduction-specId.ms2"
 
         # PXD007836 - mzid 1.1.0
         # identifications_file = baseDir + "PXD007836/data.mzid"
         # peakList_file = baseDir + "PXD007836/c.zip"
 
         #csv file
-        # identifications_file = baseDir + "example.csv"
+        identifications_file = baseDir + "cross-link/CSV/example.csv"
+        peakList_file = baseDir + "cross-link/CSV/example.mzML"
         # identifications_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/HSA-BS3_example_IDsort.csv"
         # peakList_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
 

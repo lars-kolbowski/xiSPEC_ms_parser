@@ -102,7 +102,7 @@ class CsvParser:
         self.modlist = []
         self.unknown_mods = []
 
-        self.contains_crosslinks = False    # ToDo: not used atm
+        self.contains_crosslinks = False
 
         self.warnings = []
 
@@ -122,6 +122,7 @@ class CsvParser:
         try:
             self.csv_reader = pd.read_csv(self.csv_path)
             self.csv_reader.columns = [x.lower().replace(" ", "") for x in self.csv_reader.columns]
+            self.meta_columns = [col for col in self.csv_reader.columns if col.startswith('meta')]
 
             # check required cols
             for required_col in self.required_cols:
@@ -205,6 +206,12 @@ class CsvParser:
         self.set_peak_list_readers()
 
         self.main_loop()
+
+        meta_col_names = [col.replace("meta_", "") for col in self.meta_columns]
+        while len(meta_col_names) < 3:
+            meta_col_names.append(-1)
+        meta_data = [self.upload_id] + meta_col_names + [self.contains_crosslinks]
+        self.db.write_meta_data(meta_data, self.cur, self.con)
 
         self.logger.info('all done! Total time: ' + str(round(time() - start_time, 2)) + " sec")
 
@@ -330,6 +337,7 @@ class CsvParser:
             if id_item['pepseq2'] == '':
                 cross_linked_id_item = False
             else:
+                self.contains_crosslinks = True
                 cross_linked_id_item = True
                 invalid_char_match = re.match(invalid_char_pattern_pepseq, id_item['pepseq2'])
                 if invalid_char_match:
@@ -338,6 +346,7 @@ class CsvParser:
                         'Invalid character(s) found in PepSeq2: %s for row: %s' % (invalid_chars, row_number)
                     )
             pepseq2 = id_item['pepseq2']
+
             # LinkPos
             # LinkPos - 1
             try:
@@ -474,13 +483,13 @@ class CsvParser:
                 raise CsvParseException(
                     'Inconsistent number of protein to pepPos values for Protein2 and PepPos2! for row: %s!' % row_number)
 
-            # scanid
+            # scanId
             try:
                 scan_id = int(id_item['scanid'])
             except ValueError:
                 raise CsvParseException('Invalid scanid: %s for row: %s' % (id_item['scanid'], row_number))
 
-            # peaklistfilename
+            # peakListFilename
 
             # expMZ
             try:
@@ -493,8 +502,8 @@ class CsvParser:
             except ValueError:
                 raise CsvParseException('Invalid calcMZ: %s for row: %s' % (id_item['calcmz'], row_number))
 
-
-            # Start actual parsing
+            #
+            # -----Start actual parsing------
             #
             # SPECTRA
             peak_list_file_name = id_item['peaklistfilename']
@@ -613,6 +622,19 @@ class CsvParser:
             # ToDo: experimental_mass_to_charge, calculated_mass_to_charge
             scores = json.dumps({'score': score})
 
+            try:
+                meta1 = id_item[self.meta_columns[0]]
+            except IndexError:
+                meta1 = ""
+            try:
+                meta2 = id_item[self.meta_columns[1]]
+            except IndexError:
+                meta2 = ""
+            try:
+                meta3 = id_item[self.meta_columns[2]]
+            except IndexError:
+                meta3 = ""
+
             spectrum_identification = [
                 identification_id,          # 'id',
                 self.upload_id,             # 'upload_id',
@@ -625,7 +647,10 @@ class CsvParser:
                 ion_types,                  # 'ions',
                 scores,                     # 'scores',
                 exp_mz,                     # 'experimental_mass_to_charge',
-                calc_mz                     # 'calculated_mass_to_charge'
+                calc_mz,                    # 'calculated_mass_to_charge'
+                meta1,
+                meta2,
+                meta3
             ]
             spectrum_identifications.append(spectrum_identification)
 

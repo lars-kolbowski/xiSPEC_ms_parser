@@ -60,7 +60,6 @@ class MzIdParser:
         self.modlist = []
         self.unknown_mods = []
 
-        # ToDo: not used atm
         # From mzidentML schema 1.2.0:
         # First of all, the <SpectrumIdentificationProtocol> must contain the CV term 'cross-linking search' (MS:1002494)
         self.contains_crosslinks = False
@@ -167,12 +166,18 @@ class MzIdParser:
         # ToDo: more gracefully handle missing files
         self.init_peak_list_readers()
 
+        meta_data = [self.upload_id, "", "", ""]
+        self.db.write_meta_data(meta_data, self.cur, self.con)
+
         #self.upload_info()
         self.parse_db_sequences()
         self.parse_peptides()
         self.parse_peptide_evidences()
         self.map_spectra_data_to_protocol()
         self.main_loop()
+
+        meta_data = [self.upload_id, -1, -1, -1, self.contains_crosslinks]
+        self.db.write_meta_data(meta_data, self.cur, self.con)
 
         #
         # Fill missing scores with
@@ -725,7 +730,10 @@ class MzIdParser:
                         ions,
                         json.dumps(scores),
                         experimental_mass_to_charge,
-                        calculated_mass_to_charge
+                        calculated_mass_to_charge,
+                        "",
+                        "",
+                        ""
                     ]
 
                     spectrum_ident_dict[cross_link_id] = ident_data
