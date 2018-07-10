@@ -496,7 +496,8 @@ class MzIdParser:
 
             # data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
             data = [
-                peptide_index,      # debug use mzid peptide['id'],
+                peptide['id'],
+                # peptide_index,      # debug use mzid peptide['id'],
                 peptide_seq_with_mods,
                 link_site,
                 crosslinker_modmass,
@@ -580,7 +581,9 @@ class MzIdParser:
                 is_decoy = 0
 
             peptide_ref = self.peptide_id_lookup[peptide_evidence["peptide_ref"]]
-            # peptide_ref = peptide_evidence["peptide_ref"]     # debug use mzid peptide['id'],
+            peptide_ref = peptide_evidence["peptide_ref"]     # debug use mzid peptide['id'],
+            if peptide_ref is None:
+                raise MzIdParseException('Missing peptide_ref?: %s' % peptide_evidence["peptide_ref"])
 
             data = [
                 peptide_ref,       #' peptide_ref',
