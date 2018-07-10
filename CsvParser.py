@@ -174,7 +174,7 @@ class CsvParser:
     def get_sequenceDB_file_names(self):
         fasta_files = []
         for file in os.listdir(self.temp_dir):
-            if file.endswith(".fasta"):
+            if file.endswith(".fasta") or file.endswith(".FASTA"):
                 fasta_files.append(file)
         return fasta_files
 

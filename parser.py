@@ -61,17 +61,17 @@ try:
         dev = True
         logFile = "log/parser_%s.log" % int(time())
 
-    # try:
-    #     os.remove(logFile)
-    # except OSError:
-    #     pass
-    # os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
+    try:
+        os.remove(logFile)
+    except OSError:
+        pass
+    os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
 
-    # create logger
-    # logging.basicConfig(filename=logFile, level=logging.DEBUG,
-    #                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
-    logging.basicConfig(level=logging.DEBUG,
+    #create logger
+    logging.basicConfig(filename=logFile, level=logging.DEBUG,
                         format='%(asctime)s %(levelname)s %(name)s %(message)s')
+    # logging.basicConfig(level=logging.DEBUG,
+    #                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
     logger = logging.getLogger(__name__)
 
 except Exception as e:
@@ -93,7 +93,6 @@ returnJSON = {
     "warnings": [],
     "log": logFile.split('/')[-1]
 }
-
 
 # paths and file names
 try:
@@ -146,6 +145,8 @@ try:
         # identifications_file = baseDir + "example.csv"
         # identifications_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/HSA-BS3_example_IDsort.csv"
         # peakList_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
+
+        user_id = 0;
 
         dbName = 'test.db'
         upload_folder = "/".join(identifications_file.split("/")[:-1]) + "/"
@@ -211,7 +212,7 @@ try:
                 print(json.dumps(returnJSON))
                 sys.exit(1)
         else:
-
+            logger.info("args[]>", args[0])
             identifications_file = args[0]
             peakList_file = args[1]
             upload_folder = "../uploads/" + args[2]
