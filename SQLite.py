@@ -38,6 +38,16 @@ def create_tables(cur, con):
         #     "upload_errors JSON)"
         # )
 
+        cur.execute("DROP TABLE IF EXISTS meta_data")
+        cur.execute(
+            "CREATE TABLE meta_data("
+            "upload_id INT,"
+            "sid_meta1_name TEXT,"
+            "sid_meta2_name TEXT,"
+            "sid_meta3_name TEXT,"
+            "contains_crosslink BOOLEAN)"
+        )
+
         # ToDo: not used atm might be a good place to save ions here?
         cur.execute("DROP TABLE IF EXISTS protocols")
         cur.execute(
@@ -104,10 +114,13 @@ def create_tables(cur, con):
             "charge_state INT, "
             "pass_threshold INT, "
             "rank INT,"
-            "ions TEXT, "   # ToDo: find better place to store ions might be protocols
+            "ions TEXT, "   # ToDo: find better place to store ions - might be protocols
             "scores JSON,"  # IS JSON data type valid or does it have to be TEXT
             "exp_mz FLOAT,"
-            "calc_mz FLOAT)"
+            "calc_mz FLOAT,"
+            "meta1 TEXT,"
+            "meta2 TEXT,"           
+            "meta3 TEXT)"
         )
         con.commit()
 
@@ -178,6 +191,25 @@ def create_tables(cur, con):
 #         raise DBException(e.message)
 #
 #     return True
+
+
+def write_meta_data(values, cur, con):
+    try:
+        cur.execute("""
+          INSERT INTO meta_data (
+            'upload_id',
+            'sid_meta1_name', 
+            'sid_meta2_name', 
+            'sid_meta3_name',
+            'contains_crosslink'
+          )
+          VALUES (?, ?, ?, ?, ?)""",  values)
+        con.commit()
+
+    except sqlite3.Error as e:
+        raise DBException(e.message)
+
+    return True
 
 
 def write_peptides(inj_list, cur, con):
@@ -276,8 +308,11 @@ def write_spectrum_identifications(inj_list, cur, con):
               'ions', 
               'scores',
               'exp_mz',
-              'calc_mz'
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ? , ?, ?, ?, ?)""", inj_list)
+              'calc_mz',
+              'meta1',
+              'meta2',
+              'meta3'
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", inj_list)
         con.commit()
 
     except sqlite3.Error as e:
