@@ -454,7 +454,7 @@ class CsvParser:
             if id_item['peppos1'] == -1:
                 pep_pos_list1 = [-1] * len(protein_list1)
             else:
-                pep_pos_list1 = id_item['peppos1'].split(";")
+                pep_pos_list1 = str(id_item['peppos1']).split(";")
                 pep_pos_list1 = [s.strip() for s in pep_pos_list1]
 
             # protein - decoy - pepPos sensibility check
@@ -490,7 +490,7 @@ class CsvParser:
             if id_item['peppos2'] == -1:
                 pep_pos_list2 = [-1] * len(protein_list2)
             else:
-                pep_pos_list2 = id_item['peppos2'].split(";")
+                pep_pos_list2 = str(id_item['peppos2']).split(";")
                 pep_pos_list2 = [s.strip() for s in pep_pos_list2]
 
             # protein - decoy - pepPos sensibility check
