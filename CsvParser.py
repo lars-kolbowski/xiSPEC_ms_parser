@@ -121,7 +121,6 @@ class CsvParser:
         # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
         try:
             self.csv_reader = pd.read_csv(self.csv_path)
-            self.csv_reader.columns = [x.lower().replace(" ", "") for x in self.csv_reader.columns]
 
             # check for duplicate columns
             col_list = self.csv_reader.columns.tolist()
@@ -129,7 +128,18 @@ class CsvParser:
             if len(duplicate_cols) > 0:
                 raise CsvParseException("duplicate column(s): %s" % '; '.join(duplicate_cols))
 
-            self.meta_columns = [col for col in self.csv_reader.columns if col.startswith('meta')]
+            self.csv_reader.columns = [x.lower().replace(" ", "") for x in self.csv_reader.columns]
+            self.meta_columns = [col for col in self.csv_reader.columns if col.startswith('meta')][:3]
+
+            # remove unused columns
+            for col in self.csv_reader.columns:
+                if col not in self.required_cols + self.optional_cols + self.meta_columns:
+                    try:
+                        del self.csv_reader[col]
+                    except KeyError:
+                        pass
+
+
 
             # check required cols
             for required_col in self.required_cols:
