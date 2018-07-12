@@ -122,6 +122,13 @@ class CsvParser:
         try:
             self.csv_reader = pd.read_csv(self.csv_path)
             self.csv_reader.columns = [x.lower().replace(" ", "") for x in self.csv_reader.columns]
+
+            # check for duplicate columns
+            col_list = self.csv_reader.columns.tolist()
+            duplicate_cols = set([x for x in col_list if col_list.count(x) > 1])
+            if len(duplicate_cols) > 0:
+                raise CsvParseException("duplicate column(s): %s" % '; '.join(duplicate_cols))
+
             self.meta_columns = [col for col in self.csv_reader.columns if col.startswith('meta')]
 
             # check required cols
