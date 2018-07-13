@@ -149,7 +149,7 @@ try:
         # identifications_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/HSA-BS3_example_IDsort.csv"
         # peakList_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
 
-        user_id = 0;
+        user_id = 0
 
         dbName = 'test.db'
         upload_folder = "/".join(identifications_file.split("/")[:-1]) + "/"
@@ -271,12 +271,12 @@ try:
     if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
         logger.info('parsing mzid start')
         identifications_fileType = 'mzid'
-        id_parser = MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder, user_id, db, logger)
+        id_parser = MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger, user_id=user_id)
 
     elif identifications_fileName.endswith('.csv'):
         logger.info('parsing csv start')
         identifications_fileType = 'csv'
-        id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, user_id, db, logger, dbName)
+        id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger, user_id=user_id)
 
         # mgfReader = py_mgf.read(peak_list_file)
         # peakListArr = [pl for pl in mgfReader]

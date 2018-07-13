@@ -229,12 +229,13 @@ except Exception as e:
 # parsing
 startTime = time()
 try:
+    peak_list_folder = upload_folder
     if peakList_file.endswith('.zip'):
         try:
             unzipStartTime = time()
             logger.info('unzipping start')
             # peakList_fileList = peakListParser.PeakListParser.unzip_peak_lists(peakList_file)
-            upload_folder = PeakListParser.PeakListParser.unzip_peak_lists(peakList_file)
+            peak_list_folder = PeakListParser.PeakListParser.unzip_peak_lists(peakList_file)
             logger.info('unzipping done. Time: ' + str(round(time() - unzipStartTime, 2)) + " sec")
         except IOError as e:
             logger.error(e.args[0])
@@ -257,12 +258,12 @@ try:
     if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
         logger.info('parsing mzid start')
         identifications_fileType = 'mzid'
-        id_parser = MzIdParser.xiSPEC_MzIdParser(identifications_file, upload_folder, db, logger, database)
+        id_parser = MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger, db_name=database)
 
     elif identifications_fileName.endswith('.csv'):
         logger.info('parsing csv start')
         identifications_fileType = 'csv'
-        id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, db, logger, database)
+        id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger, db_name=database)
 
     else:
         raise Exception('Unknown identifications file format!')

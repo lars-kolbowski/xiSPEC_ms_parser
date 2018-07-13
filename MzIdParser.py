@@ -26,7 +26,7 @@ class MzIdParser:
     """
 
     """
-    def __init__(self, mzId_path, temp_dir, peak_list_dir, user_id, db, logger, db_name='', origin=''):
+    def __init__(self, mzId_path, temp_dir, peak_list_dir, db, logger, db_name='', user_id=0, origin=''):
         """
 
         :param mzId_path: path to mzidentML file
@@ -170,9 +170,6 @@ class MzIdParser:
 
         # ToDo: more gracefully handle missing files
         self.init_peak_list_readers()
-
-        meta_data = [self.upload_id, "", "", ""]
-        self.db.write_meta_data(meta_data, self.cur, self.con)
 
         #self.upload_info()
         self.parse_db_sequences()
