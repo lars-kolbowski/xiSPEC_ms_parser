@@ -9,7 +9,7 @@ from PeakListParser import PeakListParser
 import zipfile
 import gzip
 import os
-
+import pyteomics.fasta as py_fasta
 
 class CsvParseException(Exception):
     pass
@@ -72,7 +72,7 @@ class CsvParser:
         'calcmz': -1
     }
 
-    def __init__(self, csv_path, temp_dir, db, logger, db_name=''):
+    def __init__(self, csv_path, temp_dir, peak_list_dir, user_id, db, logger, db_name=''):
         """
 
         :param csv_path: path to csv file
@@ -91,6 +91,11 @@ class CsvParser:
         self.temp_dir = temp_dir
         if not self.temp_dir.endswith('/'):
             self.temp_dir += '/'
+        self.peak_list_dir = peak_list_dir
+        if not self.peak_list_dir.endswith('/'):
+            self.peak_list_dir += '/'
+
+        self.user_id = user_id
 
         self.db = db
         self.logger = logger
@@ -115,6 +120,27 @@ class CsvParser:
             self.logger.error(e)
             print(e)
             sys.exit(1)
+
+        #peak_list_file_names = json.dumps(self.get_peak_list_file_names(), cls=NumpyEncoder)
+#
+#        self.upload_id = self.db.write_upload([self.user_id, os.path.basename(self.csv_path), "{}", "{}",
+#                         "{}", "{}", "{}", "{}", "{}", "{}", "{}", "{}", self.warnings],
+#                        self.cur, self.con,
+#                        )
+#       self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)###
+#
+#        self.logger.info('reading fasta - start')
+#        self.start_time = time()
+#
+#        self.fasta = {}
+#        for file in self.get_sequenceDB_file_names():
+#            fasta_iterator = py_fasta.read(self.temp_dir + "/" + file)
+#            for (a, b) in fasta_iterator:
+#                # self.logger.info("" + a  b)
+#                header = py_fasta.parse(a)
+#                self.fasta[header['id']] = b
+#        self.logger.info('reading fasta - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
+
 
         self.logger.info('reading csv - start')
         self.start_time = time()
@@ -158,7 +184,6 @@ class CsvParser:
         except Exception as e:
             raise CsvParseException(type(e).__name__, e.args)
 
-        self.logger.info('reading csv - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
 
     # ToDo: not used atm - can be used for checking if all files are present in temp dir
     def get_peak_list_file_names(self):
@@ -168,7 +193,11 @@ class CsvParser:
         return self.csv_reader.peaklistfilename.unique()
 
     def get_sequenceDB_file_names(self):
-        pass
+        fasta_files = []
+        for file in os.listdir(self.temp_dir):
+            if file.endswith(".fasta") or file.endswith(".FASTA"):
+                fasta_files.append(file)
+        return fasta_files
 
     def set_peak_list_readers(self):
         """
@@ -191,7 +220,7 @@ class CsvParser:
             else:
                 raise CsvParseException("Unsupported peak list file type for: %s" % peak_list_file_name)
 
-            peak_list_file_path = self.temp_dir + peak_list_file_name
+            peak_list_file_path = self.peak_list_dir + peak_list_file_name
 
             try:
                 peak_list_reader = PeakListParser(
@@ -295,7 +324,7 @@ class CsvParser:
         spectrum_identifications = []
         spectra = []
         peptides = []
-
+        proteins = set()
         # list of spectra that were already seen - index in list is spectrum_id
         # combination of peaklistfilename and scanid is a unique identifier
         seen_spectra = []
@@ -432,6 +461,8 @@ class CsvParser:
             # protein1
             protein_list1 = id_item['protein1'].split(";")
             protein_list1 = [s.strip() for s in protein_list1]
+            for p in protein_list1:
+                proteins.add(p)
 
             # decoy1 - if decoy1 is not set fill list with default value (0)
             if id_item['decoy1'] == -1:
@@ -685,6 +716,25 @@ class CsvParser:
                 if mod not in self.unknown_mods:
                     self.unknown_mods.append(mod)
 
+
+        # DBSEQUENCES
+        #db_sequences = []
+        # for db_sequence in sequence_collection['DBSequence']:
+        #for prot in proteins:
+        #    try:
+        #        seq = self.fasta[prot]
+        #    except Exception as ke:
+        #        seq = "NO SEQUENCE"
+        #    data = [prot, prot, prot, "", seq, self.upload_id]
+        #
+        #    # is_decoy - not thereseq = self.fasta[prot]
+        #    # data.append("false")
+        # 
+        #    # data.append(self.upload_id)
+        #
+        #    db_sequences.append(data)
+
+
         # end main loop
         self.logger.info('main loop - done. Time: ' + str(round(time() - main_loop_start_time, 2)) + " sec")
 
@@ -697,6 +747,7 @@ class CsvParser:
             self.db.write_peptides(peptides, self.cur, self.con)
             self.db.write_spectra(spectra, self.cur, self.con)
             self.db.write_spectrum_identifications(spectrum_identifications, self.cur, self.con)
+            #self.db.write_db_sequences(db_sequences, self.cur, self.con)
             self.con.commit()
         except Exception as e:
             raise e

@@ -26,7 +26,7 @@ class MzIdParser:
     """
 
     """
-    def __init__(self, mzId_path, temp_dir, db, logger, db_name='', origin=''):
+    def __init__(self, mzId_path, temp_dir, peak_list_dir, user_id, db, logger, db_name='', origin=''):
         """
 
         :param mzId_path: path to mzidentML file
@@ -45,6 +45,11 @@ class MzIdParser:
         self.temp_dir = temp_dir
         if not self.temp_dir.endswith('/'):
             self.temp_dir += '/'
+        self.peak_list_dir = peak_list_dir
+        if not self.peak_list_dir.endswith('/'):
+            self.peak_list_dir += '/'
+
+        self.user_id = user_id
 
         self.db = db
         self.logger = logger
@@ -76,7 +81,7 @@ class MzIdParser:
             print(e)
             sys.exit(1)
 
-        self.logger.info('reading mzid - start')
+        self.logger.info('reading mzid - start ' + self.mzId_path)
         self.start_time = time()
         # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
         try:
@@ -135,7 +140,7 @@ class MzIdParser:
             sd_id = sp_datum['id']
             peak_list_file_name = ntpath.basename(sp_datum['location'])
 
-            peak_list_file_path = self.temp_dir + peak_list_file_name
+            peak_list_file_path = self.peak_list_dir + peak_list_file_name
 
             try:
                 peak_list_reader = PeakListParser(
@@ -580,6 +585,12 @@ class MzIdParser:
             if "isDecoy" in peptide_evidence:
                 is_decoy = peptide_evidence["isDecoy"]   # isDecoy att, optional
 
+            # cc hack
+            #if is_decoy == True:
+            #    is_decoy = 1
+            #else:
+            #    is_decoy = 0
+
             peptide_ref = self.peptide_id_lookup[peptide_evidence["peptide_ref"]]
             # peptide_ref = peptide_evidence["peptide_ref"]     # debug use mzid peptide['id'],
 
@@ -852,10 +863,12 @@ class MzIdParser:
         self.mzid_reader.reset()
 
 
-        self.upload_id = self.db.write_upload([0, self.mzId_path, peak_list_file_names, spectra_formats,
+        self.upload_id = self.db.write_upload([self.user_id, os.path.basename(self.mzId_path), peak_list_file_names, spectra_formats,
                           analysis_software, provider, audits, samples, analyses, protocols, bibRefs, self.origin, self.warnings],
                          self.cur, self.con,
                          )
+
+        #self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)
 
         self.logger.info(
             'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
