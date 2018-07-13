@@ -107,7 +107,7 @@ class CsvParser:
         self.modlist = []
         self.unknown_mods = []
 
-        self.contains_crosslinks = False    # ToDo: not used atm
+        self.contains_crosslinks = False
 
         self.warnings = []
 
@@ -122,24 +122,24 @@ class CsvParser:
             sys.exit(1)
 
         #peak_list_file_names = json.dumps(self.get_peak_list_file_names(), cls=NumpyEncoder)
-
-        self.upload_id = self.db.write_upload([self.user_id, os.path.basename(self.csv_path), "{}", "{}",
-                          "{}", "{}", "{}", "{}", "{}", "{}", "{}", "{}", self.warnings],
-                         self.cur, self.con,
-                         )
-        self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)
-
-        self.logger.info('reading fasta - start')
-        self.start_time = time()
-
-        self.fasta = {}
-        for file in self.get_sequenceDB_file_names():
-            fasta_iterator = py_fasta.read(self.temp_dir + "/" + file)
-            for (a, b) in fasta_iterator:
-                # self.logger.info("" + a  b)
-                header = py_fasta.parse(a)
-                self.fasta[header['id']] = b
-        self.logger.info('reading fasta - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
+#
+#        self.upload_id = self.db.write_upload([self.user_id, os.path.basename(self.csv_path), "{}", "{}",
+#                         "{}", "{}", "{}", "{}", "{}", "{}", "{}", "{}", self.warnings],
+#                        self.cur, self.con,
+#                        )
+#       self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)###
+#
+#        self.logger.info('reading fasta - start')
+#        self.start_time = time()
+#
+#        self.fasta = {}
+#        for file in self.get_sequenceDB_file_names():
+#            fasta_iterator = py_fasta.read(self.temp_dir + "/" + file)
+#            for (a, b) in fasta_iterator:
+#                # self.logger.info("" + a  b)
+#                header = py_fasta.parse(a)
+#                self.fasta[header['id']] = b
+#        self.logger.info('reading fasta - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
 
 
         self.logger.info('reading csv - start')
@@ -147,7 +147,25 @@ class CsvParser:
         # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
         try:
             self.csv_reader = pd.read_csv(self.csv_path)
+
+            # check for duplicate columns
+            col_list = self.csv_reader.columns.tolist()
+            duplicate_cols = set([x for x in col_list if col_list.count(x) > 1])
+            if len(duplicate_cols) > 0:
+                raise CsvParseException("duplicate column(s): %s" % '; '.join(duplicate_cols))
+
             self.csv_reader.columns = [x.lower().replace(" ", "") for x in self.csv_reader.columns]
+            self.meta_columns = [col for col in self.csv_reader.columns if col.startswith('meta')][:3]
+
+            # remove unused columns
+            for col in self.csv_reader.columns:
+                if col not in self.required_cols + self.optional_cols + self.meta_columns:
+                    try:
+                        del self.csv_reader[col]
+                    except KeyError:
+                        pass
+
+
 
             # check required cols
             for required_col in self.required_cols:
@@ -234,6 +252,12 @@ class CsvParser:
         self.set_peak_list_readers()
 
         self.main_loop()
+
+        meta_col_names = [col.replace("meta_", "") for col in self.meta_columns]
+        while len(meta_col_names) < 3:
+            meta_col_names.append(-1)
+        meta_data = [self.upload_id] + meta_col_names + [self.contains_crosslinks]
+        self.db.write_meta_data(meta_data, self.cur, self.con)
 
         self.logger.info('all done! Total time: ' + str(round(time() - start_time, 2)) + " sec")
 
@@ -359,6 +383,7 @@ class CsvParser:
             if id_item['pepseq2'] == '':
                 cross_linked_id_item = False
             else:
+                self.contains_crosslinks = True
                 cross_linked_id_item = True
                 invalid_char_match = re.match(invalid_char_pattern_pepseq, id_item['pepseq2'])
                 if invalid_char_match:
@@ -367,6 +392,7 @@ class CsvParser:
                         'Invalid character(s) found in PepSeq2: %s for row: %s' % (invalid_chars, row_number)
                     )
             pepseq2 = id_item['pepseq2']
+
             # LinkPos
             # LinkPos - 1
             try:
@@ -402,8 +428,9 @@ class CsvParser:
                 raise CsvParseException('Invalid passThreshold value: %s for row: %s' % (id_item['passthreshold'], row_number))
 
             # fragmenttolerance
-            if not re.match('^([0-9.]+) (ppm|Da)$', id_item['fragmenttolerance']):
-                raise CsvParseException('Invalid FragmentTolerance value: %s for row: %s' % (id_item['fragmenttolerance'], row_number))
+            if not re.match('^([0-9.]+) (ppm|Da)$', str(id_item['fragmenttolerance'])):
+                raise CsvParseException(
+                    'Invalid FragmentTolerance value: %s in row: %s' % (id_item['fragmenttolerance'], row_number))
             else:
                 fragment_tolerance = id_item['fragmenttolerance']
 
@@ -420,7 +447,7 @@ class CsvParser:
             ]
             if any([True for ion in ions if ion not in valid_ions]):
                 raise CsvParseException(
-                    'Unsupported IonType in: %s for row: %s! Supported ions are: peptide;a;b;c;x;y;z.'
+                    'Unsupported IonType in: %s in row %s! Supported ions are: peptide;a;b;c;x;y;z.'
                     % (id_item['iontypes'], row_number)
                 )
             ion_types = id_item['iontypes']
@@ -429,7 +456,7 @@ class CsvParser:
             try:
                 score = float(id_item['score'])
             except ValueError:
-                raise CsvParseException('Invalid score: %s for row: %s' % (id_item['score'], row_number))
+                raise CsvParseException('Invalid score: %s in row %s' % (id_item['score'], row_number))
 
             # protein1
             protein_list1 = id_item['protein1'].split(";")
@@ -449,7 +476,7 @@ class CsvParser:
                         is_decoy_list1.append(0)
                     else:
                         raise CsvParseException(
-                            'Invalid value in Decoy 1: %s for row: %s. Allowed values: True, False.'
+                            'Invalid value in Decoy 1: %s in row %s. Allowed values: True, False.'
                             % (id_item['decoy1'], row_number)
                         )
 
@@ -464,10 +491,10 @@ class CsvParser:
             # protein - decoy - pepPos sensibility check
             if not len(protein_list1) == len(is_decoy_list1):
                 raise CsvParseException(
-                    'Inconsistent number of protein to decoy values for Protein1 and Decoy1 for row: %s!' % row_number)
+                    'Inconsistent number of protein to decoy values for Protein1 and Decoy1 in row %s!' % row_number)
             if not len(protein_list1) == len(pep_pos_list1):
                 raise CsvParseException(
-                    'Inconsistent number of protein to pepPos values for Protein1 and PepPos1 for row: %s!' % row_number)
+                    'Inconsistent number of protein to pepPos values for Protein1 and PepPos1 in row %s!' % row_number)
 
             # protein2
             protein_list2 = id_item['protein2'].split(";")
@@ -485,7 +512,7 @@ class CsvParser:
                         is_decoy_list2.append(0)
                     else:
                         raise CsvParseException(
-                            'Invalid value in Decoy 2: %s for row: %s. Allowed values: True, False.'
+                            'Invalid value in Decoy 2: %s in row %s. Allowed values: True, False.'
                             % (id_item['decoy2'], row_number)
                         )
 
@@ -500,32 +527,32 @@ class CsvParser:
             # protein - decoy - pepPos sensibility check
             if not len(protein_list2) == len(is_decoy_list2):
                 raise CsvParseException(
-                    'Inconsistent number of protein to decoy values for Protein2 and Decoy2 for row: %s!' % row_number)
+                    'Inconsistent number of protein to decoy values for Protein2 and Decoy2 in row %s!' % row_number)
             if not len(protein_list2) == len(pep_pos_list2):
                 raise CsvParseException(
-                    'Inconsistent number of protein to pepPos values for Protein2 and PepPos2! for row: %s!' % row_number)
+                    'Inconsistent number of protein to pepPos values for Protein2 and PepPos2! in row %s!' % row_number)
 
-            # scanid
+            # scanId
             try:
                 scan_id = int(id_item['scanid'])
             except ValueError:
-                raise CsvParseException('Invalid scanid: %s for row: %s' % (id_item['scanid'], row_number))
+                raise CsvParseException('Invalid scanid: %s in row %s' % (id_item['scanid'], row_number))
 
-            # peaklistfilename
+            # peakListFilename
 
             # expMZ
             try:
                 exp_mz = float(id_item['expmz'])
             except ValueError:
-                raise CsvParseException('Invalid expMZ: %s for row: %s' % (id_item['exmpmz'], row_number))
+                raise CsvParseException('Invalid expMZ: %s in row %s' % (id_item['exmpmz'], row_number))
             # calcMZ
             try:
                 calc_mz = float(id_item['calcmz'])
             except ValueError:
-                raise CsvParseException('Invalid calcMZ: %s for row: %s' % (id_item['calcmz'], row_number))
+                raise CsvParseException('Invalid calcMZ: %s in row %s' % (id_item['calcmz'], row_number))
 
-
-            # Start actual parsing
+            #
+            # -----Start actual parsing------
             #
             # SPECTRA
             peak_list_file_name = id_item['peaklistfilename']
@@ -644,6 +671,19 @@ class CsvParser:
             # ToDo: experimental_mass_to_charge, calculated_mass_to_charge
             scores = json.dumps({'score': score})
 
+            try:
+                meta1 = id_item[self.meta_columns[0]]
+            except IndexError:
+                meta1 = ""
+            try:
+                meta2 = id_item[self.meta_columns[1]]
+            except IndexError:
+                meta2 = ""
+            try:
+                meta3 = id_item[self.meta_columns[2]]
+            except IndexError:
+                meta3 = ""
+
             spectrum_identification = [
                 identification_id,          # 'id',
                 self.upload_id,             # 'upload_id',
@@ -656,7 +696,10 @@ class CsvParser:
                 ion_types,                  # 'ions',
                 scores,                     # 'scores',
                 exp_mz,                     # 'experimental_mass_to_charge',
-                calc_mz                     # 'calculated_mass_to_charge'
+                calc_mz,                    # 'calculated_mass_to_charge'
+                meta1,
+                meta2,
+                meta3
             ]
             spectrum_identifications.append(spectrum_identification)
 
@@ -675,21 +718,21 @@ class CsvParser:
 
 
         # DBSEQUENCES
-        db_sequences = []
+        #db_sequences = []
         # for db_sequence in sequence_collection['DBSequence']:
-        for prot in proteins:
-            try:
-                seq = self.fasta[prot]
-            except Exception as ke:
-                seq = "NO SEQUENCE"
-            data = [prot, prot, prot, "", seq, self.upload_id]
-
-            # is_decoy - not thereseq = self.fasta[prot]
-            # data.append("false")
-
-            # data.append(self.upload_id)
-
-            db_sequences.append(data)
+        #for prot in proteins:
+        #    try:
+        #        seq = self.fasta[prot]
+        #    except Exception as ke:
+        #        seq = "NO SEQUENCE"
+        #    data = [prot, prot, prot, "", seq, self.upload_id]
+        #
+        #    # is_decoy - not thereseq = self.fasta[prot]
+        #    # data.append("false")
+        # 
+        #    # data.append(self.upload_id)
+        #
+        #    db_sequences.append(data)
 
 
         # end main loop
@@ -704,11 +747,8 @@ class CsvParser:
             self.db.write_peptides(peptides, self.cur, self.con)
             self.db.write_spectra(spectra, self.cur, self.con)
             self.db.write_spectrum_identifications(spectrum_identifications, self.cur, self.con)
-            self.db.write_db_sequences(db_sequences, self.cur, self.con)
+            #self.db.write_db_sequences(db_sequences, self.cur, self.con)
             self.con.commit()
-
-
-
         except Exception as e:
             raise e
 

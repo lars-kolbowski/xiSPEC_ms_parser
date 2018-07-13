@@ -61,30 +61,33 @@ try:
         dev = True
         logFile = "log/parser_%s.log" % int(time())
 
-    try:
-        os.remove(logFile)
-    except OSError:
-        pass
-    os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
+    if dev:
+        logging.basicConfig(level=logging.DEBUG,
+                            format='%(asctime)s %(levelname)s %(name)s %(message)s')
+    else:
+        try:
+            os.remove(logFile)
+        except OSError:
+            pass
+        os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
 
-    # create logger
-    logging.basicConfig(filename=logFile, level=logging.DEBUG,
-                        format='%(asctime)s %(levelname)s %(name)s %(message)s')
-    # logging.basicConfig(level=logging.DEBUG,
-    #                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
+        # create logger
+        logging.basicConfig(filename=logFile, level=logging.DEBUG,
+                            format='%(asctime)s %(levelname)s %(name)s %(message)s')
+
     logger = logging.getLogger(__name__)
 
 except Exception as e:
     print (e)
     sys.exit(1)
 
-try:
-    if args[3] == "pg":
-        import PostgreSQL as db
-    else:
-        import SQLite as db
-except IndexError:
-    import SQLite as db
+# try:
+#     if args[3] == "pg":
+#         import PostgreSQL as db
+#     else:
+#         import SQLite as db
+# except IndexError:
+import PostgreSQL as db
 
 returnJSON = {
     "response": "",
@@ -94,7 +97,6 @@ returnJSON = {
     "log": logFile.split('/')[-1]
 }
 
-
 # paths and file names
 try:
 
@@ -102,7 +104,7 @@ try:
 
     # development testfiles
     if dev:
-        baseDir = "/media/data/work/xiSPEC_test_files/"
+        baseDir = "/home/col/xiSPEC_test_files/"
 
         # identifications_file = baseDir + 'OpenxQuest_example_added_annotations.mzid'
         # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
@@ -116,21 +118,15 @@ try:
         # peakList_file = "/media/data/work/xiSPEC_test_files/PXD006767/PXD006767.zip"
         # peakList_file = "/media/data/work/xiSPEC_test_files/PXD006767/as.zip"
 
-        # # HSA-BS3 dataset
+        # HSA-BS3 dataset
         # identifications_file = baseDir + "/cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzid"
         # peakList_file = baseDir + "/cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
-
-        # small mzid dataset
-        # identifications_file = baseDir + "DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
-        # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
+        identifications_file = "/home/col/HSA/test_HSA_PSM_xiFDR1.1.26.58.csv"
+        peakList_file = "/home/col/HSA/E180510_02_Orbi2_TD_IN_160_HSA_10kDa_10p.zip"
 
         # # large mzid dataset
-        # identifications_file = baseDir + "Tmuris_exo/Tmuris_exosomes1.mzid"
-        # peakList_file = baseDir + "Tmuris_exo/20171027_DDA_JC1.zip"
-
-        # SL
-        # identifications_file = baseDir + "/cross-link/xiFDR/pc_revision/B160803_02_26_57.mzid"
-        # peakList_file = baseDir + "/cross-link/xiFDR/pc_revision/B160803_02_Lumos_LK_IN_190_PC_BS3_HCD_DT_1.mzML"
+        # identifications_file = baseDir + "linear/Tmuris_exo/Tmuris_exosomes1.mzid"
+        # peakList_file = baseDir + "linear/Tmuris_exo/20171027_DDA_JC1.zip"
 
         # PXD006574
         # identifications_file = baseDir + "PXD006574/monomerResults.mzid.gz"
@@ -138,19 +134,22 @@ try:
         # identifications_file = baseDir + "PXD006574/dimerResultsToPRIDE.mzid.gz"
         # peakList_file = baseDir + "PXD006574/dimerResultsToPRIDE-specId.pride.mgf.gz"
 
-        # # PXD001677 - ms2 peak list file
-        # identifications_file = baseDir + "cross-link/PXD001677/result_DynamicDBReduction_Plus_Report_Ions-specId.pride.mgf.gz"
-        # peakList_file = baseDir + "cross-link/PXD001677/result_DynamicDBReduction-specId.ms2"
+        # PXD001677 - ?
+        # identifications_file = baseDir + "PXD001677/result_DynamicDBReduction.mzid"
+        # peakList_file = baseDir + "PXD001677/result_DynamicDBReduction-specId.pride.mgf.gz"
+        # identifications_file = baseDir + "PXD001677/result_NormalMode.mzid"
+        # peakList_file = baseDir + "PXD001677/result_NormalMode-specId.pride.mgf"
 
         # PXD007836 - mzid 1.1.0
         # identifications_file = baseDir + "PXD007836/data.mzid"
         # peakList_file = baseDir + "PXD007836/c.zip"
 
         #csv file
-        identifications_file = baseDir + "cross-link/CSV/example.csv"
-        peakList_file = baseDir + "cross-link/CSV/example.mzML"
+        # identifications_file = baseDir + "example.csv"
         # identifications_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/HSA-BS3_example_IDsort.csv"
         # peakList_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
+
+        user_id = 0;
 
         dbName = 'test.db'
         upload_folder = "/".join(identifications_file.split("/")[:-1]) + "/"
@@ -216,10 +215,11 @@ try:
                 print(json.dumps(returnJSON))
                 sys.exit(1)
         else:
-
+            logger.info("args[]>", args[0])
             identifications_file = args[0]
             peakList_file = args[1]
             upload_folder = "../uploads/" + args[2]
+            user_id = args[3]
 
         dbfolder = "dbs/tmp/"
         try:
@@ -239,12 +239,13 @@ try:
     # check for peak list zip file
     # peakList_fileName = ntpath.basename(peakList_file)
     # if re.search(".*\.(zip)$", peakList_fileName):
+    peak_list_folder = upload_folder
     if peakList_file.endswith('.zip'):
         try:
             unzipStartTime = time()
             logger.info('unzipping start')
             # peakList_fileList = peakListParser.PeakListParser.unzip_peak_lists(peakList_file)
-            upload_folder = PeakListParser.PeakListParser.unzip_peak_lists(peakList_file)
+            peak_list_folder = PeakListParser.PeakListParser.unzip_peak_lists(peakList_file)
             logger.info('unzipping done. Time: ' + str(round(time() - unzipStartTime, 2)) + " sec")
         except IOError as e:
             logger.error(e.args[0])
@@ -270,12 +271,12 @@ try:
     if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
         logger.info('parsing mzid start')
         identifications_fileType = 'mzid'
-        id_parser = MzIdParser.xiSPEC_MzIdParser(identifications_file, upload_folder, db, logger, dbName)
+        id_parser = MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder, user_id, db, logger)
 
     elif identifications_fileName.endswith('.csv'):
         logger.info('parsing csv start')
         identifications_fileType = 'csv'
-        id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, db, logger, dbName)
+        id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, user_id, db, logger, dbName)
 
         # mgfReader = py_mgf.read(peak_list_file)
         # peakListArr = [pl for pl in mgfReader]
@@ -283,15 +284,16 @@ try:
         raise Exception('Unknown identifications file format!')
 
     # create Database tables
-    try:
-        db.create_tables(id_parser.cur, id_parser.con)
-    except db.DBException as e:
-        logger.error(e)
-        print(e)
-        sys.exit(1)
+    # try:
+    #     db.create_tables(id_parser.cur, id_parser.con)
+    # except db.DBException as e:
+    #     logger.error(e)
+    #     print(e)
+    #     sys.exit(1)
 
     id_parser.parse()
 
+    returnJSON['identifier'] = str(id_parser.upload_id) + "-" + str(id_parser.random_id)
     returnJSON['modifications'] = id_parser.unknown_mods
     returnJSON["warnings"] = id_parser.warnings
 

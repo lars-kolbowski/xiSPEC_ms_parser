@@ -97,7 +97,7 @@ class PeakListParser:
         except Exception as e:
             # raise ScanNotFoundException(type(e).__name__,
             #                             ntpath.basename(self.peak_list_path), e.args)
-            raise ScanNotFoundException("%s, %s - for file: %s" % (scan_id, e.args[0], ntpath.basename(self.peak_list_path)))
+            raise ScanNotFoundException("%s - for file: %s - scanId: %s" % (e.args[0], ntpath.basename(self.peak_list_path), scan_id))
 
         if self.is_mzML():
             # if scan['ms level'] == 1:

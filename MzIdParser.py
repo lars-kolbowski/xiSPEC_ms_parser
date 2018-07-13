@@ -36,7 +36,7 @@ class MzIdParser:
         :param origin: ftp dir of pride project
         """
 
-        # self.upload_id = 0
+        self.upload_id = 0
         if mzId_path.endswith('.gz') or mzId_path.endswith('.zip'):
             self.mzId_path = MzIdParser.extract_mzid(mzId_path)
         else:
@@ -65,7 +65,6 @@ class MzIdParser:
         self.modlist = []
         self.unknown_mods = []
 
-        # ToDo: not used atm
         # From mzidentML schema 1.2.0:
         # First of all, the <SpectrumIdentificationProtocol> must contain the CV term 'cross-linking search' (MS:1002494)
         self.contains_crosslinks = False
@@ -172,12 +171,25 @@ class MzIdParser:
         # ToDo: more gracefully handle missing files
         self.init_peak_list_readers()
 
-        self.upload_info()
+        meta_data = [self.upload_id, "", "", ""]
+        self.db.write_meta_data(meta_data, self.cur, self.con)
+
+        #self.upload_info()
         self.parse_db_sequences()
         self.parse_peptides()
         self.parse_peptide_evidences()
         self.map_spectra_data_to_protocol()
         self.main_loop()
+
+        meta_data = [self.upload_id, -1, -1, -1, self.contains_crosslinks]
+        self.db.write_meta_data(meta_data, self.cur, self.con)
+
+        #
+        # Fill missing scores with
+        # score_fill_start_time = time()
+        # self.logger.info('fill in missing scores - start')
+        # self.db.fill_in_missing_scores(self.cur, self.con)
+        # self.logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
 
         self.logger.info('all done! Total time: ' + str(round(time() - start_time, 2)) + " sec")
 
@@ -496,8 +508,7 @@ class MzIdParser:
 
             # data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
             data = [
-                peptide['id'],
-                # peptide_index,      # debug use mzid peptide['id'],
+                peptide_index,      # debug use mzid peptide['id'],
                 peptide_seq_with_mods,
                 link_site,
                 crosslinker_modmass,
@@ -575,15 +586,13 @@ class MzIdParser:
                 is_decoy = peptide_evidence["isDecoy"]   # isDecoy att, optional
 
             # cc hack
-            if is_decoy == True:
-                is_decoy = 1
-            else:
-                is_decoy = 0
+            #if is_decoy == True:
+            #    is_decoy = 1
+            #else:
+            #    is_decoy = 0
 
             peptide_ref = self.peptide_id_lookup[peptide_evidence["peptide_ref"]]
-            peptide_ref = peptide_evidence["peptide_ref"]     # debug use mzid peptide['id'],
-            if peptide_ref is None:
-                raise MzIdParseException('Missing peptide_ref?: %s' % peptide_evidence["peptide_ref"])
+            # peptide_ref = peptide_evidence["peptide_ref"]     # debug use mzid peptide['id'],
 
             data = [
                 peptide_ref,       #' peptide_ref',
@@ -732,7 +741,10 @@ class MzIdParser:
                         ions,
                         json.dumps(scores),
                         experimental_mass_to_charge,
-                        calculated_mass_to_charge
+                        calculated_mass_to_charge,
+                        "",
+                        "",
+                        ""
                     ]
 
                     spectrum_ident_dict[cross_link_id] = ident_data
@@ -856,7 +868,7 @@ class MzIdParser:
                          self.cur, self.con,
                          )
 
-        self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)
+        #self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)
 
         self.logger.info(
             'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
