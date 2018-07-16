@@ -11,11 +11,11 @@ import getopt
 
 
 dev = False
-use_ftp, use_postgreSQL = False, False
+use_ftp, use_postgreSQL, user_id = False, False, False
 identifications_file, peakList_file, identifier = False, False, False
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "fi:p:s:", ["ftp", "postgresql"])
+    opts, args = getopt.getopt(sys.argv[1:], "i:p:s:u:", ["ftp", "postgresql"])
 except getopt.GetoptError:
     print('parser.py (-f -pg) -i <identifications file> -p <peak list file> -s <session identifier>')
     sys.exit(2)
@@ -37,6 +37,8 @@ for o, a in opts:
     if o == '--postgresql':
         use_postgreSQL = True
 
+    if o == '-u': # user_id
+        user_id = a
 
 if identifications_file is False or identifier is False:
     dev = True
@@ -81,9 +83,13 @@ try:
     #                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
     logger = logging.getLogger(__name__)
 
+
+
 except Exception as e:
     print (e)
     sys.exit(1)
+
+logger.info('argv:' + " ".join(sys.argv))
 
 
 returnJSON = {
@@ -147,10 +153,10 @@ try:
 
         # csv file
         # identifications_file = baseDir + 'cross-link/sven-test/5pLinkFDRPSMS.csv'
-        identifications_file = baseDir + "cross-link/CSV/example.csv"
+        identifications_file = "/home/col/test/test_HSA.csv"
         # peakList_file = baseDir + "cross-link/sven-test/QExactive_HSA_SDA_MaxQuantNoDeiso.zip"
         # identifications_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/HSA-BS3_example_IDsort.csv"
-        peakList_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
+        peakList_file = "/home/col/test/E180510_02_Orbi2_TD_IN_160_HSA_10kDa_10p.mzML"
 
         database = 'test.db'
         upload_folder = "/".join(identifications_file.split("/")[:-1]) + "/"
@@ -258,26 +264,40 @@ try:
     if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
         logger.info('parsing mzid start')
         identifications_fileType = 'mzid'
-        id_parser = MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger, db_name=database)
+        if use_postgreSQL:
+            id_parser = MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger,
+                                              user_id=user_id)
+        else:
+            id_parser = MzIdParser.xiSPEC_MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger,
+                                              db_name=database)
 
     elif identifications_fileName.endswith('.csv'):
         logger.info('parsing csv start')
         identifications_fileType = 'csv'
-        id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger, db_name=database)
+        if use_postgreSQL:
+            id_parser = CsvParser.CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
+                                            user_id=user_id)
+        else:
+            id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
+                                            db_name=database)
+
 
     else:
         raise Exception('Unknown identifications file format!')
 
+
     # create Database tables
-    try:
-        db.create_tables(id_parser.cur, id_parser.con)
-    except db.DBException as e:
-        logger.error(e)
-        print(e)
-        sys.exit(1)
+    if not use_postgreSQL:
+        try:
+            db.create_tables(id_parser.cur, id_parser.con)
+        except db.DBException as e:
+            logger.error(e)
+            print(e)
+            sys.exit(1)
 
     id_parser.parse()
 
+    returnJSON['identifier'] = str(id_parser.upload_id) + "-" + str(id_parser.random_id)
     returnJSON['modifications'] = id_parser.unknown_mods
     returnJSON["warnings"] = id_parser.warnings
 
