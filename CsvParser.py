@@ -693,9 +693,9 @@ class CsvParser:
                 scores,                     # 'scores',
                 exp_mz,                     # 'experimental_mass_to_charge',
                 calc_mz,                    # 'calculated_mass_to_charge'
-                meta1,
-                meta2,
-                meta3
+                # meta1,
+                # meta2,
+                # meta3
             ]
             spectrum_identifications.append(spectrum_identification)
 
@@ -753,6 +753,7 @@ class CsvParser:
                          + str(round(time() - db_wrap_up_start_time, 2)) + " sec")
 
     def upload_info(self):
+       self.logger.info('write upload info')
        # peak_list_file_names = json.dumps(self.get_peak_list_file_names(), cls=NumpyEncoder)
        self.upload_id = self.db.write_upload([self.user_id, os.path.basename(self.csv_path), "{}", "{}",
                         "{}", "{}", "{}", "{}", "{}", "{}", "{}", "{}", self.warnings],

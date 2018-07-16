@@ -281,7 +281,6 @@ def write_spectra(inj_list, cur, con):
 
 
 def write_spectrum_identifications(inj_list, cur, con):
-    inj_list = inj_list[:-3] # hack off meta data columns
     try:
         cur.executemany("""
           INSERT INTO spectrum_identifications (
