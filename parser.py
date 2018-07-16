@@ -258,12 +258,21 @@ try:
     if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
         logger.info('parsing mzid start')
         identifications_fileType = 'mzid'
-        id_parser = MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger, db_name=database)
+        if use_postgreSQL:
+            id_parser = MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger, db_name=database)
+        else:
+            id_parser = MzIdParser.xiSPEC_MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger,
+                                              db_name=database)
 
     elif identifications_fileName.endswith('.csv'):
         logger.info('parsing csv start')
         identifications_fileType = 'csv'
-        id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger, db_name=database)
+        if use_postgreSQL:
+            id_parser = CsvParser.CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger, db_name=database)
+        else:
+            id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
+                                            db_name=database)
+
 
     else:
         raise Exception('Unknown identifications file format!')
