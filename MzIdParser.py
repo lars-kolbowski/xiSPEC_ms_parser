@@ -872,10 +872,10 @@ class MzIdParser:
 
 class xiSPEC_MzIdParser(MzIdParser):
 
-    def upload_info(self, csv_reader):
+    def upload_info(self):
         pass
 
-    def parse_db_sequences(self, csv_reader):
+    def parse_db_sequences(self):
         pass
 
     def fill_in_missing_scores(self):

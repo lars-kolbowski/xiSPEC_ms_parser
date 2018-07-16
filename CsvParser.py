@@ -811,10 +811,10 @@ class xiSPEC_CsvParser(CsvParser):
         'calcmz': -1
     }
 
-    def upload_info(self, csv_reader):
+    def upload_info(self):
         pass
 
-    def parse_db_sequences(self, csv_reader):
+    def parse_db_sequences(self):
         pass
 
 

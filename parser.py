@@ -15,7 +15,7 @@ use_ftp, use_postgreSQL = False, False
 identifications_file, peakList_file, identifier = False, False, False
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "fi:p:s:", ["ftp", "postgresql"])
+    opts, args = getopt.getopt(sys.argv[1:], "i:p:s:", ["ftp", "postgresql"])
 except getopt.GetoptError:
     print('parser.py (-f -pg) -i <identifications file> -p <peak list file> -s <session identifier>')
     sys.exit(2)
@@ -268,13 +268,15 @@ try:
     else:
         raise Exception('Unknown identifications file format!')
 
+
     # create Database tables
-    try:
-        db.create_tables(id_parser.cur, id_parser.con)
-    except db.DBException as e:
-        logger.error(e)
-        print(e)
-        sys.exit(1)
+    if not use_postgreSQL:
+        try:
+            db.create_tables(id_parser.cur, id_parser.con)
+        except db.DBException as e:
+            logger.error(e)
+            print(e)
+            sys.exit(1)
 
     id_parser.parse()
 
