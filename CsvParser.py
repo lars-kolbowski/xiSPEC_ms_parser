@@ -693,9 +693,9 @@ class CsvParser:
                 scores,                     # 'scores',
                 exp_mz,                     # 'experimental_mass_to_charge',
                 calc_mz,                    # 'calculated_mass_to_charge'
-                # meta1,
-                # meta2,
-                # meta3
+                meta1,
+                meta2,
+                meta3
             ]
             spectrum_identifications.append(spectrum_identification)
 
