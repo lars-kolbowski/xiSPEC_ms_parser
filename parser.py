@@ -38,7 +38,7 @@ for o, a in opts:
         use_postgreSQL = True
 
 
-if identifications_file is False or peakList_file is False or identifier is False:
+if identifications_file is False or identifier is False:
     dev = True
     print ("dev test mode...")
 
