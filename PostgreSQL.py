@@ -190,6 +190,24 @@ def write_db_sequences(inj_list, cur, con):
 
     return True
 
+def write_meta_data(values, cur, con):
+    pass
+    # try:
+    #     cur.execute("""
+    #       INSERT INTO meta_data (
+    #         'upload_id',
+    #         'sid_meta1_name',
+    #         'sid_meta2_name',
+    #         'sid_meta3_name',
+    #         'contains_crosslink'
+    #       )
+    #       VALUES (?, ?, ?, ?, ?)""",  values)
+    #     con.commit()
+    #
+    # except sqlite3.Error as e:
+    #     raise DBException(e.message)
+    #
+    # return True
 
 def write_peptides(inj_list, cur, con):
     try:
@@ -263,6 +281,7 @@ def write_spectra(inj_list, cur, con):
 
 
 def write_spectrum_identifications(inj_list, cur, con):
+    inj_list = inj_list[:-3] # hack off meta data columns
     try:
         cur.executemany("""
           INSERT INTO spectrum_identifications (
