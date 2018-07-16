@@ -169,7 +169,8 @@ class MzIdParser:
         start_time = time()
 
         # ToDo: more gracefully handle missing files
-        self.init_peak_list_readers()
+        if self.peak_list_dir:
+            self.init_peak_list_readers()
 
         self.upload_info()  # overridden (empty function) in xiSPEC subclass
         self.parse_db_sequences()  # overridden (empty function) in xiSPEC subclass
@@ -637,22 +638,23 @@ class MzIdParser:
         self.logger.info('main loop - start')
 
         for sid_result in self.mzid_reader:
-            peak_list_reader = self.peak_list_readers[sid_result['spectraData_ref']]
+            if self.peak_list_dir:
+                peak_list_reader = self.peak_list_readers[sid_result['spectraData_ref']]
 
-            scan_id = peak_list_reader.parse_scan_id(sid_result["spectrumID"])
-            peak_list = peak_list_reader.get_peak_list(scan_id)
+                scan_id = peak_list_reader.parse_scan_id(sid_result["spectrumID"])
+                peak_list = peak_list_reader.get_peak_list(scan_id)
 
-            protocol = self.spectra_data_protocol_map[sid_result['spectraData_ref']]
+                protocol = self.spectra_data_protocol_map[sid_result['spectraData_ref']]
 
-            spectra.append([
-                spec_id,
-                peak_list,
-                ntpath.basename(peak_list_reader.peak_list_path),
-                str(scan_id),
-                protocol['fragmentTolerance'],
-                self.upload_id,
-                sid_result['id']]
-            )
+                spectra.append([
+                    spec_id,
+                    peak_list,
+                    ntpath.basename(peak_list_reader.peak_list_path),
+                    str(scan_id),
+                    protocol['fragmentTolerance'],
+                    self.upload_id,
+                    sid_result['id']]
+                )
 
             spectrum_ident_dict = dict()
             linear_index = -1  # negative index values for linear peptides
