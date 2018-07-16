@@ -11,6 +11,7 @@ import gzip
 import os
 import pyteomics.fasta as py_fasta
 
+
 class CsvParseException(Exception):
     pass
 
@@ -72,7 +73,7 @@ class CsvParser:
         'calcmz': -1
     }
 
-    def __init__(self, csv_path, temp_dir, peak_list_dir, user_id, db, logger, db_name=''):
+    def __init__(self, csv_path, temp_dir, peak_list_dir, db, logger, db_name='', user_id=0):
         """
 
         :param csv_path: path to csv file

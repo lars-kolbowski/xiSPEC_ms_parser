@@ -10,33 +10,46 @@ import re
 import getopt
 
 
-# try:
-#     opts, args = getopt.getopt(sys.argv[1:], "fi:p:u:", [])
-# except getopt.GetoptError:
-#     print('parser.py (-f) -i <identifications file> -p <peak list file> -u <upload folder>')
-#     sys.exit(2)
-#
-# use_ftp = False
-# for o, a in opts:
-#
-#     if o == "-f":
-#         import ftplib
-#         use_ftp = True
-#
-#     if o == "-i":
-#         identifications_file = a
-#
-#     if o == "-p":
-#         peakList_file = a
-#
-#     if o == "-u":
-#         upload_folder = a
+dev = False
+use_ftp, use_postgreSQL = False, False
+identifications_file, peakList_file, identifier = False, False, False
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "f", [])
+    opts, args = getopt.getopt(sys.argv[1:], "fi:p:s:", ["ftp", "postgresql"])
 except getopt.GetoptError:
-    # print 'test.py -i <inputfile> -o <outputfile>'
+    print('parser.py (-f -pg) -i <identifications file> -p <peak list file> -s <session identifier>')
     sys.exit(2)
+
+for o, a in opts:
+    if o in ("-f", "--ftp"):
+        import ftplib
+        use_ftp = True
+
+    if o == "-i":
+        identifications_file = a
+
+    if o == "-p":
+        peakList_file = a
+
+    if o == "-s":
+        identifier = a
+
+    if o == '--postgresql':
+        use_postgreSQL = True
+
+
+if identifications_file is False or peakList_file is False or identifier is False:
+    dev = True
+    print ("dev test mode...")
+
+
+if use_postgreSQL:
+    import PostgreSQL as db
+else:
+    import SQLite as db
+
+if use_ftp:
+    import ftplib
 
 try:
     # set working directory
@@ -52,14 +65,8 @@ try:
     import CsvParser
     import PeakListParser
 
-    #logging
-    try:
-        dev = False
-        logFile = dname + "/log/%s_%s.log" % (args[2], int(time()))
-
-    except IndexError:
-        dev = True
-        logFile = "log/parser_%s.log" % int(time())
+    # logging
+    logFile = dname + "/log/%s_%s.log" % (identifier, int(time()))
 
     try:
         os.remove(logFile)
@@ -78,13 +85,6 @@ except Exception as e:
     print (e)
     sys.exit(1)
 
-try:
-    if args[3] == "pg":
-        import PostgreSQL as db
-    else:
-        import SQLite as db
-except IndexError:
-    import SQLite as db
 
 returnJSON = {
     "response": "",
@@ -97,11 +97,10 @@ returnJSON = {
 
 # paths and file names
 try:
-
     unimodPath = 'obo/unimod.obo'
 
-    # development testfiles
     if dev:
+        # development testfiles
         baseDir = "/media/data/work/xiSPEC_test_files/"
 
         # identifications_file = baseDir + 'OpenxQuest_example_added_annotations.mzid'
@@ -146,18 +145,22 @@ try:
         # identifications_file = baseDir + "PXD007836/data.mzid"
         # peakList_file = baseDir + "PXD007836/c.zip"
 
-        #csv file
+        # csv file
+        # identifications_file = baseDir + 'cross-link/sven-test/5pLinkFDRPSMS.csv'
         identifications_file = baseDir + "cross-link/CSV/example.csv"
-        peakList_file = baseDir + "cross-link/CSV/example.mzML"
+        # peakList_file = baseDir + "cross-link/sven-test/QExactive_HSA_SDA_MaxQuantNoDeiso.zip"
         # identifications_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/HSA-BS3_example_IDsort.csv"
-        # peakList_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
+        peakList_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
 
-        dbName = 'test.db'
+        database = 'test.db'
         upload_folder = "/".join(identifications_file.split("/")[:-1]) + "/"
 
     else:
-        if '-f' in [o[0] for o in opts]:
-            import ftplib
+
+        database = "dbs/tmp/%s.db" % identifier
+        upload_folder = "../uploads/" + identifier
+
+        if use_ftp:
 
             upload_folder = "../uploads/%s/" % int(time())
             try:
@@ -165,14 +168,14 @@ try:
             except:
                 os.mkdir(upload_folder)
 
-            id_file_path = "/".join(args[0].split("/")[3:-1])
+            id_file_path = "/".join(identifications_file.split("/")[3:-1])
             id_file_path = "/%s/" % id_file_path
-            id_file_name = args[0].split("/")[-1]
+            id_file_name = identifications_file.split("/")[-1]
             identifications_file = upload_folder + id_file_name
 
-            pl_file_path = "/".join(args[1].split("/")[3:-1])
+            pl_file_path = "/".join(peakList_file.split("/")[3:-1])
             pl_file_path = "/%s/" % pl_file_path
-            pl_file_name = args[1].split("/")[-1]
+            pl_file_name = peakList_file.split("/")[-1]
             peakList_file = upload_folder + pl_file_name
 
             try:
@@ -215,18 +218,8 @@ try:
                 })
                 print(json.dumps(returnJSON))
                 sys.exit(1)
-        else:
 
-            identifications_file = args[0]
-            peakList_file = args[1]
-            upload_folder = "../uploads/" + args[2]
 
-        dbfolder = "dbs/tmp/"
-        try:
-            os.stat(dbfolder)
-        except:
-            os.mkdir(dbfolder)
-        dbName = dbfolder + args[2] + '.db'
 except Exception as e:
     logger.error(e.args[0])
     print(e)
@@ -236,15 +229,13 @@ except Exception as e:
 # parsing
 startTime = time()
 try:
-    # check for peak list zip file
-    # peakList_fileName = ntpath.basename(peakList_file)
-    # if re.search(".*\.(zip)$", peakList_fileName):
+    peak_list_folder = upload_folder
     if peakList_file.endswith('.zip'):
         try:
             unzipStartTime = time()
             logger.info('unzipping start')
             # peakList_fileList = peakListParser.PeakListParser.unzip_peak_lists(peakList_file)
-            upload_folder = PeakListParser.PeakListParser.unzip_peak_lists(peakList_file)
+            peak_list_folder = PeakListParser.PeakListParser.unzip_peak_lists(peakList_file)
             logger.info('unzipping done. Time: ' + str(round(time() - unzipStartTime, 2)) + " sec")
         except IOError as e:
             logger.error(e.args[0])
@@ -262,23 +253,18 @@ try:
             })
             print(json.dumps(returnJSON))
             sys.exit(1)
-    #
-    # else:
-    #     peakList_fileList = [peakList_file]
 
     identifications_fileName = ntpath.basename(identifications_file)
     if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
         logger.info('parsing mzid start')
         identifications_fileType = 'mzid'
-        id_parser = MzIdParser.xiSPEC_MzIdParser(identifications_file, upload_folder, db, logger, dbName)
+        id_parser = MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger, db_name=database)
 
     elif identifications_fileName.endswith('.csv'):
         logger.info('parsing csv start')
         identifications_fileType = 'csv'
-        id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, db, logger, dbName)
+        id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger, db_name=database)
 
-        # mgfReader = py_mgf.read(peak_list_file)
-        # peakListArr = [pl for pl in mgfReader]
     else:
         raise Exception('Unknown identifications file format!')
 
