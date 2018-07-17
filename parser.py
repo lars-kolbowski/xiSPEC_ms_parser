@@ -40,10 +40,10 @@ for o, a in opts:
     if o == '-u': # user_id
         user_id = a
 
+
 if identifications_file is False or identifier is False:
     dev = True
     print ("dev test mode...")
-
 
 if use_postgreSQL:
     import PostgreSQL as db
@@ -69,18 +69,21 @@ try:
 
     # logging
     logFile = dname + "/log/%s_%s.log" % (identifier, int(time()))
+    if not dev:
+        try:
+            os.remove(logFile)
+        except OSError:
+            pass
+        os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
 
-    try:
-        os.remove(logFile)
-    except OSError:
-        pass
-    os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
+        # create logger
+        logging.basicConfig(filename=logFile, level=logging.DEBUG,
+                            format='%(asctime)s %(levelname)s %(name)s %(message)s')
+    else:
+        logging.basicConfig(level=logging.DEBUG,
+                            format='%(asctime)s %(levelname)s %(name)s %(message)s')
 
-    # create logger
-    logging.basicConfig(filename=logFile, level=logging.DEBUG,
-                        format='%(asctime)s %(levelname)s %(name)s %(message)s')
-    # logging.basicConfig(level=logging.DEBUG,
-    #                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
+
     logger = logging.getLogger(__name__)
 
 
@@ -90,7 +93,6 @@ except Exception as e:
     sys.exit(1)
 
 logger.info('argv:' + " ".join(sys.argv))
-
 
 returnJSON = {
     "response": "",
@@ -152,11 +154,8 @@ try:
         # peakList_file = baseDir + "PXD007836/c.zip"
 
         # csv file
-        # identifications_file = baseDir + 'cross-link/sven-test/5pLinkFDRPSMS.csv'
-        identifications_file = "/home/col/test/test_HSA.csv"
-        # peakList_file = baseDir + "cross-link/sven-test/QExactive_HSA_SDA_MaxQuantNoDeiso.zip"
-        # identifications_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/HSA-BS3_example_IDsort.csv"
-        peakList_file = "/home/col/test/E180510_02_Orbi2_TD_IN_160_HSA_10kDa_10p.mzML"
+        identifications_file = "/home/col/test2/result_new_XiVersion1.6.739_PSM_xiFDR1.1.27.csv"
+        peakList_file = "/home/col/test2/Rappsilber_CLMS_PolII_mgfs.zip"
 
         database = 'test.db'
         upload_folder = "/".join(identifications_file.split("/")[:-1]) + "/"

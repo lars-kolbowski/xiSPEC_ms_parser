@@ -8,8 +8,8 @@ from PeakListParser import PeakListParser
 import zipfile
 import gzip
 import os
-import pyteomics.fasta as py_fasta
-
+#import pyteomics.fasta as py_fasta
+import SimpleFASTA
 
 class CsvParseException(Exception):
     pass
@@ -177,7 +177,7 @@ class CsvParser:
         fasta_files = []
         for file in os.listdir(self.temp_dir):
             if file.endswith(".fasta") or file.endswith(".FASTA"):
-                fasta_files.append(file)
+                fasta_files.append(self.temp_dir + "/" + file)
         return fasta_files
 
     def set_peak_list_readers(self):
@@ -300,15 +300,16 @@ class CsvParser:
     #     return masses
 
     def parse_db_sequences(self):
-        self.fasta = {}
         self.logger.info('reading fasta - start')
         self.start_time = time()
-        for file in self.get_sequenceDB_file_names():
-           fasta_iterator = py_fasta.read(self.temp_dir + "/" + file)
-           for (a, b) in fasta_iterator:
-               # self.logger.info("" + a  b)
-               header = py_fasta.parse(a)
-               self.fasta[header['id']] = b
+        # pyteomics.fasta is too strict in what headers it accepts (must be one of https://www.uniprot.org/help/fasta-headers)
+        # for file in self.get_sequenceDB_file_names():
+           # fasta_iterator = py_fasta.read(self.temp_dir + "/" + file)
+           # for (a, b) in fasta_iterator:
+           #     # self.logger.info("" + a  b)
+           #     header = py_fasta.parse(a)
+           #     self.fasta[header['id']] = b
+        self.fasta = SimpleFASTA.get_db_sequence_dict(self.get_sequenceDB_file_names())
         self.logger.info('reading fasta - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
 
     def main_loop(self):
@@ -494,6 +495,8 @@ class CsvParser:
             # protein2
             protein_list2 = id_item['protein2'].split(";")
             protein_list2 = [s.strip() for s in protein_list2]
+            for p in protein_list2:
+                proteins.add(p)
 
             # decoy2 - if decoy2 is not set fill list with default value (0)
             if id_item['decoy2'] == -1:
