@@ -110,7 +110,7 @@ class CsvParser:
 
         self.contains_crosslinks = False
         self.fasta = False
-        self.random_id = False
+        self.random_id = 0
 
         self.warnings = []
 

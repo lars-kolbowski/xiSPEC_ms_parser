@@ -15,9 +15,9 @@ use_ftp, use_postgreSQL, user_id = False, False, False
 identifications_file, peakList_file, identifier = False, False, False
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "i:p:s:u:", ["ftp", "postgresql"])
+    opts, args = getopt.getopt(sys.argv[1:], "fi:p:s:u:", ["ftp", "postgresql"])
 except getopt.GetoptError:
-    print('parser.py (-f -pg) -i <identifications file> -p <peak list file> -s <session identifier>')
+    print('parser.py (-f) -i <identifications file> -p <peak list file> -s <session identifier> (-u <user_id>)')
     sys.exit(2)
 
 for o, a in opts:
@@ -37,7 +37,7 @@ for o, a in opts:
     if o == '--postgresql':
         use_postgreSQL = True
 
-    if o == '-u': # user_id
+    if o == '-u':   # user_id
         user_id = a
 
 if identifications_file is False or identifier is False:
