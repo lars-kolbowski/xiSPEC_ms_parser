@@ -109,6 +109,8 @@ class CsvParser:
         self.unknown_mods = []
 
         self.contains_crosslinks = False
+        self.fasta = False
+        self.random_id = False
 
         self.warnings = []
 
@@ -121,27 +123,6 @@ class CsvParser:
             self.logger.error(e)
             print(e)
             sys.exit(1)
-
-        #peak_list_file_names = json.dumps(self.get_peak_list_file_names(), cls=NumpyEncoder)
-#
-#        self.upload_id = self.db.write_upload([self.user_id, os.path.basename(self.csv_path), "{}", "{}",
-#                         "{}", "{}", "{}", "{}", "{}", "{}", "{}", "{}", self.warnings],
-#                        self.cur, self.con,
-#                        )
-#       self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)###
-#
-#        self.logger.info('reading fasta - start')
-#        self.start_time = time()
-#
-#        self.fasta = {}
-#        for file in self.get_sequenceDB_file_names():
-#            fasta_iterator = py_fasta.read(self.temp_dir + "/" + file)
-#            for (a, b) in fasta_iterator:
-#                # self.logger.info("" + a  b)
-#                header = py_fasta.parse(a)
-#                self.fasta[header['id']] = b
-#        self.logger.info('reading fasta - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
-
 
         self.logger.info('reading csv - start')
         self.start_time = time()
@@ -252,6 +233,8 @@ class CsvParser:
         # ToDo: more gracefully handle missing files
         self.set_peak_list_readers()
 
+        self.upload_info() # overridden (empty function) in xiSPEC subclass
+        self.parse_db_sequences() # overridden (empty function) in xiSPEC subclass
         self.main_loop()
 
         meta_col_names = [col.replace("meta_", "") for col in self.meta_columns]
@@ -316,6 +299,18 @@ class CsvParser:
     #                 masses[mod_id] = mass
     #
     #     return masses
+
+    def parse_db_sequences(self):
+        self.fasta = {}
+        self.logger.info('reading fasta - start')
+        self.start_time = time()
+        for file in self.get_sequenceDB_file_names():
+           fasta_iterator = py_fasta.read(self.temp_dir + "/" + file)
+           for (a, b) in fasta_iterator:
+               # self.logger.info("" + a  b)
+               header = py_fasta.parse(a)
+               self.fasta[header['id']] = b
+        self.logger.info('reading fasta - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
 
     def main_loop(self):
         main_loop_start_time = time()
@@ -719,21 +714,21 @@ class CsvParser:
 
 
         # DBSEQUENCES
-        #db_sequences = []
-        # for db_sequence in sequence_collection['DBSequence']:
-        #for prot in proteins:
-        #    try:
-        #        seq = self.fasta[prot]
-        #    except Exception as ke:
-        #        seq = "NO SEQUENCE"
-        #    data = [prot, prot, prot, "", seq, self.upload_id]
-        #
-        #    # is_decoy - not thereseq = self.fasta[prot]
-        #    # data.append("false")
-        # 
-        #    # data.append(self.upload_id)
-        #
-        #    db_sequences.append(data)
+        if self.fasta:
+            db_sequences = []
+            for prot in proteins:
+               try:
+                   seq = self.fasta[prot]
+               except Exception as ke:
+                   seq = "NO SEQUENCE"
+               data = [prot, prot, prot, "", seq, self.upload_id]
+
+               # is_decoy - not thereseq = self.fasta[prot]
+               # data.append("false")
+
+               # data.append(self.upload_id)
+
+               db_sequences.append(data)
 
 
         # end main loop
@@ -748,13 +743,24 @@ class CsvParser:
             self.db.write_peptides(peptides, self.cur, self.con)
             self.db.write_spectra(spectra, self.cur, self.con)
             self.db.write_spectrum_identifications(spectrum_identifications, self.cur, self.con)
-            #self.db.write_db_sequences(db_sequences, self.cur, self.con)
+            if self.fasta:
+                self.db.write_db_sequences(db_sequences, self.cur, self.con)
             self.con.commit()
         except Exception as e:
             raise e
 
         self.logger.info('write spectra to DB - start - done. Time: '
                          + str(round(time() - db_wrap_up_start_time, 2)) + " sec")
+
+    def upload_info(self):
+       self.logger.info('write upload info')
+       # peak_list_file_names = json.dumps(self.get_peak_list_file_names(), cls=NumpyEncoder)
+       self.upload_id = self.db.write_upload([self.user_id, os.path.basename(self.csv_path), "{}", "{}",
+                        "{}", "{}", "{}", "{}", "{}", "{}", "{}", "{}", self.warnings],
+                       self.cur, self.con,
+                       )
+       self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)
+
 
 
 class xiSPEC_CsvParser(CsvParser):
@@ -806,7 +812,10 @@ class xiSPEC_CsvParser(CsvParser):
         'calcmz': -1
     }
 
-    def parse_db_sequences(self, csv_reader):
+    def upload_info(self):
+        pass
+
+    def parse_db_sequences(self):
         pass
 
 

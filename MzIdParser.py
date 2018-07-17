@@ -169,10 +169,11 @@ class MzIdParser:
         start_time = time()
 
         # ToDo: more gracefully handle missing files
-        self.init_peak_list_readers()
+        if self.peak_list_dir:
+            self.init_peak_list_readers()
 
-        #self.upload_info()
-        self.parse_db_sequences()
+        self.upload_info()  # overridden (empty function) in xiSPEC subclass
+        self.parse_db_sequences()  # overridden (empty function) in xiSPEC subclass
         self.parse_peptides()
         self.parse_peptide_evidences()
         self.map_spectra_data_to_protocol()
@@ -181,12 +182,7 @@ class MzIdParser:
         meta_data = [self.upload_id, -1, -1, -1, self.contains_crosslinks]
         self.db.write_meta_data(meta_data, self.cur, self.con)
 
-        #
-        # Fill missing scores with
-        # score_fill_start_time = time()
-        # self.logger.info('fill in missing scores - start')
-        # self.db.fill_in_missing_scores(self.cur, self.con)
-        # self.logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
+        self.fill_in_missing_scores() # empty here, overridden in xiSPEC subclass to do stuff
 
         self.logger.info('all done! Total time: ' + str(round(time() - start_time, 2)) + " sec")
 
@@ -642,22 +638,23 @@ class MzIdParser:
         self.logger.info('main loop - start')
 
         for sid_result in self.mzid_reader:
-            peak_list_reader = self.peak_list_readers[sid_result['spectraData_ref']]
+            if self.peak_list_dir:
+                peak_list_reader = self.peak_list_readers[sid_result['spectraData_ref']]
 
-            scan_id = peak_list_reader.parse_scan_id(sid_result["spectrumID"])
-            peak_list = peak_list_reader.get_peak_list(scan_id)
+                scan_id = peak_list_reader.parse_scan_id(sid_result["spectrumID"])
+                peak_list = peak_list_reader.get_peak_list(scan_id)
 
-            protocol = self.spectra_data_protocol_map[sid_result['spectraData_ref']]
+                protocol = self.spectra_data_protocol_map[sid_result['spectraData_ref']]
 
-            spectra.append([
-                spec_id,
-                peak_list,
-                ntpath.basename(peak_list_reader.peak_list_path),
-                str(scan_id),
-                protocol['fragmentTolerance'],
-                self.upload_id,
-                sid_result['id']]
-            )
+                spectra.append([
+                    spec_id,
+                    peak_list,
+                    ntpath.basename(peak_list_reader.peak_list_path),
+                    str(scan_id),
+                    protocol['fragmentTolerance'],
+                    self.upload_id,
+                    sid_result['id']]
+                )
 
             spectrum_ident_dict = dict()
             linear_index = -1  # negative index values for linear peptides
@@ -865,35 +862,28 @@ class MzIdParser:
                          self.cur, self.con,
                          )
 
-        #self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)
+        self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)
 
         self.logger.info(
             'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
 
-
+    def fill_in_missing_scores(self):
+        pass
 
 class xiSPEC_MzIdParser(MzIdParser):
-    def parse(self):
 
-        start_time = time()
+    def upload_info(self):
+        pass
 
-        # ToDo: more gracefully handle missing files
-        self.init_peak_list_readers()
+    def parse_db_sequences(self):
+        pass
 
-        # self.upload_info()
-        # self.parse_db_sequences()
-        self.parse_peptides()
-        self.parse_peptide_evidences()
-        self.map_spectra_data_to_protocol()
-        self.main_loop()
-
+    def fill_in_missing_scores(self):
         # Fill missing scores with
         score_fill_start_time = time()
         self.logger.info('fill in missing scores - start')
         self.db.fill_in_missing_scores(self.cur, self.con)
         self.logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
-
-        self.logger.info('all done! Total time: ' + str(round(time() - start_time, 2)) + " sec")
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
