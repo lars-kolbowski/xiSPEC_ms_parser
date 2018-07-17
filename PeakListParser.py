@@ -4,7 +4,6 @@ import Ms2Reader as py_msn
 import MGF as py_mgf
 import pymzml
 import re
-import os
 import gzip
 
 

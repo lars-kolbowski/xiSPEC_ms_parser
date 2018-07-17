@@ -43,7 +43,7 @@ class MzIdParser:
         if not self.temp_dir.endswith('/'):
             self.temp_dir += '/'
         self.peak_list_dir = peak_list_dir
-        if not self.peak_list_dir.endswith('/'):
+        if peak_list_dir and not peak_list_dir.endswith('/'):
             self.peak_list_dir += '/'
 
         self.user_id = user_id

@@ -1,5 +1,4 @@
 import re
-import ntpath
 import json
 import sys
 import numpy as np
@@ -9,8 +8,8 @@ from PeakListParser import PeakListParser
 import zipfile
 import gzip
 import os
-import pyteomics.fasta as py_fasta
-
+#import pyteomics.fasta as py_fasta
+import SimpleFASTA
 
 class CsvParseException(Exception):
     pass
@@ -93,7 +92,7 @@ class CsvParser:
         if not self.temp_dir.endswith('/'):
             self.temp_dir += '/'
         self.peak_list_dir = peak_list_dir
-        if not self.peak_list_dir.endswith('/'):
+        if peak_list_dir and not peak_list_dir.endswith('/'):
             self.peak_list_dir += '/'
 
         self.user_id = user_id
@@ -178,7 +177,7 @@ class CsvParser:
         fasta_files = []
         for file in os.listdir(self.temp_dir):
             if file.endswith(".fasta") or file.endswith(".FASTA"):
-                fasta_files.append(file)
+                fasta_files.append(self.temp_dir + "/" + file)
         return fasta_files
 
     def set_peak_list_readers(self):
@@ -231,7 +230,8 @@ class CsvParser:
         start_time = time()
 
         # ToDo: more gracefully handle missing files
-        self.set_peak_list_readers()
+        if self.peak_list_dir:
+            self.set_peak_list_readers()
 
         self.upload_info() # overridden (empty function) in xiSPEC subclass
         self.parse_db_sequences() # overridden (empty function) in xiSPEC subclass
@@ -301,15 +301,16 @@ class CsvParser:
     #     return masses
 
     def parse_db_sequences(self):
-        self.fasta = {}
         self.logger.info('reading fasta - start')
         self.start_time = time()
-        for file in self.get_sequenceDB_file_names():
-           fasta_iterator = py_fasta.read(self.temp_dir + "/" + file)
-           for (a, b) in fasta_iterator:
-               # self.logger.info("" + a  b)
-               header = py_fasta.parse(a)
-               self.fasta[header['id']] = b
+        # pyteomics.fasta is too strict in what headers it accepts (must be one of https://www.uniprot.org/help/fasta-headers)
+        # for file in self.get_sequenceDB_file_names():
+           # fasta_iterator = py_fasta.read(self.temp_dir + "/" + file)
+           # for (a, b) in fasta_iterator:
+           #     # self.logger.info("" + a  b)
+           #     header = py_fasta.parse(a)
+           #     self.fasta[header['id']] = b
+        self.fasta = SimpleFASTA.get_db_sequence_dict(self.get_sequenceDB_file_names())
         self.logger.info('reading fasta - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
 
     def main_loop(self):
@@ -495,6 +496,8 @@ class CsvParser:
             # protein2
             protein_list2 = id_item['protein2'].split(";")
             protein_list2 = [s.strip() for s in protein_list2]
+            for p in protein_list2:
+                proteins.add(p)
 
             # decoy2 - if decoy2 is not set fill list with default value (0)
             if id_item['decoy2'] == -1:
@@ -558,13 +561,15 @@ class CsvParser:
             if unique_spec_identifier not in seen_spectra:
                 seen_spectra.append(unique_spec_identifier)
                 spectrum_id = len(seen_spectra) - 1
-                # get peak list
-                try:
-                    peak_list_reader = self.peak_list_readers[peak_list_file_name]
-                except KeyError:
-                    raise CsvParseException('Missing peak list file: %s' % peak_list_file_name)
+                peak_list = None
+                if self.peak_list_dir:
+                    # get peak list
+                    try:
+                        peak_list_reader = self.peak_list_readers[peak_list_file_name]
+                    except KeyError:
+                        raise CsvParseException('Missing peak list file: %s' % peak_list_file_name)
 
-                peak_list = peak_list_reader.get_peak_list(scan_id)
+                    peak_list = peak_list_reader.get_peak_list(scan_id)
 
                 spectrum = [
                     spectrum_id,                    # 'id',
