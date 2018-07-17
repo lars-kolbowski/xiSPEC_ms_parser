@@ -1,5 +1,4 @@
 import re
-import ntpath
 import json
 import sys
 import numpy as np
