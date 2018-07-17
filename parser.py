@@ -153,7 +153,9 @@ try:
         # peakList_file = baseDir + "PXD007836/c.zip"
 
         # csv file
-        identifications_file = "/home/col/mzIdentML/examples/1_2examples/crosslinking/OpenxQuest_example.mzid"
+        #identifications_file = "/home/col/mzIdentML/examples/1_2examples/crosslinking/OpenxQuest_example.mzid"
+        identifications_file = "/home/col/test2/result_new_XiVersion1.6.739_PSM_xiFDR1.1.27.csv"
+
         #peakList_file = "/home/col/test2/Rappsilber_CLMS_PolII_mgfs.zip"
 
         database = 'test.db'

@@ -1,3 +1,5 @@
+import re
+
 def get_db_sequence_dict(fasta_file_list):
     db_sequence_dict = {}
     identifier = None
@@ -12,6 +14,10 @@ def get_db_sequence_dict(fasta_file_list):
                         if identifier is not None:
                             #create previous entry
                             db_sequence_dict[identifier] = sequence
+                            m = re.search("..\|(.*)\|", identifier)
+                            if m:
+                                db_sequence_dict[m.groups()[0]] = sequence
+
                             #clear sequence
                             sequence = ""
 
