@@ -5,13 +5,10 @@ import json
 import sys
 import numpy as np
 from time import time
-#import xiSPEC_peakList as peakListParser
 from PeakListParser import PeakListParser
 import zipfile
 import gzip
 import os
-import psycopg2
-import ftplib
 
 
 class MzIdParseException(Exception):
@@ -50,6 +47,7 @@ class MzIdParser:
             self.peak_list_dir += '/'
 
         self.user_id = user_id
+        self.random_id = 0
 
         self.db = db
         self.logger = logger
@@ -791,7 +789,6 @@ class MzIdParser:
                 'id': id_string
             })
 
-
     def upload_info(self):
         upload_info_start_time = time()
         self.logger.info('parse upload info - start')
@@ -843,7 +840,7 @@ class MzIdParser:
         self.mzid_reader.reset()
 
         # AnalysisProtocolCollection - required element
-        protocols ='{}'
+        protocols = '{}'
         protocol_collection = self.mzid_reader.iterfind('AnalysisProtocolCollection').next()
         protocols = protocol_collection['SpectrumIdentificationProtocol']
         protocols = json.dumps(protocols, cls=NumpyEncoder)
@@ -855,7 +852,6 @@ class MzIdParser:
             bibRefs.append(bib)
         bibRefs = json.dumps(bibRefs)
         self.mzid_reader.reset()
-
 
         self.upload_id = self.db.write_upload([self.user_id, os.path.basename(self.mzId_path), peak_list_file_names, spectra_formats,
                           analysis_software, provider, audits, samples, analyses, protocols, bibRefs, self.origin, self.warnings],
@@ -869,6 +865,7 @@ class MzIdParser:
 
     def fill_in_missing_scores(self):
         pass
+
 
 class xiSPEC_MzIdParser(MzIdParser):
 
@@ -884,6 +881,7 @@ class xiSPEC_MzIdParser(MzIdParser):
         self.logger.info('fill in missing scores - start')
         self.db.fill_in_missing_scores(self.cur, self.con)
         self.logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
+
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
