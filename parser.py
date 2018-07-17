@@ -40,7 +40,6 @@ for o, a in opts:
     if o == '-u':   # user_id
         user_id = a
 
-
 if identifications_file is False or identifier is False:
     dev = True
     print ("dev test mode...")
@@ -154,8 +153,8 @@ try:
         # peakList_file = baseDir + "PXD007836/c.zip"
 
         # csv file
-        identifications_file = "/home/col/test2/result_new_XiVersion1.6.739_PSM_xiFDR1.1.27.csv"
-        peakList_file = "/home/col/test2/Rappsilber_CLMS_PolII_mgfs.zip"
+        identifications_file = "/home/col/mzIdentML/examples/1_2examples/crosslinking/OpenxQuest_example.mzid"
+        #peakList_file = "/home/col/test2/Rappsilber_CLMS_PolII_mgfs.zip"
 
         database = 'test.db'
         upload_folder = "/".join(identifications_file.split("/")[:-1]) + "/"
@@ -234,30 +233,32 @@ except Exception as e:
 # parsing
 startTime = time()
 try:
-    peak_list_folder = upload_folder
-    if peakList_file.endswith('.zip'):
-        try:
-            unzipStartTime = time()
-            logger.info('unzipping start')
-            # peakList_fileList = peakListParser.PeakListParser.unzip_peak_lists(peakList_file)
-            peak_list_folder = PeakListParser.PeakListParser.unzip_peak_lists(peakList_file)
-            logger.info('unzipping done. Time: ' + str(round(time() - unzipStartTime, 2)) + " sec")
-        except IOError as e:
-            logger.error(e.args[0])
-            returnJSON['errors'].append({
-                "type": "zipParseError",
-                "message": e.args[0],
-            })
-            print(json.dumps(returnJSON))
-            sys.exit(1)
-        except BadZipfile as e:
-            logger.error(e.args[0])
-            returnJSON['errors'].append({
-                "type": "zipParseError",
-                "message": "Looks something went wrong with the upload! Try uploading again.\n",
-            })
-            print(json.dumps(returnJSON))
-            sys.exit(1)
+    peak_list_folder = None
+    if peakList_file:
+        peak_list_folder = upload_folder
+        if peakList_file.endswith('.zip'):
+            try:
+                unzipStartTime = time()
+                logger.info('unzipping start')
+                # peakList_fileList = peakListParser.PeakListParser.unzip_peak_lists(peakList_file)
+                peak_list_folder = PeakListParser.PeakListParser.unzip_peak_lists(peakList_file)
+                logger.info('unzipping done. Time: ' + str(round(time() - unzipStartTime, 2)) + " sec")
+            except IOError as e:
+                logger.error(e.args[0])
+                returnJSON['errors'].append({
+                    "type": "zipParseError",
+                    "message": e.args[0],
+                })
+                print(json.dumps(returnJSON))
+                sys.exit(1)
+            except BadZipfile as e:
+                logger.error(e.args[0])
+                returnJSON['errors'].append({
+                    "type": "zipParseError",
+                    "message": "Looks something went wrong with the upload! Try uploading again.\n",
+                })
+                print(json.dumps(returnJSON))
+                sys.exit(1)
 
     identifications_fileName = ntpath.basename(identifications_file)
     if re.match(".*\.mzid(\.gz)?$", identifications_fileName):

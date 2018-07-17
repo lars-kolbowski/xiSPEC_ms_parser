@@ -92,7 +92,7 @@ class CsvParser:
         if not self.temp_dir.endswith('/'):
             self.temp_dir += '/'
         self.peak_list_dir = peak_list_dir
-        if not self.peak_list_dir.endswith('/'):
+        if peak_list_dir and not peak_list_dir.endswith('/'):
             self.peak_list_dir += '/'
 
         self.user_id = user_id
@@ -230,7 +230,8 @@ class CsvParser:
         start_time = time()
 
         # ToDo: more gracefully handle missing files
-        self.set_peak_list_readers()
+        if self.peak_list_dir:
+            self.set_peak_list_readers()
 
         self.upload_info() # overridden (empty function) in xiSPEC subclass
         self.parse_db_sequences() # overridden (empty function) in xiSPEC subclass
@@ -560,13 +561,15 @@ class CsvParser:
             if unique_spec_identifier not in seen_spectra:
                 seen_spectra.append(unique_spec_identifier)
                 spectrum_id = len(seen_spectra) - 1
-                # get peak list
-                try:
-                    peak_list_reader = self.peak_list_readers[peak_list_file_name]
-                except KeyError:
-                    raise CsvParseException('Missing peak list file: %s' % peak_list_file_name)
+                peak_list = None
+                if self.peak_list_dir:
+                    # get peak list
+                    try:
+                        peak_list_reader = self.peak_list_readers[peak_list_file_name]
+                    except KeyError:
+                        raise CsvParseException('Missing peak list file: %s' % peak_list_file_name)
 
-                peak_list = peak_list_reader.get_peak_list(scan_id)
+                    peak_list = peak_list_reader.get_peak_list(scan_id)
 
                 spectrum = [
                     spectrum_id,                    # 'id',
@@ -695,9 +698,9 @@ class CsvParser:
                 scores,                     # 'scores',
                 exp_mz,                     # 'experimental_mass_to_charge',
                 calc_mz,                    # 'calculated_mass_to_charge'
-                # meta1,
-                # meta2,
-                # meta3
+                meta1,
+                meta2,
+                meta3
             ]
             spectrum_identifications.append(spectrum_identification)
 
