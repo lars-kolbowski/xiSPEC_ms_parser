@@ -723,7 +723,9 @@ class CsvParser:
             db_sequences = []
             for prot in proteins:
                try:
-                   data = np.concatenate([prot],self.fasta[prot],[self.upload_id]);
+                   #data = [prot] + self.fasta[prot] + [self.upload_id]
+                   temp = self.fasta[prot]
+                   data = [prot, temp[0], temp[1], temp[2], temp[3], self.upload_id] # surely there's a better way
                except Exception as ke:
                    seq = "NO SEQUENCE"
                    data = [prot, prot, prot, "", "NO SEQUENCE", self.upload_id]
