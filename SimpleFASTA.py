@@ -12,18 +12,7 @@ def get_db_sequence_dict(fasta_file_list):
                 if not line.startswith(";"):
                     if line.startswith(">"):
                         if identifier is not None:
-                            #create previous entry
-                            m = re.search("..\|(.*)\|(.*)\s", identifier)
-                            # id = identifier
-                            accession = identifier
-                            name = identifier
-                            if m:
-                                accession = m.groups()[0]
-                                name = m.groups()[1]
-
-                            data = [accession, name, description, sequence]
-                            db_sequence_dict[identifier] = data
-                            db_sequence_dict[accession] = data
+                            add_entry(identifier, sequence, description, db_sequence_dict)
 
                             #clear sequence
                             sequence = ""
@@ -39,4 +28,21 @@ def get_db_sequence_dict(fasta_file_list):
                     else:
                         sequence += line.rstrip()
 
+    # add last entry
+    add_entry(identifier, sequence, description, db_sequence_dict)
+
     return db_sequence_dict
+
+
+def add_entry(identifier, sequence, description, seq_dict):
+    m = re.search("..\|(.*)\|(.*)\s?", identifier)
+    # id = identifier
+    accession = identifier
+    name = identifier
+    if m:
+        accession = m.groups()[0]
+        name = m.groups()[1]
+
+    data = [accession, name, description, sequence]
+    seq_dict[identifier] = data
+    seq_dict[accession] = data
