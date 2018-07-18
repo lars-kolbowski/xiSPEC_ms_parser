@@ -723,12 +723,12 @@ class CsvParser:
             db_sequences = []
             for prot in proteins:
                try:
-                   seq = self.fasta[prot]
+                   data = np.concatenate([prot],self.fasta[prot],[self.upload_id]);
                except Exception as ke:
                    seq = "NO SEQUENCE"
-               data = [prot, prot, prot, "", seq, self.upload_id]
+                   data = [prot, prot, prot, "", "NO SEQUENCE", self.upload_id]
 
-               # is_decoy - not thereseq = self.fasta[prot]
+               # is_decoy - not there
                # data.append("false")
 
                # data.append(self.upload_id)

@@ -13,15 +13,22 @@ def get_db_sequence_dict(fasta_file_list):
                     if line.startswith(">"):
                         if identifier is not None:
                             #create previous entry
-                            db_sequence_dict[identifier] = sequence
-                            m = re.search("..\|(.*)\|", identifier)
+                            m = re.search("..\|(.*)\|(.*)\s", identifier)
+                            # id = identifier
+                            accession = identifier
+                            name = identifier
                             if m:
-                                db_sequence_dict[m.groups()[0]] = sequence
+                                accession = m.groups()[0]
+                                name = m.groups()[1]
+
+                            data = [accession, name, description, sequence]
+                            db_sequence_dict[identifier] = data
+                            db_sequence_dict[accession] = data
 
                             #clear sequence
                             sequence = ""
 
-                        # get identifier
+                        # get new identifier
                         identifier = line
                         if " " not in line:
                             identifier = line[1:].rstrip()
