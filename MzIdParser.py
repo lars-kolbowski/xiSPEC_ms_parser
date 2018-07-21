@@ -499,7 +499,8 @@ class MzIdParser:
 
             # data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
             data = [
-                peptide_index,      # debug use mzid peptide['id'],
+                # peptide_index,      # debug use mzid peptide['id'],
+                peptide['id'],
                 peptide_seq_with_mods,
                 link_site,
                 crosslinker_modmass,
@@ -572,18 +573,12 @@ class MzIdParser:
             if "start" in peptide_evidence:
                 pep_start = peptide_evidence["start"]    # start att, optional
 
-            is_decoy = None
+            is_decoy = False
             if "isDecoy" in peptide_evidence:
                 is_decoy = peptide_evidence["isDecoy"]   # isDecoy att, optional
 
-            # cc hack
-            #if is_decoy == True:
-            #    is_decoy = 1
-            #else:
-            #    is_decoy = 0
-
-            peptide_ref = self.peptide_id_lookup[peptide_evidence["peptide_ref"]]
-            # peptide_ref = peptide_evidence["peptide_ref"]     # debug use mzid peptide['id'],
+            # peptide_ref = self.peptide_id_lookup[peptide_evidence["peptide_ref"]]
+            peptide_ref = peptide_evidence["peptide_ref"]     # debug use mzid peptide['id'],
 
             data = [
                 peptide_ref,       #' peptide_ref',
@@ -674,8 +669,8 @@ class MzIdParser:
                 if cross_link_id in spectrum_ident_dict.keys():
                     # do crosslink specific stuff
                     ident_data = spectrum_ident_dict.get(cross_link_id)
-                    ident_data[4] = self.peptide_id_lookup[spec_id_item['peptide_ref']]
-                    # ident_data[4] = spec_id_item['peptide_ref'] # debug
+                    # ident_data[4] = self.peptide_id_lookup[spec_id_item['peptide_ref']]
+                    ident_data[4] = spec_id_item['peptide_ref'] # debug
                 else:
                     # do stuff common to linears and crosslinks
                     charge_state = spec_id_item['chargeState']
@@ -725,7 +720,8 @@ class MzIdParser:
                         # spec_id_item['id'],
                         self.upload_id,
                         spec_id,
-                        self.peptide_id_lookup[spec_id_item['peptide_ref']],    # debug use spec_id_item['peptide_ref'],
+                        # self.peptide_id_lookup[spec_id_item['peptide_ref']],    # debug use spec_id_item['peptide_ref'],
+                        spec_id_item['peptide_ref'],
                         '',  # pep2
                         charge_state,
                         rank,
