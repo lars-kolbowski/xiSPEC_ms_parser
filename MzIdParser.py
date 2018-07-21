@@ -504,7 +504,7 @@ class MzIdParser:
                 link_site,
                 crosslinker_modmass,
                 self.upload_id,
-                value
+                str(value)
             ]
 
             peptide_inj_list.append(data)

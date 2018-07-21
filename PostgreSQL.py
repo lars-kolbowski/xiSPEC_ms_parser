@@ -295,8 +295,11 @@ def write_spectrum_identifications(inj_list, cur, con):
               ions,
               scores,
               exp_mz,
-              calc_mz
-          ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s , %s, %s, %s, %s)""", inj_list)
+              calc_mz,
+              meta1,
+              meta2,
+              meta3
+          ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s , %s, %s, %s, %s, %s, %s, %s)""", inj_list)
         con.commit()
 
     except psycopg2.Error as e:
