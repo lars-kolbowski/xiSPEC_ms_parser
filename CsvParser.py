@@ -463,14 +463,14 @@ class CsvParser:
 
             # decoy1 - if decoy1 is not set fill list with default value (0)
             if id_item['decoy1'] == -1:
-                is_decoy_list1 = [0] * len(protein_list1)
+                is_decoy_list1 = [False] * len(protein_list1)
             else:
                 is_decoy_list1 = []
                 for decoy in str(id_item['decoy1']).split(";"):
                     if decoy.lower().strip() == 'true':
-                        is_decoy_list1.append(1)
+                        is_decoy_list1.append(True)
                     elif decoy.lower().strip() == 'false':
-                        is_decoy_list1.append(0)
+                        is_decoy_list1.append(False)
                     else:
                         raise CsvParseException(
                             'Invalid value in Decoy 1: %s in row %s. Allowed values: True, False.'
@@ -501,14 +501,14 @@ class CsvParser:
 
             # decoy2 - if decoy2 is not set fill list with default value (0)
             if id_item['decoy2'] == -1:
-                is_decoy_list2 = [0] * len(protein_list2)
+                is_decoy_list2 = [False] * len(protein_list2)
             else:
                 is_decoy_list2 = []
                 for decoy in str(id_item['decoy2']).split(";"):
                     if decoy.lower().strip() == 'true':
-                        is_decoy_list2.append(1)
+                        is_decoy_list2.append(True)
                     elif decoy.lower().strip() == 'false':
-                        is_decoy_list2.append(0)
+                        is_decoy_list2.append(False)
                     else:
                         raise CsvParseException(
                             'Invalid value in Decoy 2: %s in row %s. Allowed values: True, False.'
@@ -698,9 +698,9 @@ class CsvParser:
                 scores,                     # 'scores',
                 exp_mz,                     # 'experimental_mass_to_charge',
                 calc_mz,                    # 'calculated_mass_to_charge'
-                # meta1,
-                # meta2,
-                # meta3
+                meta1,
+                meta2,
+                meta3
             ]
             spectrum_identifications.append(spectrum_identification)
 
