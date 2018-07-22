@@ -18,114 +18,11 @@ def connect(dbname):
 
 
 def create_tables(cur, con):
-    # try:
-    #     cur.execute("DROP TABLE IF EXISTS uploads")
-    #     cur.execute(
-    #         "CREATE TABLE uploads("
-    #         "id SERIAL PRIMARY KEY, "
-    #         "user_id INT,"
-    #         "filename TEXT, "
-    #         "peak_list_file_names JSON, "
-    #         "analysis_software JSON,"
-    #         "provider JSON,"
-    #         "audits JSON,"
-    #         "samples JSON,"
-    #         "analyses JSON,"
-    #         "protocol JSON,"
-    #         "bib JSON,"
-    #         "spectra_formats JSON,"
-    #         "upload_time DATE, "
-    #         "default_pdb TEXT,"
-    #         "contains_crosslinks BOOLEAN,"
-    #         "upload_error TEXT,"
-    #         "error_type TEXT,"
-    #         "upload_warnings JSON,"
-    #         "origin TEXT)"
-    #     )
+    # don't create tables here
+    # use file postgreSQL_schema.sql to init db
     #
-    #     # ToDo: not used atm
-    #     # might be a good place to save ions here?
-    #     # cur.execute("DROP TABLE IF EXISTS protocols")
-    #     # cur.execute(
-    #     #     "CREATE TABLE protocols("
-    #     #     "id text PRIMARY KEY, "
-    #     #     "upload_id INT,"
-    #     #     "protocol JSON,"
-    #     #     "ms2_tol FLOAT)"
-    #     # )
-    #
-    #     cur.execute("DROP TABLE IF EXISTS db_sequences")
-    #     cur.execute(
-    #         "CREATE TABLE db_sequences("
-    #         "id text, "
-    #         "upload_id INT,"
-    #         "accession TEXT, "
-    #         "protein_name TEXT, "
-    #         "description TEXT, "
-    #         "sequence TEXT, "
-    #         "is_decoy BOOLEAN)"
-    #     )
-    #     cur.execute("DROP TABLE IF EXISTS peptides")
-    #     cur.execute(
-    #         "CREATE TABLE peptides("
-    #         "id text, "
-    #         "upload_id INT,"
-    #         "seq_mods TEXT,"
-    #         "link_site INT,"
-    #         "crosslinker_modmass FLOAT,"    # ToDo: save cross-links to extra table?
-    #         "crosslinker_pair_id INT)"
-    #     )
-    #     cur.execute("DROP TABLE IF EXISTS modifications")
-    #     cur.execute(
-    #         "CREATE TABLE modifications("
-    #         "id BIGINT, "
-    #         "upload_id INT,"
-    #         "mod_name TEXT, "
-    #         "mass FLOAT, "
-    #         "residues TEXT, "
-    #         "accession TEXT)"
-    #     )
-    #     cur.execute("DROP TABLE IF EXISTS peptide_evidences")
-    #     cur.execute(
-    #         "CREATE TABLE peptide_evidences("
-    #         "upload_id INT,"
-    #         "peptide_ref text, "
-    #         "dbsequence_ref text, "
-    #         "protein_accession text, "
-    #         "pep_start int, "
-    #         "is_decoy INT)"
-    #     )
-    #     cur.execute("DROP TABLE IF EXISTS spectra")
-    #     cur.execute(
-    #         "CREATE TABLE spectra("
-    #         "id BIGINT, "
-    #         "upload_id INT,"
-    #         "peak_list text, "
-    #         "peak_list_file_name text, "
-    #         "scan_id TEXT, "
-    #         "frag_tol TEXT,"
-    #         "spectrum_ref TEXT)"
-    #     )
-    #     cur.execute("DROP TABLE IF EXISTS spectrum_identifications")
-    #     cur.execute(
-    #         "CREATE TABLE spectrum_identifications("
-    #         "id BIGINT, "
-    #         "upload_id INT,"
-    #         "spectrum_id BIGINT, "
-    #         "pep1_id TEXT, "
-    #         "pep2_id TEXT, "
-    #         "charge_state INT, "
-    #         "pass_threshold BOOLEAN, "
-    #         "rank INT,"
-    #         "ions TEXT, "   # ToDo: find better place to store ions might be protocols
-    #         "scores JSON,"  # IS JSON data type valid or does it have to be TEXT
-    #         "exp_mz FLOAT,"
-    #         "calc_mz FLOAT)"
-    #     )
-    #     con.commit()
-    #
-    # except psycopg2.Error as e:
-    #     raise DBException(e.message)
+    # you will need to search and replace 'username' in the sql file,
+    # replacing it with the role name you use to access the database
     return True
 
 
@@ -295,8 +192,11 @@ def write_spectrum_identifications(inj_list, cur, con):
               ions,
               scores,
               exp_mz,
-              calc_mz
-          ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s , %s, %s, %s, %s)""", inj_list)
+              calc_mz,
+              meta1,
+              meta2,
+              meta3
+          ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s , %s, %s, %s, %s, %s, %s, %s)""", inj_list)
         con.commit()
 
     except psycopg2.Error as e:

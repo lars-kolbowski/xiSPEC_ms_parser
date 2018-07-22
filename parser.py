@@ -154,7 +154,17 @@ try:
 
         # csv file
         #identifications_file = "/home/col/mzIdentML/examples/1_2examples/crosslinking/OpenxQuest_example.mzid"
-        identifications_file = "/home/col/test2/result_new_XiVersion1.6.739_PSM_xiFDR1.1.27.csv"
+        # identifications_file = "/home/col/tests/uniprot/PolII_XiVersion1.6.742_PSM_xiFDR1.1.27.csv"
+
+        # identifications_file = "/home/col/mzid_tests/alts_E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.1.27.59.mzid"
+        # identifications_file = "/home/col/mzid_tests/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.1.27.59.mzid"
+
+        # identifications_file = "/home/col/mzid_tests/OpenxQuest_example.mzid"
+        # identifications_file = "/home/col/mzid_tests/OpenxQuest_example_added_annotations.mzid"
+        # identifications_file = "/home/col/mzid_tests/SIM-XL_example.mzid"
+        # identifications_file = "/home/col/mzid_tests/test2.mzid"
+        identifications_file = "/home/col/mzid_tests/xiFDR-CrossLinkExample.mzid"
+        # identifications_file = "/home/col/mzid_tests/xiFDR-CrossLinkExample_single_run.mzid"
 
         #peakList_file = "/home/col/test2/Rappsilber_CLMS_PolII_mgfs.zip"
 
