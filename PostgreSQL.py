@@ -18,7 +18,11 @@ def connect(dbname):
 
 
 def create_tables(cur, con):
-    # don't; use file postgreSQL_schema to init db
+    # don't create tables here
+    # use file postgreSQL_schema.sql to init db
+    #
+    # you will need to search and replace 'username' in the sql file,
+    # replacing it with the role name you use to access the database
     return True
 
 
