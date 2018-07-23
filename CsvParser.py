@@ -126,45 +126,40 @@ class CsvParser:
         self.logger.info('reading csv - start')
         self.start_time = time()
         # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
-        try:
-            self.csv_reader = pd.read_csv(self.csv_path)
+        self.csv_reader = pd.read_csv(self.csv_path)
 
-            # check for duplicate columns
-            col_list = self.csv_reader.columns.tolist()
-            duplicate_cols = set([x for x in col_list if col_list.count(x) > 1])
-            if len(duplicate_cols) > 0:
-                raise CsvParseException("duplicate column(s): %s" % '; '.join(duplicate_cols))
+        # check for duplicate columns
+        col_list = self.csv_reader.columns.tolist()
+        duplicate_cols = set([x for x in col_list if col_list.count(x) > 1])
+        if len(duplicate_cols) > 0:
+            raise CsvParseException("duplicate column(s): %s" % '; '.join(duplicate_cols))
 
-            self.csv_reader.columns = [x.lower().replace(" ", "") for x in self.csv_reader.columns]
-            self.meta_columns = [col for col in self.csv_reader.columns if col.startswith('meta')][:3]
+        self.csv_reader.columns = [x.lower().replace(" ", "") for x in self.csv_reader.columns]
+        self.meta_columns = [col for col in self.csv_reader.columns if col.startswith('meta')][:3]
 
-            # remove unused columns
-            for col in self.csv_reader.columns:
-                if col not in self.required_cols + self.optional_cols + self.meta_columns:
-                    try:
-                        del self.csv_reader[col]
-                    except KeyError:
-                        pass
-
+        # remove unused columns
+        for col in self.csv_reader.columns:
+            if col not in self.required_cols + self.optional_cols + self.meta_columns:
+                try:
+                    del self.csv_reader[col]
+                except KeyError:
+                    pass
 
 
-            # check required cols
-            for required_col in self.required_cols:
-                if required_col not in self.csv_reader.columns:
-                    raise CsvParseException("Required csv column %s missing" % required_col)
 
-            # create missing non-required cols and fill with NaN (will then be fill with default values)
-            for optional_col in self.optional_cols:
-                if optional_col not in self.csv_reader.columns:
-                    self.csv_reader[optional_col] = np.nan
+        # check required cols
+        for required_col in self.required_cols:
+            if required_col not in self.csv_reader.columns:
+                raise CsvParseException("Required csv column %s missing" % required_col)
 
-            self.csv_reader.fillna(value=self.default_values, inplace=True)
+        # create missing non-required cols and fill with NaN (will then be fill with default values)
+        for optional_col in self.optional_cols:
+            if optional_col not in self.csv_reader.columns:
+                self.csv_reader[optional_col] = np.nan
 
-            # self.csv_reader.fillna('Null', inplace=True)
+        self.csv_reader.fillna(value=self.default_values, inplace=True)
 
-        except Exception as e:
-            raise CsvParseException(type(e).__name__, e.args)
-
+        # self.csv_reader.fillna('Null', inplace=True)
 
     # ToDo: not used atm - can be used for checking if all files are present in temp dir
     def get_peak_list_file_names(self):
