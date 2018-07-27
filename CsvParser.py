@@ -435,7 +435,8 @@ class CsvParser:
                 'c',
                 'x',
                 'y',
-                'z'
+                'z',
+                '' # split will add an empty sell if string ends with ';'
             ]
             if any([True for ion in ions if ion not in valid_ions]):
                 raise CsvParseException(
