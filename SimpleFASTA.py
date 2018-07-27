@@ -29,7 +29,8 @@ def get_db_sequence_dict(fasta_file_list):
                         sequence += line.rstrip()
 
     # add last entry
-    add_entry(identifier, sequence, description, db_sequence_dict)
+    if identifier is not None:
+        add_entry(identifier, sequence, description, db_sequence_dict)
 
     return db_sequence_dict
 
