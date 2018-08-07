@@ -715,23 +715,17 @@ class CsvParser:
 
 
         # DBSEQUENCES
-        if self.fasta:
-            db_sequences = []
-            for prot in proteins:
-               try:
-                   #data = [prot] + self.fasta[prot] + [self.upload_id]
-                   temp = self.fasta[prot]
-                   data = [prot, temp[0], temp[1], temp[2], temp[3], self.upload_id] # surely there's a better way
-               except Exception as ke:
-                   seq = "NO SEQUENCE"
-                   data = [prot, prot, prot, "", "NO SEQUENCE", self.upload_id]
+        # if self.fasta:
+        db_sequences = []
+        for prot in proteins:
+           try:
+               #data = [prot] + self.fasta[prot] + [self.upload_id]
+               temp = self.fasta[prot]
+               data = [prot, temp[0], temp[1], temp[2], temp[3], self.upload_id] # surely there's a better way
+           except Exception as ke:
+               data = [prot, prot, prot, "", None, self.upload_id]
 
-               # is_decoy - not there
-               # data.append("false")
-
-               # data.append(self.upload_id)
-
-               db_sequences.append(data)
+           db_sequences.append(data)
 
 
         # end main loop
@@ -746,8 +740,7 @@ class CsvParser:
             self.db.write_peptides(peptides, self.cur, self.con)
             self.db.write_spectra(spectra, self.cur, self.con)
             self.db.write_spectrum_identifications(spectrum_identifications, self.cur, self.con)
-            if self.fasta:
-                self.db.write_db_sequences(db_sequences, self.cur, self.con)
+            self.db.write_db_sequences(db_sequences, self.cur, self.con)
             self.con.commit()
         except Exception as e:
             raise e
