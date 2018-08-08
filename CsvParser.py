@@ -25,17 +25,17 @@ class CsvParser:
     """
     # ToDo: adjust to xiUI needs
     required_cols = [
-        'scanid',
-        'charge',
         'pepseq1',
         'protein1',
         'peppos1',
-        'peaklistfilename',
         # 'expMZ'
     ]
 
     optional_cols = [
         # 'spectrum_id' $ ToDo: get rid of this? select alternatives by scanid and peaklistfilename?
+        'scanid',
+        'charge',
+        'peaklistfilename',
         'rank',
         'fragmenttolerance',
         'iontypes',
@@ -411,7 +411,10 @@ class CsvParser:
             try:
                 charge = int(id_item['charge'])
             except ValueError:
-                raise CsvParseException('Invalid charge state: %s for row: %s' % (id_item['charge'], row_number))
+                #raise CsvParseException('Invalid charge state: %s for row: %s' % (id_item['charge'], row_number))
+                #self.warnings.append("Missing charge state.")
+                charge = -1
+
 
             # passthreshold
             if isinstance(id_item['passthreshold'], bool):
@@ -531,7 +534,8 @@ class CsvParser:
             try:
                 scan_id = int(id_item['scanid'])
             except ValueError:
-                raise CsvParseException('Invalid scanid: %s in row %s' % (id_item['scanid'], row_number))
+                #raise CsvParseException('Invalid scanid: %s in row %s' % (id_item['scanid'], row_number))
+                scan_id = -1
 
             # peakListFilename
 
