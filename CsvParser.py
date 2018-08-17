@@ -413,7 +413,7 @@ class CsvParser:
             except ValueError:
                 #raise CsvParseException('Invalid charge state: %s for row: %s' % (id_item['charge'], row_number))
                 #self.warnings.append("Missing charge state.")
-                charge = -1
+                charge = None
 
 
             # passthreshold
