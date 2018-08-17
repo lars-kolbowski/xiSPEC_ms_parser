@@ -139,7 +139,9 @@ class TestLoop:
 
         # init parser
         try:
-            mzId_parser = MzIdParser(path, self.temp_dir, 5, db, self.logger, origin=ymp)
+            # MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger,
+            #                       user_id=user_id)
+            mzId_parser = MzIdParser(path, self.temp_dir,  self.temp_dir, db, self.logger, 0, origin=ymp)
         except Exception as mzId_error:
             error = json.dumps(mzId_error.args, cls=NumpyEncoder)
 
@@ -411,7 +413,9 @@ test_loop = TestLoop()
 # test_loop.project("2015/06/PXD002045")
 # test_loop.project("2017/08/PXD007149")
 # test_loop.project("2015/06/PXD002048")
-test_loop.project("2015/06/PXD002047")
+# test_loop.project("2015/06/PXD002047")
+test_loop.project("2014/11/PXD001267")
+
 # 2015/06/PXD002046
 # 2014/09/PXD001006
 # 2014/09/PXD001000
