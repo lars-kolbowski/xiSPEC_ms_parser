@@ -126,45 +126,40 @@ class CsvParser:
         self.logger.info('reading csv - start')
         self.start_time = time()
         # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
-        try:
-            self.csv_reader = pd.read_csv(self.csv_path)
+        self.csv_reader = pd.read_csv(self.csv_path)
 
-            # check for duplicate columns
-            col_list = self.csv_reader.columns.tolist()
-            duplicate_cols = set([x for x in col_list if col_list.count(x) > 1])
-            if len(duplicate_cols) > 0:
-                raise CsvParseException("duplicate column(s): %s" % '; '.join(duplicate_cols))
+        # check for duplicate columns
+        col_list = self.csv_reader.columns.tolist()
+        duplicate_cols = set([x for x in col_list if col_list.count(x) > 1])
+        if len(duplicate_cols) > 0:
+            raise CsvParseException("duplicate column(s): %s" % '; '.join(duplicate_cols))
 
-            self.csv_reader.columns = [x.lower().replace(" ", "") for x in self.csv_reader.columns]
-            self.meta_columns = [col for col in self.csv_reader.columns if col.startswith('meta')][:3]
+        self.csv_reader.columns = [x.lower().replace(" ", "") for x in self.csv_reader.columns]
+        self.meta_columns = [col for col in self.csv_reader.columns if col.startswith('meta')][:3]
 
-            # remove unused columns
-            for col in self.csv_reader.columns:
-                if col not in self.required_cols + self.optional_cols + self.meta_columns:
-                    try:
-                        del self.csv_reader[col]
-                    except KeyError:
-                        pass
-
+        # remove unused columns
+        for col in self.csv_reader.columns:
+            if col not in self.required_cols + self.optional_cols + self.meta_columns:
+                try:
+                    del self.csv_reader[col]
+                except KeyError:
+                    pass
 
 
-            # check required cols
-            for required_col in self.required_cols:
-                if required_col not in self.csv_reader.columns:
-                    raise CsvParseException("Required csv column %s missing" % required_col)
 
-            # create missing non-required cols and fill with NaN (will then be fill with default values)
-            for optional_col in self.optional_cols:
-                if optional_col not in self.csv_reader.columns:
-                    self.csv_reader[optional_col] = np.nan
+        # check required cols
+        for required_col in self.required_cols:
+            if required_col not in self.csv_reader.columns:
+                raise CsvParseException("Required csv column %s missing" % required_col)
 
-            self.csv_reader.fillna(value=self.default_values, inplace=True)
+        # create missing non-required cols and fill with NaN (will then be fill with default values)
+        for optional_col in self.optional_cols:
+            if optional_col not in self.csv_reader.columns:
+                self.csv_reader[optional_col] = np.nan
 
-            # self.csv_reader.fillna('Null', inplace=True)
+        self.csv_reader.fillna(value=self.default_values, inplace=True)
 
-        except Exception as e:
-            raise CsvParseException(type(e).__name__, e.args)
-
+        # self.csv_reader.fillna('Null', inplace=True)
 
     # ToDo: not used atm - can be used for checking if all files are present in temp dir
     def get_peak_list_file_names(self):
@@ -440,7 +435,8 @@ class CsvParser:
                 'c',
                 'x',
                 'y',
-                'z'
+                'z',
+                '' # split will add an empty sell if string ends with ';'
             ]
             if any([True for ion in ions if ion not in valid_ions]):
                 raise CsvParseException(
@@ -463,14 +459,14 @@ class CsvParser:
 
             # decoy1 - if decoy1 is not set fill list with default value (0)
             if id_item['decoy1'] == -1:
-                is_decoy_list1 = [0] * len(protein_list1)
+                is_decoy_list1 = [False] * len(protein_list1)
             else:
                 is_decoy_list1 = []
                 for decoy in str(id_item['decoy1']).split(";"):
                     if decoy.lower().strip() == 'true':
-                        is_decoy_list1.append(1)
+                        is_decoy_list1.append(True)
                     elif decoy.lower().strip() == 'false':
-                        is_decoy_list1.append(0)
+                        is_decoy_list1.append(False)
                     else:
                         raise CsvParseException(
                             'Invalid value in Decoy 1: %s in row %s. Allowed values: True, False.'
@@ -501,14 +497,14 @@ class CsvParser:
 
             # decoy2 - if decoy2 is not set fill list with default value (0)
             if id_item['decoy2'] == -1:
-                is_decoy_list2 = [0] * len(protein_list2)
+                is_decoy_list2 = [False] * len(protein_list2)
             else:
                 is_decoy_list2 = []
                 for decoy in str(id_item['decoy2']).split(";"):
                     if decoy.lower().strip() == 'true':
-                        is_decoy_list2.append(1)
+                        is_decoy_list2.append(True)
                     elif decoy.lower().strip() == 'false':
-                        is_decoy_list2.append(0)
+                        is_decoy_list2.append(False)
                     else:
                         raise CsvParseException(
                             'Invalid value in Decoy 2: %s in row %s. Allowed values: True, False.'
@@ -723,12 +719,14 @@ class CsvParser:
             db_sequences = []
             for prot in proteins:
                try:
-                   seq = self.fasta[prot]
+                   #data = [prot] + self.fasta[prot] + [self.upload_id]
+                   temp = self.fasta[prot]
+                   data = [prot, temp[0], temp[1], temp[2], temp[3], self.upload_id] # surely there's a better way
                except Exception as ke:
                    seq = "NO SEQUENCE"
-               data = [prot, prot, prot, "", seq, self.upload_id]
+                   data = [prot, prot, prot, "", "NO SEQUENCE", self.upload_id]
 
-               # is_decoy - not thereseq = self.fasta[prot]
+               # is_decoy - not there
                # data.append("false")
 
                # data.append(self.upload_id)
