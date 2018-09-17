@@ -416,10 +416,9 @@ class MzIdParser:
             for aa in peptide['PeptideSequence']:
                 pep_seq_dict.append({"Modification": "", "aminoAcid": aa})
 
-            link_site = -1
-            crosslinker_modmass = -1
-
-            value = -1
+            link_site = None
+            crosslinker_modmass = None
+            value = None
 
             # MODIFICATIONS
             # add in modifications
@@ -454,6 +453,7 @@ class MzIdParser:
                     if 'residues' not in mod:
                         mod['residues'] = peptide['PeptideSequence'][mod_location]
 
+                    #TODO - issues here to do with using names rather than cv param accessions (cross-link acceptor / cross-link reciever)
                     if 'name' in mod.keys():
                         # fix mod names
                         if isinstance(mod['name'], list):  # todo: have a look at this  - cc
@@ -462,7 +462,7 @@ class MzIdParser:
                         mod['name'] = mod['name'].replace(" ", "_")
                         if mod['name'] in mod_aliases.keys():
                             mod['name'] = mod_aliases[mod['name']]
-                        if 'cross-link donor' not in mod.keys() and 'cross-link acceptor' not in mod.keys():
+                        if 'cross-link donor' not in mod.keys() and 'cross-link acceptor' not in mod.keys() and 'cross-link reciever' not in mod.keys():
                             cur_mod = pep_seq_dict[mod_location]
                             # join modifications into one for multiple modifications on the same aa
                             if not cur_mod['Modification'] == '':
@@ -473,26 +473,25 @@ class MzIdParser:
                             mod['name'] = self.add_to_modlist(mod)  # save to all mods list and get back new_name
                             cur_mod['Modification'] = mod['name']
 
-                    # error handling for mod without name
+                    # error handling for mod without name - TODO - looks like this does nothing
                     else:
                         # cross-link acceptor doesn't have a name
-                        if 'cross-link acceptor' not in mod.keys():
-                            pass
-                            # logger.error('modification without name!')
-                            # logger.error(mod)
+                        if 'cross-link acceptor' not in mod.keys() and 'cross-link receiver' not in mod.keys():
+                            raise MzIdParseException("Missing modification name")
 
                     # add CL locations
+
                     if 'cross-link donor' in mod.keys() or 'cross-link acceptor' in mod.keys() or 'cross-link receiver' in mod.keys():
                         # use mod['location'] for link-site (1-based in database in line with mzIdentML specifications)
                         link_site = mod['location']
-                        # return_dict['linkSites'].append(
-                        #     {"id": link_index, "peptideId": pep_index, "linkSite": mod_location - 1})
-                    if 'cross-link acceptor' in mod.keys():
                         crosslinker_modmass = mod['monoisotopicMassDelta']
+
+                    if 'cross-link acceptor' in mod.keys():
                         value = mod['cross-link acceptor']['value']
                     if 'cross-link donor' in mod.keys():
-                        crosslinker_modmass = mod['monoisotopicMassDelta']
                         value = mod['cross-link donor']['value']
+                    if 'cross-link receiver' in mod.keys():
+                        value = mod['cross-link receiver']['value']
 
             # we should consider swapping these over because modX format has modification before AA
             peptide_seq_with_mods = ''.join([''.join([x['aminoAcid'], x['Modification']]) for x in pep_seq_dict])
