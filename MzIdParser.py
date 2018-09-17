@@ -416,7 +416,7 @@ class MzIdParser:
             for aa in peptide['PeptideSequence']:
                 pep_seq_dict.append({"Modification": "", "aminoAcid": aa})
 
-            link_site = None
+            link_site = -1
             crosslinker_modmass = None
             value = None
 
