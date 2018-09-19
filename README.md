@@ -20,7 +20,7 @@ cd into the repository:
 
 ```cd xiSPEC_ms_parser```
 
-Create uploads directory (permissions?):
+Create uploads directory:
 
 ```mkdir ../uploads```
 
