@@ -334,20 +334,12 @@ if len(returnJSON["errors"]) > 0 or len(returnJSON["warnings"]) > 0:
         if not dev:
 
             try:
-
-                try:
-                    os.stat("../uploads/failed/")
-                except:
-                    os.mkdir("../uploads/failed/")
-
-                upload_dirs = os.path.split(upload_folder)
-                failed_dir = "../uploads/failed/" + upload_dirs[-1]
-                logger.info('moving uploaded files to %s' % failed_dir)
+                failed_dir = "../uploads/failed/"
                 try:
                     os.stat(failed_dir)
                 except:
                     os.mkdir(failed_dir)
-
+                logger.info('moving uploaded files to %s' % failed_dir)
                 shutil.move(upload_folder, failed_dir)
 
             except Exception as e:
