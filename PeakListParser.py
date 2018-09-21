@@ -4,8 +4,8 @@ import Ms2Reader as py_msn
 import MGF as py_mgf
 import pymzml
 import re
-import os
 import gzip
+import os
 
 
 class PeakListParseError(Exception):
@@ -22,15 +22,20 @@ class PeakListParser:
         self.file_format_accession = file_format_accession
         self.spectrum_id_format_accession = spectrum_id_format_accession
         self.peak_list_path = pl_path
+        self.peak_list_file_name = os.path.split(pl_path)[1]
 
-        if self.is_mzML():
-            self.reader = pymzml.run.Reader(pl_path)
-        elif self.is_mgf():
-            self.reader = py_mgf.Reader(pl_path)
-        elif self.is_ms2():
-            self.reader = py_msn.Reader(pl_path)
-        else:
-            raise PeakListParseError("unsupported peak list file type for: %s" % ntpath.basename(pl_path))
+        try:
+            if self.is_mzML():
+                self.reader = pymzml.run.Reader(pl_path)
+            elif self.is_mgf():
+                self.reader = py_mgf.Reader(pl_path)
+            elif self.is_ms2():
+                self.reader = py_msn.Reader(pl_path)
+            else:
+                raise PeakListParseError("unsupported peak list file type for: %s" % ntpath.basename(pl_path))
+        except Exception as e:
+            message = "Error reading peak list file {0}: {1} - Arguments:\n{2!r}".format(self.peak_list_file_name, type(e).__name__, e.args)
+            raise PeakListParseError(message)
 
     def is_mgf(self):
         return self.file_format_accession == 'MS:1001062'

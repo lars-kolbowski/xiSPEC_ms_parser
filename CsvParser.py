@@ -1,5 +1,4 @@
 import re
-import ntpath
 import json
 import sys
 import numpy as np
@@ -9,7 +8,8 @@ from PeakListParser import PeakListParser
 import zipfile
 import gzip
 import os
-
+#import pyteomics.fasta as py_fasta
+import SimpleFASTA
 
 class CsvParseException(Exception):
     pass
@@ -72,7 +72,7 @@ class CsvParser:
         'calcmz': -1
     }
 
-    def __init__(self, csv_path, temp_dir, db, logger, db_name=''):
+    def __init__(self, csv_path, temp_dir, peak_list_dir, db, logger, db_name='', user_id=0):
         """
 
         :param csv_path: path to csv file
@@ -91,6 +91,11 @@ class CsvParser:
         self.temp_dir = temp_dir
         if not self.temp_dir.endswith('/'):
             self.temp_dir += '/'
+        self.peak_list_dir = peak_list_dir
+        if peak_list_dir and not peak_list_dir.endswith('/'):
+            self.peak_list_dir += '/'
+
+        self.user_id = user_id
 
         self.db = db
         self.logger = logger
@@ -103,6 +108,8 @@ class CsvParser:
         self.unknown_mods = []
 
         self.contains_crosslinks = False
+        self.fasta = False
+        self.random_id = 0
 
         self.warnings = []
 
@@ -119,46 +126,40 @@ class CsvParser:
         self.logger.info('reading csv - start')
         self.start_time = time()
         # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
-        try:
-            self.csv_reader = pd.read_csv(self.csv_path)
+        self.csv_reader = pd.read_csv(self.csv_path)
 
-            # check for duplicate columns
-            col_list = self.csv_reader.columns.tolist()
-            duplicate_cols = set([x for x in col_list if col_list.count(x) > 1])
-            if len(duplicate_cols) > 0:
-                raise CsvParseException("duplicate column(s): %s" % '; '.join(duplicate_cols))
+        # check for duplicate columns
+        col_list = self.csv_reader.columns.tolist()
+        duplicate_cols = set([x for x in col_list if col_list.count(x) > 1])
+        if len(duplicate_cols) > 0:
+            raise CsvParseException("duplicate column(s): %s" % '; '.join(duplicate_cols))
 
-            self.csv_reader.columns = [x.lower().replace(" ", "") for x in self.csv_reader.columns]
-            self.meta_columns = [col for col in self.csv_reader.columns if col.startswith('meta')][:3]
+        self.csv_reader.columns = [x.lower().replace(" ", "") for x in self.csv_reader.columns]
+        self.meta_columns = [col for col in self.csv_reader.columns if col.startswith('meta')][:3]
 
-            # remove unused columns
-            for col in self.csv_reader.columns:
-                if col not in self.required_cols + self.optional_cols + self.meta_columns:
-                    try:
-                        del self.csv_reader[col]
-                    except KeyError:
-                        pass
-
+        # remove unused columns
+        for col in self.csv_reader.columns:
+            if col not in self.required_cols + self.optional_cols + self.meta_columns:
+                try:
+                    del self.csv_reader[col]
+                except KeyError:
+                    pass
 
 
-            # check required cols
-            for required_col in self.required_cols:
-                if required_col not in self.csv_reader.columns:
-                    raise CsvParseException("Required csv column %s missing" % required_col)
 
-            # create missing non-required cols and fill with NaN (will then be fill with default values)
-            for optional_col in self.optional_cols:
-                if optional_col not in self.csv_reader.columns:
-                    self.csv_reader[optional_col] = np.nan
+        # check required cols
+        for required_col in self.required_cols:
+            if required_col not in self.csv_reader.columns:
+                raise CsvParseException("Required csv column %s missing" % required_col)
 
-            self.csv_reader.fillna(value=self.default_values, inplace=True)
+        # create missing non-required cols and fill with NaN (will then be fill with default values)
+        for optional_col in self.optional_cols:
+            if optional_col not in self.csv_reader.columns:
+                self.csv_reader[optional_col] = np.nan
 
-            # self.csv_reader.fillna('Null', inplace=True)
+        self.csv_reader.fillna(value=self.default_values, inplace=True)
 
-        except Exception as e:
-            raise CsvParseException(type(e).__name__, e.args)
-
-        self.logger.info('reading csv - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
+        # self.csv_reader.fillna('Null', inplace=True)
 
     # ToDo: not used atm - can be used for checking if all files are present in temp dir
     def get_peak_list_file_names(self):
@@ -168,7 +169,11 @@ class CsvParser:
         return self.csv_reader.peaklistfilename.unique()
 
     def get_sequenceDB_file_names(self):
-        pass
+        fasta_files = []
+        for file in os.listdir(self.temp_dir):
+            if file.endswith(".fasta") or file.endswith(".FASTA"):
+                fasta_files.append(self.temp_dir + "/" + file)
+        return fasta_files
 
     def set_peak_list_readers(self):
         """
@@ -181,6 +186,7 @@ class CsvParser:
         peak_list_readers = {}
         for peak_list_file_name in self.csv_reader.peaklistfilename.unique():
 
+            # ToDo: what about .ms2?
             if peak_list_file_name.lower().endswith('.mgf'):
                 file_format_accession = 'MS:1001062'        # MGF
                 spectrum_id_format_accesion = 'MS:1000774'  # MS:1000774 multiple peak list nativeID format - zero based
@@ -191,7 +197,7 @@ class CsvParser:
             else:
                 raise CsvParseException("Unsupported peak list file type for: %s" % peak_list_file_name)
 
-            peak_list_file_path = self.temp_dir + peak_list_file_name
+            peak_list_file_path = self.peak_list_dir + peak_list_file_name
 
             try:
                 peak_list_reader = PeakListParser(
@@ -220,8 +226,11 @@ class CsvParser:
         start_time = time()
 
         # ToDo: more gracefully handle missing files
-        self.set_peak_list_readers()
+        if self.peak_list_dir:
+            self.set_peak_list_readers()
 
+        self.upload_info() # overridden (empty function) in xiSPEC subclass
+        self.parse_db_sequences() # overridden (empty function) in xiSPEC subclass
         self.main_loop()
 
         meta_col_names = [col.replace("meta_", "") for col in self.meta_columns]
@@ -287,6 +296,19 @@ class CsvParser:
     #
     #     return masses
 
+    def parse_db_sequences(self):
+        self.logger.info('reading fasta - start')
+        self.start_time = time()
+        # pyteomics.fasta is too strict in what headers it accepts (must be one of https://www.uniprot.org/help/fasta-headers)
+        # for file in self.get_sequenceDB_file_names():
+           # fasta_iterator = py_fasta.read(self.temp_dir + "/" + file)
+           # for (a, b) in fasta_iterator:
+           #     # self.logger.info("" + a  b)
+           #     header = py_fasta.parse(a)
+           #     self.fasta[header['id']] = b
+        self.fasta = SimpleFASTA.get_db_sequence_dict(self.get_sequenceDB_file_names())
+        self.logger.info('reading fasta - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
+
     def main_loop(self):
         main_loop_start_time = time()
         self.logger.info('main loop - start')
@@ -295,7 +317,7 @@ class CsvParser:
         spectrum_identifications = []
         spectra = []
         peptides = []
-
+        proteins = set()
         # list of spectra that were already seen - index in list is spectrum_id
         # combination of peaklistfilename and scanid is a unique identifier
         seen_spectra = []
@@ -338,7 +360,7 @@ class CsvParser:
             # delta of zero. It is RECOMMENDED that the 'donor' peptide SHOULD be the longer peptide, followed by
             # alphabetical order for equal length peptides.
 
-            invalid_char_pattern_pepseq = '([^GALMFWKQESPVICYHRNDTa-z:0-9(.)\-]+)'
+            invalid_char_pattern_pepseq = '([^GALMFWKQESPVICYHRNDTXa-z:0-9(.)\-]+)'
             # pepSeq - 1
             if id_item['pepseq1'] == '':
                 raise CsvParseException('Missing PepSeq1 for row: %s' % row_number)
@@ -414,7 +436,8 @@ class CsvParser:
                 'c',
                 'x',
                 'y',
-                'z'
+                'z',
+                '' # split will add an empty sell if string ends with ';'
             ]
             if any([True for ion in ions if ion not in valid_ions]):
                 raise CsvParseException(
@@ -432,17 +455,19 @@ class CsvParser:
             # protein1
             protein_list1 = id_item['protein1'].split(";")
             protein_list1 = [s.strip() for s in protein_list1]
+            for p in protein_list1:
+                proteins.add(p)
 
             # decoy1 - if decoy1 is not set fill list with default value (0)
             if id_item['decoy1'] == -1:
-                is_decoy_list1 = [0] * len(protein_list1)
+                is_decoy_list1 = [False] * len(protein_list1)
             else:
                 is_decoy_list1 = []
                 for decoy in str(id_item['decoy1']).split(";"):
                     if decoy.lower().strip() == 'true':
-                        is_decoy_list1.append(1)
+                        is_decoy_list1.append(True)
                     elif decoy.lower().strip() == 'false':
-                        is_decoy_list1.append(0)
+                        is_decoy_list1.append(False)
                     else:
                         raise CsvParseException(
                             'Invalid value in Decoy 1: %s in row %s. Allowed values: True, False.'
@@ -468,17 +493,19 @@ class CsvParser:
             # protein2
             protein_list2 = id_item['protein2'].split(";")
             protein_list2 = [s.strip() for s in protein_list2]
+            for p in protein_list2:
+                proteins.add(p)
 
             # decoy2 - if decoy2 is not set fill list with default value (0)
             if id_item['decoy2'] == -1:
-                is_decoy_list2 = [0] * len(protein_list2)
+                is_decoy_list2 = [False] * len(protein_list2)
             else:
                 is_decoy_list2 = []
                 for decoy in str(id_item['decoy2']).split(";"):
                     if decoy.lower().strip() == 'true':
-                        is_decoy_list2.append(1)
+                        is_decoy_list2.append(True)
                     elif decoy.lower().strip() == 'false':
-                        is_decoy_list2.append(0)
+                        is_decoy_list2.append(False)
                     else:
                         raise CsvParseException(
                             'Invalid value in Decoy 2: %s in row %s. Allowed values: True, False.'
@@ -531,13 +558,15 @@ class CsvParser:
             if unique_spec_identifier not in seen_spectra:
                 seen_spectra.append(unique_spec_identifier)
                 spectrum_id = len(seen_spectra) - 1
-                # get peak list
-                try:
-                    peak_list_reader = self.peak_list_readers[peak_list_file_name]
-                except KeyError:
-                    raise CsvParseException('Missing peak list file: %s' % peak_list_file_name)
+                peak_list = None
+                if self.peak_list_dir:
+                    # get peak list
+                    try:
+                        peak_list_reader = self.peak_list_readers[peak_list_file_name]
+                    except KeyError:
+                        raise CsvParseException('Missing peak list file: %s' % peak_list_file_name)
 
-                peak_list = peak_list_reader.get_peak_list(scan_id)
+                    peak_list = peak_list_reader.get_peak_list(scan_id)
 
                 spectrum = [
                     spectrum_id,                    # 'id',
@@ -546,7 +575,7 @@ class CsvParser:
                     scan_id,                        # 'scan_id',
                     fragment_tolerance,             # 'frag_tol',
                     self.upload_id,                 # 'upload_id',
-                    'Spec_%s' % spectrum_id,        # 'spectrum_ref' ToDo: clear up id - internal_id ~>front-end (talk to CC)
+                    'Spec_%s' % spectrum_id,        # 'spectrum_ref'
                 ]
                 spectra.append(spectrum)
             else:
@@ -685,6 +714,27 @@ class CsvParser:
                 if mod not in self.unknown_mods:
                     self.unknown_mods.append(mod)
 
+
+        # DBSEQUENCES
+        if self.fasta:
+            db_sequences = []
+            for prot in proteins:
+               try:
+                   #data = [prot] + self.fasta[prot] + [self.upload_id]
+                   temp = self.fasta[prot]
+                   data = [prot, temp[0], temp[1], temp[2], temp[3], self.upload_id] # surely there's a better way
+               except Exception as ke:
+                   seq = "NO SEQUENCE"
+                   data = [prot, prot, prot, "", "NO SEQUENCE", self.upload_id]
+
+               # is_decoy - not there
+               # data.append("false")
+
+               # data.append(self.upload_id)
+
+               db_sequences.append(data)
+
+
         # end main loop
         self.logger.info('main loop - done. Time: ' + str(round(time() - main_loop_start_time, 2)) + " sec")
 
@@ -697,12 +747,24 @@ class CsvParser:
             self.db.write_peptides(peptides, self.cur, self.con)
             self.db.write_spectra(spectra, self.cur, self.con)
             self.db.write_spectrum_identifications(spectrum_identifications, self.cur, self.con)
+            if self.fasta:
+                self.db.write_db_sequences(db_sequences, self.cur, self.con)
             self.con.commit()
         except Exception as e:
             raise e
 
         self.logger.info('write spectra to DB - start - done. Time: '
                          + str(round(time() - db_wrap_up_start_time, 2)) + " sec")
+
+    def upload_info(self):
+       self.logger.info('write upload info')
+       # peak_list_file_names = json.dumps(self.get_peak_list_file_names(), cls=NumpyEncoder)
+       self.upload_id = self.db.write_upload([self.user_id, os.path.basename(self.csv_path), "{}", "{}",
+                        "{}", "{}", "{}", "{}", "{}", "{}", "{}", "{}", self.warnings],
+                       self.cur, self.con,
+                       )
+       self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)
+
 
 
 class xiSPEC_CsvParser(CsvParser):
@@ -754,7 +816,10 @@ class xiSPEC_CsvParser(CsvParser):
         'calcmz': -1
     }
 
-    def parse_db_sequences(self, csv_reader):
+    def upload_info(self):
+        pass
+
+    def parse_db_sequences(self):
         pass
 
 

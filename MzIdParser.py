@@ -5,13 +5,10 @@ import json
 import sys
 import numpy as np
 from time import time
-#import xiSPEC_peakList as peakListParser
 from PeakListParser import PeakListParser
 import zipfile
 import gzip
 import os
-import psycopg2
-import ftplib
 
 
 class MzIdParseException(Exception):
@@ -26,7 +23,7 @@ class MzIdParser:
     """
 
     """
-    def __init__(self, mzId_path, temp_dir, db, logger, db_name='', origin=''):
+    def __init__(self, mzId_path, temp_dir, peak_list_dir, db, logger, db_name='', user_id=0, origin=''):
         """
 
         :param mzId_path: path to mzidentML file
@@ -45,6 +42,12 @@ class MzIdParser:
         self.temp_dir = temp_dir
         if not self.temp_dir.endswith('/'):
             self.temp_dir += '/'
+        self.peak_list_dir = peak_list_dir
+        if peak_list_dir and not peak_list_dir.endswith('/'):
+            self.peak_list_dir += '/'
+
+        self.user_id = user_id
+        self.random_id = 0
 
         self.db = db
         self.logger = logger
@@ -76,7 +79,7 @@ class MzIdParser:
             print(e)
             sys.exit(1)
 
-        self.logger.info('reading mzid - start')
+        self.logger.info('reading mzid - start ' + self.mzId_path)
         self.start_time = time()
         # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
         try:
@@ -135,7 +138,15 @@ class MzIdParser:
             sd_id = sp_datum['id']
             peak_list_file_name = ntpath.basename(sp_datum['location'])
 
-            peak_list_file_path = self.temp_dir + peak_list_file_name
+            # skip if not supported file format - e.g. PD mzId files include all raw files in SpectraData
+            if not any([
+                peak_list_file_name.lower().endswith('.mgf'),
+                peak_list_file_name.lower().endswith('.mzml'),
+                peak_list_file_name.lower().endswith('.ms2')
+            ]):
+                continue
+
+            peak_list_file_path = self.peak_list_dir + peak_list_file_name
 
             try:
                 peak_list_reader = PeakListParser(
@@ -164,13 +175,11 @@ class MzIdParser:
         start_time = time()
 
         # ToDo: more gracefully handle missing files
-        self.init_peak_list_readers()
+        if self.peak_list_dir:
+            self.init_peak_list_readers()
 
-        meta_data = [self.upload_id, "", "", ""]
-        self.db.write_meta_data(meta_data, self.cur, self.con)
-
-        #self.upload_info()
-        self.parse_db_sequences()
+        self.upload_info()  # overridden (empty function) in xiSPEC subclass
+        self.parse_db_sequences()  # overridden (empty function) in xiSPEC subclass
         self.parse_peptides()
         self.parse_peptide_evidences()
         self.map_spectra_data_to_protocol()
@@ -179,12 +188,7 @@ class MzIdParser:
         meta_data = [self.upload_id, -1, -1, -1, self.contains_crosslinks]
         self.db.write_meta_data(meta_data, self.cur, self.con)
 
-        #
-        # Fill missing scores with
-        # score_fill_start_time = time()
-        # self.logger.info('fill in missing scores - start')
-        # self.db.fill_in_missing_scores(self.cur, self.con)
-        # self.logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
+        self.fill_in_missing_scores() # empty here, overridden in xiSPEC subclass to do stuff
 
         self.logger.info('all done! Total time: ' + str(round(time() - start_time, 2)) + " sec")
 
@@ -503,12 +507,13 @@ class MzIdParser:
 
             # data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
             data = [
-                peptide_index,      # debug use mzid peptide['id'],
+                # peptide_index,      # debug use mzid peptide['id'],
+                peptide['id'],
                 peptide_seq_with_mods,
                 link_site,
                 crosslinker_modmass,
                 self.upload_id,
-                value
+                str(value)
             ]
 
             peptide_inj_list.append(data)
@@ -576,12 +581,12 @@ class MzIdParser:
             if "start" in peptide_evidence:
                 pep_start = peptide_evidence["start"]    # start att, optional
 
-            is_decoy = None
+            is_decoy = False
             if "isDecoy" in peptide_evidence:
                 is_decoy = peptide_evidence["isDecoy"]   # isDecoy att, optional
 
-            peptide_ref = self.peptide_id_lookup[peptide_evidence["peptide_ref"]]
-            # peptide_ref = peptide_evidence["peptide_ref"]     # debug use mzid peptide['id'],
+            # peptide_ref = self.peptide_id_lookup[peptide_evidence["peptide_ref"]]
+            peptide_ref = peptide_evidence["peptide_ref"]     # debug use mzid peptide['id'],
 
             data = [
                 peptide_ref,       #' peptide_ref',
@@ -634,22 +639,23 @@ class MzIdParser:
         self.logger.info('main loop - start')
 
         for sid_result in self.mzid_reader:
-            peak_list_reader = self.peak_list_readers[sid_result['spectraData_ref']]
+            if self.peak_list_dir:
+                peak_list_reader = self.peak_list_readers[sid_result['spectraData_ref']]
 
-            scan_id = peak_list_reader.parse_scan_id(sid_result["spectrumID"])
-            peak_list = peak_list_reader.get_peak_list(scan_id)
+                scan_id = peak_list_reader.parse_scan_id(sid_result["spectrumID"])
+                peak_list = peak_list_reader.get_peak_list(scan_id)
 
-            protocol = self.spectra_data_protocol_map[sid_result['spectraData_ref']]
+                protocol = self.spectra_data_protocol_map[sid_result['spectraData_ref']]
 
-            spectra.append([
-                spec_id,
-                peak_list,
-                ntpath.basename(peak_list_reader.peak_list_path),
-                str(scan_id),
-                protocol['fragmentTolerance'],
-                self.upload_id,
-                sid_result['id']]
-            )
+                spectra.append([
+                    spec_id,
+                    peak_list,
+                    ntpath.basename(peak_list_reader.peak_list_path),
+                    str(scan_id),
+                    protocol['fragmentTolerance'],
+                    self.upload_id,
+                    sid_result['id']]
+                )
 
             spectrum_ident_dict = dict()
             linear_index = -1  # negative index values for linear peptides
@@ -671,8 +677,8 @@ class MzIdParser:
                 if cross_link_id in spectrum_ident_dict.keys():
                     # do crosslink specific stuff
                     ident_data = spectrum_ident_dict.get(cross_link_id)
-                    ident_data[4] = self.peptide_id_lookup[spec_id_item['peptide_ref']]
-                    # ident_data[4] = spec_id_item['peptide_ref'] # debug
+                    # ident_data[4] = self.peptide_id_lookup[spec_id_item['peptide_ref']]
+                    ident_data[4] = spec_id_item['peptide_ref'] # debug
                 else:
                     # do stuff common to linears and crosslinks
                     charge_state = spec_id_item['chargeState']
@@ -722,7 +728,8 @@ class MzIdParser:
                         # spec_id_item['id'],
                         self.upload_id,
                         spec_id,
-                        self.peptide_id_lookup[spec_id_item['peptide_ref']],    # debug use spec_id_item['peptide_ref'],
+                        # self.peptide_id_lookup[spec_id_item['peptide_ref']],    # debug use spec_id_item['peptide_ref'],
+                        spec_id_item['peptide_ref'],
                         '',  # pep2
                         charge_state,
                         rank,
@@ -786,7 +793,6 @@ class MzIdParser:
                 'id': id_string
             })
 
-
     def upload_info(self):
         upload_info_start_time = time()
         self.logger.info('parse upload info - start')
@@ -838,7 +844,7 @@ class MzIdParser:
         self.mzid_reader.reset()
 
         # AnalysisProtocolCollection - required element
-        protocols ='{}'
+        protocols = '{}'
         protocol_collection = self.mzid_reader.iterfind('AnalysisProtocolCollection').next()
         protocols = protocol_collection['SpectrumIdentificationProtocol']
         protocols = json.dumps(protocols, cls=NumpyEncoder)
@@ -851,39 +857,35 @@ class MzIdParser:
         bibRefs = json.dumps(bibRefs)
         self.mzid_reader.reset()
 
-
-        self.upload_id = self.db.write_upload([0, self.mzId_path, peak_list_file_names, spectra_formats,
+        self.upload_id = self.db.write_upload([self.user_id, os.path.basename(self.mzId_path), peak_list_file_names, spectra_formats,
                           analysis_software, provider, audits, samples, analyses, protocols, bibRefs, self.origin, self.warnings],
                          self.cur, self.con,
                          )
 
+        self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)
+
         self.logger.info(
             'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
 
+    def fill_in_missing_scores(self):
+        pass
 
 
 class xiSPEC_MzIdParser(MzIdParser):
-    def parse(self):
 
-        start_time = time()
+    def upload_info(self):
+        pass
 
-        # ToDo: more gracefully handle missing files
-        self.init_peak_list_readers()
+    def parse_db_sequences(self):
+        pass
 
-        # self.upload_info()
-        # self.parse_db_sequences()
-        self.parse_peptides()
-        self.parse_peptide_evidences()
-        self.map_spectra_data_to_protocol()
-        self.main_loop()
-
+    def fill_in_missing_scores(self):
         # Fill missing scores with
         score_fill_start_time = time()
         self.logger.info('fill in missing scores - start')
         self.db.fill_in_missing_scores(self.cur, self.con)
         self.logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
 
-        self.logger.info('all done! Total time: ' + str(round(time() - start_time, 2)) + " sec")
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):

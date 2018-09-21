@@ -68,13 +68,13 @@ class TestLoop:
             print(e)
             sys.exit(1)
 
-        # create Database tables
-        try:
-            db.create_tables(cur, con)
-        except db.DBException as e:
-            self.logger.error(e)
-            print(e)
-            sys.exit(1)
+        # # create Database tables
+        # try:
+        #     db.create_tables(cur, con)
+        # except db.DBException as e:
+        #     self.logger.error(e)
+        #     print(e)
+        #     sys.exit(1)
 
         con.close
 
@@ -113,7 +113,7 @@ class TestLoop:
                 if f.lower().endswith('mzid') or f.lower().endswith('mzid.gz'):
                     print(f)
                     self.file(ymp, f)
-                    # break
+                    break
 
     def file(self, ymp, file_name):
         #  make temp dir
@@ -139,7 +139,7 @@ class TestLoop:
 
         # init parser
         try:
-            mzId_parser = MzIdParser(path, self.temp_dir, db, self.logger, origin=ymp)
+            mzId_parser = MzIdParser(path, self.temp_dir, 5, db, self.logger, origin=ymp)
         except Exception as mzId_error:
             error = json.dumps(mzId_error.args, cls=NumpyEncoder)
 
@@ -154,7 +154,7 @@ class TestLoop:
                             error_type,
                             upload_error)
                         VALUES (%s, %s, %s, %s, %s)""",
-                            [0, ymp, file_name, type(mzId_error).__name__, error])
+                            [5, ymp, file_name, type(mzId_error).__name__, error])
                 con.commit()
             except psycopg2.Error as e:
                 raise db.DBException(e.message)
@@ -179,7 +179,7 @@ class TestLoop:
                             filename,
                             error_type,
                             upload_error)
-                        VALUES (%s, %s, %s, %s, %s)""", [0, ymp, file_name, type(mzId_error).__name__, error])
+                        VALUES (%s, %s, %s, %s, %s)""", [5, ymp, file_name, type(mzId_error).__name__, error])
                 con.commit()
 
             except psycopg2.Error as e:
@@ -295,7 +295,7 @@ class TestLoop:
             return ftp
         except:
             print('FTP fail... giving it a few secs...')
-            time.sleep(20)
+            time.sleep(200)
             return self.get_ftp_login()
 
     def get_ftp_file_list (self, dir):
@@ -338,6 +338,11 @@ class TestLoop:
 
 test_loop = TestLoop()
 
+
+# test_loop.year('2018')
+# test_loop.year('2017')
+# test_loop.year('2016')
+# test_loop.year('2015')
 
 # test_loop.month('2012/12')
 # test_loop.year('2013')
@@ -395,10 +400,7 @@ test_loop = TestLoop()
 
 # test_loop.project("2017/12/PXD006591")
 
-# test_loop.year('2018')
-test_loop.year('2017')
-test_loop.year('2016')
-test_loop.year('2015')
+
 
 
 # mzML
@@ -409,7 +411,7 @@ test_loop.year('2015')
 # test_loop.project("2015/06/PXD002045")
 # test_loop.project("2017/08/PXD007149")
 # test_loop.project("2015/06/PXD002048")
-# test_loop.project("2015/06/PXD002047")
+test_loop.project("2015/06/PXD002047")
 # 2015/06/PXD002046
 # 2014/09/PXD001006
 # 2014/09/PXD001000
@@ -451,3 +453,35 @@ test_loop.year('2015')
 # test_loop.project("2014/04/PXD000579")
 
 print("mzId count:" + str(test_loop.mzId_count))
+
+
+# need to defend against Connection reset by peer
+# getting 160315_210_AN_10_f14.mgf
+# Traceback (most recent call last):
+#   File "/var/www/html/xiUI/xiSPEC_ms_parser/TestLoop.py", line 399, in <module>
+#     test_loop.year('2017')
+#   File "/var/www/html/xiUI/xiSPEC_ms_parser/TestLoop.py", line 90, in year
+#     self.month(y + '/' + f)
+#   File "/var/www/html/xiUI/xiSPEC_ms_parser/TestLoop.py", line 98, in month
+#     self.project(ymp)
+#   File "/var/www/html/xiUI/xiSPEC_ms_parser/TestLoop.py", line 115, in project
+#     self.file(ymp, f)
+#   File "/var/www/html/xiUI/xiSPEC_ms_parser/TestLoop.py", line 219, in file
+#     open(self.temp_dir + peak_file, 'wb').write)
+#   File "/usr/lib/python2.7/ftplib.py", line 414, in retrbinary
+#     conn = self.transfercmd(cmd, rest)
+#   File "/usr/lib/python2.7/ftplib.py", line 376, in transfercmd
+#     return self.ntransfercmd(cmd, rest)[0]
+#   File "/usr/lib/python2.7/ftplib.py", line 339, in ntransfercmd
+#     resp = self.sendcmd(cmd)
+#   File "/usr/lib/python2.7/ftplib.py", line 249, in sendcmd
+#     return self.getresp()
+#   File "/usr/lib/python2.7/ftplib.py", line 215, in getresp
+#     resp = self.getmultiline()
+#   File "/usr/lib/python2.7/ftplib.py", line 201, in getmultiline
+#     line = self.getline()
+#   File "/usr/lib/python2.7/ftplib.py", line 186, in getline
+#     line = self.file.readline(self.maxline + 1)
+#   File "/usr/lib/python2.7/socket.py", line 480, in readline
+#     data = self._sock.recv(self._rbufsize)
+# socket.error: [Errno 104] Connection reset by peer

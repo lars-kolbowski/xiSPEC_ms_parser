@@ -11,13 +11,13 @@ import getopt
 
 
 dev = False
-use_ftp, use_postgreSQL = False, False
+use_ftp, use_postgreSQL, user_id = False, False, False
 identifications_file, peakList_file, identifier = False, False, False
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "fi:p:s:", ["ftp", "postgresql"])
+    opts, args = getopt.getopt(sys.argv[1:], "fi:p:s:u:", ["ftp", "postgresql"])
 except getopt.GetoptError:
-    print('parser.py (-f -pg) -i <identifications file> -p <peak list file> -s <session identifier>')
+    print('parser.py (-f) -i <identifications file> -p <peak list file> -s <session identifier> (-u <user_id>)')
     sys.exit(2)
 
 for o, a in opts:
@@ -37,11 +37,12 @@ for o, a in opts:
     if o == '--postgresql':
         use_postgreSQL = True
 
+    if o == '-u':   # user_id
+        user_id = a
 
-if identifications_file is False or peakList_file is False or identifier is False:
+if identifications_file is False or identifier is False:
     dev = True
     print ("dev test mode...")
-
 
 if use_postgreSQL:
     import PostgreSQL as db
@@ -67,24 +68,30 @@ try:
 
     # logging
     logFile = dname + "/log/%s_%s.log" % (identifier, int(time()))
+    if not dev:
+        try:
+            os.remove(logFile)
+        except OSError:
+            pass
+        os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
 
-    try:
-        os.remove(logFile)
-    except OSError:
-        pass
-    os.fdopen(os.open(logFile, os.O_WRONLY | os.O_CREAT, 0o777), 'w').close()
+        # create logger
+        logging.basicConfig(filename=logFile, level=logging.DEBUG,
+                            format='%(asctime)s %(levelname)s %(name)s %(message)s')
+    else:
+        logging.basicConfig(level=logging.DEBUG,
+                            format='%(asctime)s %(levelname)s %(name)s %(message)s')
 
-    # create logger
-    logging.basicConfig(filename=logFile, level=logging.DEBUG,
-                        format='%(asctime)s %(levelname)s %(name)s %(message)s')
-    # logging.basicConfig(level=logging.DEBUG,
-    #                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
+
     logger = logging.getLogger(__name__)
+
+
 
 except Exception as e:
     print (e)
     sys.exit(1)
 
+logger.info('argv:' + " ".join(sys.argv))
 
 returnJSON = {
     "response": "",
@@ -146,11 +153,20 @@ try:
         # peakList_file = baseDir + "PXD007836/c.zip"
 
         # csv file
-        # identifications_file = baseDir + 'cross-link/sven-test/5pLinkFDRPSMS.csv'
-        identifications_file = baseDir + "cross-link/CSV/example.csv"
-        # peakList_file = baseDir + "cross-link/sven-test/QExactive_HSA_SDA_MaxQuantNoDeiso.zip"
-        # identifications_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/HSA-BS3_example_IDsort.csv"
-        peakList_file = baseDir + "E171207_15_Lumos_AB_DE_160_VI186_B1/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
+        #identifications_file = "/home/col/mzIdentML/examples/1_2examples/crosslinking/OpenxQuest_example.mzid"
+        # identifications_file = "/home/col/tests/uniprot/PolII_XiVersion1.6.742_PSM_xiFDR1.1.27.csv"
+
+        # identifications_file = "/home/col/mzid_tests/alts_E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.1.27.59.mzid"
+        # identifications_file = "/home/col/mzid_tests/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.1.27.59.mzid"
+
+        # identifications_file = "/home/col/mzid_tests/OpenxQuest_example.mzid"
+        # identifications_file = "/home/col/mzid_tests/OpenxQuest_example_added_annotations.mzid"
+        # identifications_file = "/home/col/mzid_tests/SIM-XL_example.mzid"
+        # identifications_file = "/home/col/mzid_tests/test2.mzid"
+        identifications_file = "/home/col/mzid_tests/xiFDR-CrossLinkExample.mzid"
+        # identifications_file = "/home/col/mzid_tests/xiFDR-CrossLinkExample_single_run.mzid"
+
+        #peakList_file = "/home/col/test2/Rappsilber_CLMS_PolII_mgfs.zip"
 
         database = 'test.db'
         upload_folder = "/".join(identifications_file.split("/")[:-1]) + "/"
@@ -229,54 +245,71 @@ except Exception as e:
 # parsing
 startTime = time()
 try:
-    if peakList_file.endswith('.zip'):
-        try:
-            unzipStartTime = time()
-            logger.info('unzipping start')
-            # peakList_fileList = peakListParser.PeakListParser.unzip_peak_lists(peakList_file)
-            upload_folder = PeakListParser.PeakListParser.unzip_peak_lists(peakList_file)
-            logger.info('unzipping done. Time: ' + str(round(time() - unzipStartTime, 2)) + " sec")
-        except IOError as e:
-            logger.error(e.args[0])
-            returnJSON['errors'].append({
-                "type": "zipParseError",
-                "message": e.args[0],
-            })
-            print(json.dumps(returnJSON))
-            sys.exit(1)
-        except BadZipfile as e:
-            logger.error(e.args[0])
-            returnJSON['errors'].append({
-                "type": "zipParseError",
-                "message": "Looks something went wrong with the upload! Try uploading again.\n",
-            })
-            print(json.dumps(returnJSON))
-            sys.exit(1)
+    peak_list_folder = None
+    if peakList_file:
+        peak_list_folder = upload_folder
+        if peakList_file.endswith('.zip'):
+            try:
+                unzipStartTime = time()
+                logger.info('unzipping start')
+                # peakList_fileList = peakListParser.PeakListParser.unzip_peak_lists(peakList_file)
+                peak_list_folder = PeakListParser.PeakListParser.unzip_peak_lists(peakList_file)
+                logger.info('unzipping done. Time: ' + str(round(time() - unzipStartTime, 2)) + " sec")
+            except IOError as e:
+                logger.error(e.args[0])
+                returnJSON['errors'].append({
+                    "type": "zipParseError",
+                    "message": e.args[0],
+                })
+                print(json.dumps(returnJSON))
+                sys.exit(1)
+            except BadZipfile as e:
+                logger.error(e.args[0])
+                returnJSON['errors'].append({
+                    "type": "zipParseError",
+                    "message": "Looks something went wrong with the upload! Try uploading again.\n",
+                })
+                print(json.dumps(returnJSON))
+                sys.exit(1)
 
     identifications_fileName = ntpath.basename(identifications_file)
     if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
         logger.info('parsing mzid start')
         identifications_fileType = 'mzid'
-        id_parser = MzIdParser.xiSPEC_MzIdParser(identifications_file, upload_folder, db, logger, database)
+        if use_postgreSQL:
+            id_parser = MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger,
+                                              user_id=user_id)
+        else:
+            id_parser = MzIdParser.xiSPEC_MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger,
+                                              db_name=database)
 
     elif identifications_fileName.endswith('.csv'):
         logger.info('parsing csv start')
         identifications_fileType = 'csv'
-        id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, db, logger, database)
+        if use_postgreSQL:
+            id_parser = CsvParser.CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
+                                            user_id=user_id)
+        else:
+            id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
+                                            db_name=database)
+
 
     else:
         raise Exception('Unknown identifications file format!')
 
+
     # create Database tables
-    try:
-        db.create_tables(id_parser.cur, id_parser.con)
-    except db.DBException as e:
-        logger.error(e)
-        print(e)
-        sys.exit(1)
+    if not use_postgreSQL:
+        try:
+            db.create_tables(id_parser.cur, id_parser.con)
+        except db.DBException as e:
+            logger.error(e)
+            print(e)
+            sys.exit(1)
 
     id_parser.parse()
 
+    returnJSON['identifier'] = str(id_parser.upload_id) + "-" + str(id_parser.random_id)
     returnJSON['modifications'] = id_parser.unknown_mods
     returnJSON["warnings"] = id_parser.warnings
 

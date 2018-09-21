@@ -172,25 +172,25 @@ def create_tables(cur, con):
 #
 #     return True
 
-# def write_db_sequences(inj_list, cur, con):
-#
-#     try:
-#         cur.executemany("""
-#     INSERT INTO db_sequences (
-#         'id',
-#         'accession',
-#         'name',
-#         'description',
-#         'sequence',
-#         'upload_id'
-#     )
-#     VALUES (?, ?, ?, ?, ?, ?)""", inj_list)
-#         con.commit()
-#
-#     except sqlite3.Error as e:
-#         raise DBException(e.message)
-#
-#     return True
+def write_db_sequences(inj_list, cur, con):
+
+    # try:
+    #     cur.executemany("""
+    # INSERT INTO db_sequences (
+    #     'id',
+    #     'accession',
+    #     'name',
+    #     'description',
+    #     'sequence',
+    #     'upload_id'
+    # )
+    # VALUES (?, ?, ?, ?, ?, ?)""", inj_list)
+    #     con.commit()
+    #
+    # except sqlite3.Error as e:
+    #     raise DBException(e.message)
+
+    return True
 
 
 def write_meta_data(values, cur, con):
