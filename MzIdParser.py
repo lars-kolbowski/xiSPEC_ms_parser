@@ -138,6 +138,14 @@ class MzIdParser:
             sd_id = sp_datum['id']
             peak_list_file_name = ntpath.basename(sp_datum['location'])
 
+            # skip if not supported file format - e.g. PD mzId files include all raw files in SpectraData
+            if not any([
+                peak_list_file_name.lower().endswith('.mgf'),
+                peak_list_file_name.lower().endswith('.mzml'),
+                peak_list_file_name.lower().endswith('.ms2')
+            ]):
+                continue
+
             peak_list_file_path = self.peak_list_dir + peak_list_file_name
 
             try:

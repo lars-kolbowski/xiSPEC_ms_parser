@@ -186,6 +186,7 @@ class CsvParser:
         peak_list_readers = {}
         for peak_list_file_name in self.csv_reader.peaklistfilename.unique():
 
+            # ToDo: what about .ms2?
             if peak_list_file_name.lower().endswith('.mgf'):
                 file_format_accession = 'MS:1001062'        # MGF
                 spectrum_id_format_accesion = 'MS:1000774'  # MS:1000774 multiple peak list nativeID format - zero based
@@ -359,7 +360,7 @@ class CsvParser:
             # delta of zero. It is RECOMMENDED that the 'donor' peptide SHOULD be the longer peptide, followed by
             # alphabetical order for equal length peptides.
 
-            invalid_char_pattern_pepseq = '([^GALMFWKQESPVICYHRNDTa-z:0-9(.)\-]+)'
+            invalid_char_pattern_pepseq = '([^GALMFWKQESPVICYHRNDTXa-z:0-9(.)\-]+)'
             # pepSeq - 1
             if id_item['pepseq1'] == '':
                 raise CsvParseException('Missing PepSeq1 for row: %s' % row_number)
@@ -574,7 +575,7 @@ class CsvParser:
                     scan_id,                        # 'scan_id',
                     fragment_tolerance,             # 'frag_tol',
                     self.upload_id,                 # 'upload_id',
-                    'Spec_%s' % spectrum_id,        # 'spectrum_ref' ToDo: clear up id - internal_id ~>front-end (talk to CC)
+                    'Spec_%s' % spectrum_id,        # 'spectrum_ref'
                 ]
                 spectra.append(spectrum)
             else:
