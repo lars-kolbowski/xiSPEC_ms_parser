@@ -297,7 +297,6 @@ try:
     else:
         raise Exception('Unknown identifications file format!')
 
-
     # create Database tables
     if not use_postgreSQL:
         try:
@@ -321,8 +320,7 @@ try:
 except Exception as e:
     # print(e)
     logger.exception(e)
-    returnJSON['errors'].append(
-        {"type": "Error", "message": e.args[0]})
+    returnJSON['errors'].append({"type": "Error", "message": e.args[0]})
 
 
 if len(returnJSON["errors"]) > 0 or len(returnJSON["warnings"]) > 0:
@@ -331,6 +329,21 @@ if len(returnJSON["errors"]) > 0 or len(returnJSON["warnings"]) > 0:
         logger.error(warn)
     for err in returnJSON['errors']:
         logger.error(err)
+
+    if len(returnJSON["errors"]) > 0:
+        if not dev:
+
+            try:
+                failed_dir = "../uploads/failed/"
+                try:
+                    os.stat(failed_dir)
+                except:
+                    os.mkdir(failed_dir)
+                logger.info('moving uploaded files to %s' % failed_dir)
+                shutil.move(upload_folder, failed_dir)
+
+            except Exception as e:
+                logger.error(e)
 
 else:
     returnJSON['response'] = "No errors, smooth sailing!"
