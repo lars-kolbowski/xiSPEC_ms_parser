@@ -15,9 +15,15 @@ def update_database(con):
     )
 
     try:
+        # add meta columns
         cur.execute('ALTER TABLE spectrum_identifications ADD COLUMN meta1 TEXT')
         cur.execute('ALTER TABLE spectrum_identifications ADD COLUMN meta2 TEXT')
         cur.execute('ALTER TABLE spectrum_identifications ADD COLUMN meta3 TEXT')
+
+        # add precursor information from peak list file to DB
+        cur.execute('ALTER TABLE spectra ADD COLUMN precursor_mz TEXT')
+        cur.execute('ALTER TABLE spectra ADD COLUMN precursor_charge TEXT')
+
     except:
         pass  # columns already updated
 

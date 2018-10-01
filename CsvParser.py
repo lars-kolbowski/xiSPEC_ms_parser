@@ -559,6 +559,8 @@ class CsvParser:
                 seen_spectra.append(unique_spec_identifier)
                 spectrum_id = len(seen_spectra) - 1
                 peak_list = None
+                precursor_mz = None
+                precursor_charge = None
                 if self.peak_list_dir:
                     # get peak list
                     try:
@@ -566,7 +568,10 @@ class CsvParser:
                     except KeyError:
                         raise CsvParseException('Missing peak list file: %s' % peak_list_file_name)
 
-                    peak_list = peak_list_reader.get_peak_list(scan_id)
+                    scan = peak_list_reader.get_scan(scan_id)
+                    peak_list = scan['peaks']
+                    precursor_mz = scan['precursor']['mz']
+                    precursor_charge = scan['precursor']['charge']
 
                 spectrum = [
                     spectrum_id,                    # 'id',
@@ -576,6 +581,8 @@ class CsvParser:
                     fragment_tolerance,             # 'frag_tol',
                     self.upload_id,                 # 'upload_id',
                     'Spec_%s' % spectrum_id,        # 'spectrum_ref'
+                    precursor_mz,                   # 'precursor_mz',
+                    precursor_charge,               # 'precursor_charge'
                 ]
                 spectra.append(spectrum)
             else:
