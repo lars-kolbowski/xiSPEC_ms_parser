@@ -65,6 +65,51 @@ def get_random_id(upload_id, cur, con):
     return rows[0][0]
 
 
+def write_other_info(upload_id, crosslinks, ident_count, ident_file_size, peaks_size, upload_warnings, cur, con):
+    try:
+        cur.execute("""UPDATE uploads SET contains_crosslinks = (%s), ident_count = (%s)
+                , ident_file_size = (%s)
+                , zipped_peak_list_file_size = (%s)
+                , upload_warnings = (%s)
+                 WHERE id = (%s);""", (crosslinks, ident_count, ident_file_size, peaks_size, json.dumps(upload_warnings), upload_id))
+
+        con.commit()
+
+    except psycopg2.Error as e:
+        raise DBException(e.message)
+    return True
+
+
+def write_error(upload_id, error_type, error, cur, con):
+    try:
+        cur.execute("""UPDATE uploads SET error_type = %s
+                    , upload_error = %s
+                    WHERE id = %s;""", (error_type, error, upload_id))
+        con.commit()
+
+        cur.execute("DELETE FROM db_sequences WHERE upload_id = " + str(upload_id) + ";")
+        con.commit()
+
+        cur.execute("DELETE FROM peptides WHERE id = '" + str(upload_id) + "';")
+        con.commit()
+
+        cur.execute("DELETE FROM peptide_evidences WHERE upload_id = " + str(upload_id) + ";")
+        con.commit()
+
+        cur.execute("DELETE FROM modifications WHERE upload_id = " + str(upload_id) + ";")
+        con.commit()
+
+        cur.execute("DELETE FROM spectra WHERE upload_id = " + str(upload_id) + ";")
+        con.commit()
+
+        cur.execute("DELETE FROM spectrum_identifications WHERE upload_id = " + str(upload_id) + ";")
+        con.commit()
+
+    except psycopg2.Error as e:
+        raise DBException(e.message)
+    return True
+
+
 # def write_protocols(inj_list, cur, con):
 #     return True
 
@@ -95,8 +140,7 @@ def write_meta_data(values, cur, con):
     #         'upload_id',
     #         'sid_meta1_name',
     #         'sid_meta2_name',
-    #         'sid_meta3_name',
-    #         'contains_crosslink'
+    #         'sid_meta3_name'
     #       )
     #       VALUES (?, ?, ?, ?, ?)""",  values)
     #     con.commit()

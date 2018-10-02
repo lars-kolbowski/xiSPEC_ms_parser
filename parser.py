@@ -161,9 +161,9 @@ try:
 
         # identifications_file = "/home/col/mzid_tests/OpenxQuest_example.mzid"
         # identifications_file = "/home/col/mzid_tests/OpenxQuest_example_added_annotations.mzid"
-        # identifications_file = "/home/col/mzid_tests/SIM-XL_example.mzid"
+        identifications_file = "/home/col/mzid_tests/SIM-XL_example.mzid"
         # identifications_file = "/home/col/mzid_tests/test2.mzid"
-        identifications_file = "/home/col/mzid_tests/xiFDR-CrossLinkExample.mzid"
+        # identifications_file = "/home/col/mzid_tests/xiFDR-CrossLinkExample.mzid"
         # identifications_file = "/home/col/mzid_tests/xiFDR-CrossLinkExample_single_run.mzid"
 
         #peakList_file = "/home/col/test2/Rappsilber_CLMS_PolII_mgfs.zip"
@@ -246,7 +246,9 @@ except Exception as e:
 startTime = time()
 try:
     peak_list_folder = None
+    peaks_size = 0
     if peakList_file:
+        peaks_size = os.path.getsize(peakList_file)
         peak_list_folder = upload_folder
         if peakList_file.endswith('.zip'):
             try:
@@ -278,7 +280,7 @@ try:
         identifications_fileType = 'mzid'
         if use_postgreSQL:
             id_parser = MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger,
-                                              user_id=user_id)
+                                              user_id=user_id, peaks_size=peaks_size)
         else:
             id_parser = MzIdParser.xiSPEC_MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger,
                                               db_name=database)

@@ -163,31 +163,31 @@ class TestLoop:
             con.close()
             return
 
-        try:
-            # write upload info to db
-            mzId_parser.upload_info()
-        except Exception as mzId_error:
-            self.logger.exception(mzId_error)
-
-            error = json.dumps(mzId_error.args, cls=NumpyEncoder)
-
-            con = db.connect('')
-            cur = con.cursor()
-            try:
-                cur.execute("""
-                        INSERT INTO uploads (
-                            user_id,
-                            origin,
-                            filename,
-                            error_type,
-                            upload_error)
-                        VALUES (%s, %s, %s, %s, %s)""", [5, ymp, file_name, type(mzId_error).__name__, error])
-                con.commit()
-
-            except psycopg2.Error as e:
-                raise db.DBException(e.message)
-            con.close()
-            return
+        # try:
+        #     # write upload info to db
+        #     mzId_parser.upload_info()
+        # except Exception as mzId_error:
+        #     self.logger.exception(mzId_error)
+        #
+        #     error = json.dumps(mzId_error.args, cls=NumpyEncoder)
+        #
+        #     con = db.connect('')
+        #     cur = con.cursor()
+        #     try:
+        #         cur.execute("""
+        #                 INSERT INTO uploads (
+        #                     user_id,
+        #                     origin,
+        #                     filename,
+        #                     error_type,
+        #                     upload_error)
+        #                 VALUES (%s, %s, %s, %s, %s)""", [5, ymp, file_name, type(mzId_error).__name__, error])
+        #         con.commit()
+        #
+        #     except psycopg2.Error as e:
+        #         raise db.DBException(e.message)
+        #     con.close()
+        #     return
 
         # fetch peak list files from pride
         peak_files = mzId_parser.get_peak_list_file_names()
@@ -268,19 +268,20 @@ class TestLoop:
 
             con = db.connect('')
             cur = con.cursor()
-            try:
-                cur.execute("""
-            UPDATE uploads SET
-                error_type=%s,
-                upload_error=%s,
-                spectra_formats=%s,
-                upload_warnings=%s
-            WHERE id = %s""", [type(mzId_error).__name__, error, spectra_formats, warnings, mzId_parser.upload_id])
-                con.commit()
-
-            except psycopg2.Error as e:
-                raise db.DBException(e.message)
-            con.close()
+            # try:
+            #     cur.execute("""
+            # UPDATE uploads SET
+            #     error_type=%s,
+            #     upload_error=%s,
+            #     spectra_formats=%s,
+            #     upload_warnings=%s
+            # WHERE id = %s""", [type(mzId_error).__name__, error, spectra_formats, warnings, mzId_parser.upload_id])
+            #     con.commit()
+            #
+            # except psycopg2.Error as e:
+            #     raise db.DBException(e.message)
+            # con.close()
+            db.write_error(mzId_parser.upload_id, type(mzId_error).__name__, error, cur, con)
 
         try:
             shutil.rmtree(self.temp_dir)
@@ -291,14 +292,14 @@ class TestLoop:
         gc.collect()
 
     def get_ftp_login(self):
-        try:
-            ftp = ftplib.FTP(self.ip)
-            ftp.login()  # Uses password: anonymous@
-            return ftp
-        except:
-            print('FTP fail... giving it a few secs...')
-            time.sleep(200)
-            return self.get_ftp_login()
+        while True:
+            try:
+                ftp = ftplib.FTP(self.ip)
+                ftp.login()  # Uses password: anonymous@
+                return ftp
+            except:
+                print('FTP fail at '+time.strftime("%c")+'... waiting an hour')
+                time.sleep(60 * 60)
 
     def get_ftp_file_list (self, dir):
         ftp = self.get_ftp_login()
@@ -341,14 +342,16 @@ class TestLoop:
 test_loop = TestLoop()
 
 
-# test_loop.year('2018')
-# test_loop.year('2017')
-# test_loop.year('2016')
-# test_loop.year('2015')
+test_loop.year('2018')
+test_loop.year('2017')
+test_loop.year('2016')
+test_loop.year('2015')
+test_loop.year('2014')
+test_loop.year('2013')
+test_loop.month('2012/12')
+#
+#
 
-# test_loop.month('2012/12')
-# test_loop.year('2013')
-# test_loop.year('2014')
 
 # crashed at >> 2014/11/PXD001267
 # F100626.mzid.gz
@@ -414,7 +417,7 @@ test_loop = TestLoop()
 # test_loop.project("2017/08/PXD007149")
 # test_loop.project("2015/06/PXD002048")
 # test_loop.project("2015/06/PXD002047")
-test_loop.project("2014/11/PXD001267")
+# test_loop.project("2014/11/PXD001267")
 
 # 2015/06/PXD002046
 # 2014/09/PXD001006

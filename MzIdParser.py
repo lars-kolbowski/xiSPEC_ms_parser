@@ -23,7 +23,7 @@ class MzIdParser:
     """
 
     """
-    def __init__(self, mzId_path, temp_dir, peak_list_dir, db, logger, db_name='', user_id=0, origin=''):
+    def __init__(self, mzId_path, temp_dir, peak_list_dir, db, logger, db_name='', user_id=0, origin='', peaks_size=''):
         """
 
         :param mzId_path: path to mzidentML file
@@ -78,6 +78,9 @@ class MzIdParser:
             self.logger.error(e)
             print(e)
             sys.exit(1)
+
+        self.ident_file_size = os.path.getsize(self.mzId_path)
+        self.peaks_size = peaks_size;
 
         self.logger.info('reading mzid - start ' + self.mzId_path)
         self.start_time = time()
@@ -185,10 +188,12 @@ class MzIdParser:
         self.map_spectra_data_to_protocol()
         self.main_loop()
 
-        meta_data = [self.upload_id, -1, -1, -1, self.contains_crosslinks]
+        meta_data = [self.upload_id, -1, -1, -1]
         self.db.write_meta_data(meta_data, self.cur, self.con)
 
         self.fill_in_missing_scores() # empty here, overridden in xiSPEC subclass to do stuff
+
+        self.other_info()
 
         self.logger.info('all done! Total time: ' + str(round(time() - start_time, 2)) + " sec")
 
@@ -768,7 +773,7 @@ class MzIdParser:
 
         # once loop is done write remaining data to DB
         db_wrap_up_start_time = time()
-        self.logger.info('write spectra to DB - start')
+        self.logger.info('write remaining entries to DB - start')
         try:
             self.db.write_spectra(spectra, self.cur, self.con)
             self.db.write_spectrum_identifications(spectrum_identifications, self.cur, self.con)
@@ -776,8 +781,10 @@ class MzIdParser:
         except Exception as e:
             raise e
 
-        self.logger.info('write spectra to DB - start - done. Time: '
+        self.logger.info('write remaining entries to DB - start - done. Time: '
                     + str(round(time() - db_wrap_up_start_time, 2)) + " sec")
+
+        self.ident_count = identification_id;
 
         # warnings
         if len(fragment_parsing_error_scans) > 0:
@@ -869,6 +876,10 @@ class MzIdParser:
     def fill_in_missing_scores(self):
         pass
 
+    def other_info(self):
+        self.db.write_other_info(self.upload_id, self.contains_crosslinks, self.ident_count,
+                                 self.ident_file_size, self.peaks_size,
+                                 self.warnings, self.cur, self.con);
 
 class xiSPEC_MzIdParser(MzIdParser):
 
