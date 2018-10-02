@@ -193,47 +193,11 @@ class TestLoop:
         peak_files = mzId_parser.get_peak_list_file_names()
         for peak_file in peak_files:
             # peak_file = ntpath.basename(peak_file)
-
-            if peak_file == '':
-                ftp.close()
-                print('Spectra data missing location att')
-                warnings = json.dumps(mzId_parser.warnings, cls=NumpyEncoder)
-                con = db.connect('')
-                cur = con.cursor()
-                try:
-                    cur.execute("""
-                    UPDATE uploads SET
-                        error_type=%s,
-                        upload_error=%s,
-                        upload_warnings=%s
-                    WHERE id = %s""", ['Spectra data missing location att?', '', warnings, mzId_parser.upload_id])
-                    con.commit()
-                except psycopg2.Error as e:
-                    raise db.DBException(e.message)
-                con.close()
-                return
-
-            ftp = self.get_ftp_login()
-            try:
-                ftp.cwd(target_dir)
-                print('getting ' + peak_file)
-                ftp.retrbinary("RETR " + peak_file,
-                               open(self.temp_dir + peak_file, 'wb').write)
-            except ftplib.error_perm as e:
-                print('missing file: ' + peak_file + " (checking for .gz)")
-                #  check for gzipped
-                try:
-                    os.remove(self.temp_dir + peak_file)
-                    print('getting ' + peak_file + '.gz')
-                    # ftp.cwd(target_dir + '/generated/')
-                    ftp.retrbinary("RETR " + peak_file + '.gz',
-                                   open(self.temp_dir + '/' + peak_file + '.gz', 'wb').write)
-                except ftplib.error_perm as e:
+            if not peak_file.endswith('raw'):
+                if peak_file == '':
                     ftp.close()
-                    print('missing file: ' + peak_file + '.gz')
-
+                    print('Spectra data missing location att')
                     warnings = json.dumps(mzId_parser.warnings, cls=NumpyEncoder)
-
                     con = db.connect('')
                     cur = con.cursor()
                     try:
@@ -242,16 +206,52 @@ class TestLoop:
                             error_type=%s,
                             upload_error=%s,
                             upload_warnings=%s
-                        WHERE id = %s""", ["Missing file?", peak_file, warnings, mzId_parser.upload_id])
+                        WHERE id = %s""", ['Spectra data missing location att?', '', warnings, mzId_parser.upload_id])
                         con.commit()
                     except psycopg2.Error as e:
                         raise db.DBException(e.message)
                     con.close()
                     return
+
+                ftp = self.get_ftp_login()
+                try:
+                    ftp.cwd(target_dir)
+                    print('getting ' + peak_file)
+                    ftp.retrbinary("RETR " + peak_file,
+                                   open(self.temp_dir + peak_file, 'wb').write)
+                except ftplib.error_perm as e:
+                    print('missing file: ' + peak_file + " (checking for .gz)")
+                    #  check for gzipped
+                    try:
+                        os.remove(self.temp_dir + peak_file)
+                        print('getting ' + peak_file + '.gz')
+                        # ftp.cwd(target_dir + '/generated/')
+                        ftp.retrbinary("RETR " + peak_file + '.gz',
+                                       open(self.temp_dir + '/' + peak_file + '.gz', 'wb').write)
+                    except ftplib.error_perm as e:
+                        ftp.close()
+                        print('missing file: ' + peak_file + '.gz')
+
+                        warnings = json.dumps(mzId_parser.warnings, cls=NumpyEncoder)
+
+                        con = db.connect('')
+                        cur = con.cursor()
+                        try:
+                            cur.execute("""
+                            UPDATE uploads SET
+                                error_type=%s,
+                                upload_error=%s,
+                                upload_warnings=%s
+                            WHERE id = %s""", ["Missing file?", peak_file, warnings, mzId_parser.upload_id])
+                            con.commit()
+                        except psycopg2.Error as e:
+                            raise db.DBException(e.message)
+                        con.close()
+                        return
+                    ftp.close()
+                    # peak_file = ntpath.basename(
+                    #     PeakListParser.extract_gz(self.temp_dir + '/' + peak_file + '.gz')[0])
                 ftp.close()
-                # peak_file = ntpath.basename(
-                #     PeakListParser.extract_gz(self.temp_dir + '/' + peak_file + '.gz')[0])
-            ftp.close()
 
         # actually parse
         try:
