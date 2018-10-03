@@ -142,22 +142,41 @@ class Reader(object):
             # go to start of file
             fh.seek(0)
             pos = 0
-            peak_list_start_pos = None
+            scan_start_pos = None
             for line in fh:
-                if line[0].isdigit():
-                    if peak_list_start_pos is None or peak_list_start_pos == -1:
-                        peak_list_start_pos = pos
-
-                elif peak_list_start_pos is not None and peak_list_start_pos != -1:
-                        spec_positions.append((peak_list_start_pos, pos))
-                        peak_list_start_pos = -1
-
+                if line[0] == "S":
+                    if scan_start_pos:
+                        scan_end_pos = pos
+                        spec_positions.append((scan_start_pos, scan_end_pos))
+                    scan_start_pos = pos
                 pos = pos + len(line)
 
             # last one
-            if peak_list_start_pos != -1:
-                spec_positions.append((peak_list_start_pos, pos))
+            spec_positions.append((scan_start_pos, pos))
+
             return spec_positions
+
+
+
+            # go to start of file
+            # fh.seek(0)
+            # pos = 0
+            # peak_list_start_pos = None
+            # for line in fh:
+            #     if line[0].isdigit():
+            #         if peak_list_start_pos is None or peak_list_start_pos == -1:
+            #             peak_list_start_pos = pos
+            #
+            #     elif peak_list_start_pos is not None and peak_list_start_pos != -1:
+            #             spec_positions.append((peak_list_start_pos, pos))
+            #             peak_list_start_pos = -1
+            #
+            #     pos = pos + len(line)
+            #
+            # # last one
+            # if peak_list_start_pos != -1:
+            #     spec_positions.append((peak_list_start_pos, pos))
+            # return spec_positions
 
         indices = get_data_indices(seeker)
         if indices is None:
@@ -167,14 +186,12 @@ class Reader(object):
 
         return
 
-    def get_by_id(self, scan_id, ignore_dict_index=False):
+    def get_by_id(self, scan_id):
         """"
          Random access to spectrum peak list in mgf by scanId
-         ignore_dict_index: if set to True accessing files by listIndex
 
          """
 
-        peak_list = None
         position = self.info['offsetList'][scan_id]
         start_pos = position[0]
         end_pos = position[1]
@@ -185,13 +202,13 @@ class Reader(object):
             return self.spectrum
 
         self.seeker.seek(start_pos, 0)
-        peak_list = self.seeker.read(end_pos - start_pos)
+        scan = self.seeker.read(end_pos - start_pos)
 
-        if peak_list is None:
-            raise KeyError("MGF file does not contain a spectrum with index {0}.".format(scan_id))
+        if scan is None:
+            raise KeyError("MS2 file does not contain a spectrum with index {0}.".format(scan_id))
         else:
-            self.spectrum['peaks'] = peak_list
-            # self.spectrum['params'] = params
+            self.spectrum['peaks'] = self.parse_peak_list(scan)
+            self.spectrum['precursor'] = self.parse_precursor(scan)
             return self.spectrum
 
     def __getitem__(self, scan_id):
@@ -201,4 +218,38 @@ class Reader(object):
         """
         return self.get_by_id(scan_id)
 
+    @staticmethod
+    def parse_peak_list(raw_scan):
+        lines = raw_scan.splitlines()
+        peaks = []
+
+        for line in lines:
+            if re.match('[0-9\.]+\s[0-9\.]+', line):
+                peaks.append(line)
+            # if not line.startswith('#') and len(line.split('=')) == 1:
+            #     peaks.append(line)
+
+        return '\n'.join(peaks)
+
+    @staticmethod
+    def parse_precursor(raw_scan):
+        lines = raw_scan.splitlines()
+        precursor = {
+            'mz': None,
+            'charge': None
+        }
+
+        proton_mass = 1.007277
+
+        for line in lines:
+            if line.startswith('Z'):
+                precursor_match = re.match('Z\s+([0-9]+)\s+([0-9\.]+)', line)
+                if precursor_match:
+                    precursor['charge'] = int(precursor_match.groups()[0])
+                    precursor_mass = float(precursor_match.groups()[1])
+                    precursor['mz'] = precursor_mass / precursor['charge'] + proton_mass
+                else:
+                    raise Exception("Error parsing precursor from scan")
+
+        return precursor
 
