@@ -95,8 +95,7 @@ class PeakListParser:
                 ion_types += frag_methods[key]
         return ion_types
 
-    def get_peak_list(self, scan_id):
-
+    def get_scan(self, scan_id):
         try:
             scan = self.reader[scan_id]
         except Exception as e:
@@ -105,22 +104,54 @@ class PeakListParser:
             raise ScanNotFoundException("%s - for file: %s - scanId: %s" % (e.args[0], ntpath.basename(self.peak_list_path), scan_id))
 
         if self.is_mzML():
-            # if scan['ms level'] == 1:
-            #     raise ParseError("requested scanID %i is not a MSn scan" % scan['id'])
-
             peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan.peaks if i > 0])
+            precursor = scan['precursors'][0]
 
         elif self.is_mgf():
             peak_list = scan['peaks']
-            # peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan['peaks'] if i > 0])
+            precursor = scan['precursor']
 
         elif self.is_ms2():
             peak_list = scan['peaks']
+            precursor = scan['precursor']
 
         else:   # this should never happen is it would have raise error in constructor
             raise PeakListParseError("unsupported peak list file type")
 
-        return peak_list
+        scan = {
+            'peaks': peak_list,
+            'precursor': precursor
+        }
+
+        return scan
+
+    # def get_peak_list(self, scan_id):
+    #     # ToDo: self.scan - save last scan
+    #     try:
+    #         scan = self.reader[scan_id]
+    #     except Exception as e:
+    #         # raise ScanNotFoundException(type(e).__name__,
+    #         #                             ntpath.basename(self.peak_list_path), e.args)
+    #         raise ScanNotFoundException("%s - for file: %s - scanId: %s" % (e.args[0], ntpath.basename(self.peak_list_path), scan_id))
+    #
+    #     if self.is_mzML():
+    #         # if scan['ms level'] == 1:
+    #         #     raise ParseError("requested scanID %i is not a MSn scan" % scan['id'])
+    #
+    #         peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan.peaks if i > 0])
+    #
+    #     elif self.is_mgf():
+    #         peak_list = scan['peaks']
+    #         # peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan['peaks'] if i > 0])
+    #
+    #     elif self.is_ms2():
+    #         peak_list = scan['peaks']
+    #
+    #     else:   # this should never happen is it would have raise error in constructor
+    #         raise PeakListParseError("unsupported peak list file type")
+    #
+    #     return peak_list
+
 
     def parse_scan_id(self, spec_id):
 

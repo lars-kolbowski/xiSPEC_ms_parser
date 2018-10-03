@@ -100,7 +100,9 @@ def create_tables(cur, con):
             "peak_list_file_name TEXT, "
             "scan_id INT, "
             "frag_tol TEXT,"
-            "spectrum_ref TEXT)"
+            "spectrum_ref TEXT,"
+            "precursor_mz FLOAT,"
+            "precursor_charge INT)"
         )
 
         cur.execute("DROP TABLE IF EXISTS spectrum_identifications")
@@ -282,9 +284,11 @@ def write_spectra(inj_list, cur, con):
               'scan_id', 
               'frag_tol', 
               'upload_id', 
-              'spectrum_ref'
+              'spectrum_ref',
+              'precursor_mz',
+              'precursor_charge'
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?)""", inj_list)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""", inj_list)
         con.commit()
 
     except sqlite3.Error as e:

@@ -211,8 +211,19 @@ def write_peptide_evidences(inj_list, cur, con):
 
 def write_spectra(inj_list, cur, con):
     try:
-        cur.executemany("""INSERT INTO spectra (id, peak_list, peak_list_file_name, scan_id, frag_tol, upload_id, spectrum_ref)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s)""", inj_list)
+        cur.executemany("""
+        INSERT INTO spectra (
+        id, 
+        peak_list, 
+        peak_list_file_name, 
+        scan_id, 
+        frag_tol, 
+        upload_id, 
+        spectrum_ref,
+        precursor_mz,
+        precursor_charge
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""", inj_list)
         con.commit()
 
     except psycopg2.Error as e:
