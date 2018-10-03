@@ -64,6 +64,7 @@ try:
     # import local files
     import MzIdParser
     import CsvParser
+    import CsvParserFactory
     import PeakListParser
 
     # logging
@@ -161,7 +162,7 @@ try:
 
         # identifications_file = "/home/col/mzid_tests/OpenxQuest_example.mzid"
         # identifications_file = "/home/col/mzid_tests/OpenxQuest_example_added_annotations.mzid"
-        identifications_file = "/home/col/mzid_tests/SIM-XL_example.mzid"
+        identifications_file = "/home/col/Downloads/TEST/PolII_XiVersion1.6.742_PSM_xiFDR1.1.27.csv"
         # identifications_file = "/home/col/mzid_tests/test2.mzid"
         # identifications_file = "/home/col/mzid_tests/xiFDR-CrossLinkExample.mzid"
         # identifications_file = "/home/col/mzid_tests/xiFDR-CrossLinkExample_single_run.mzid"
@@ -289,12 +290,13 @@ try:
         logger.info('parsing csv start')
         identifications_fileType = 'csv'
         if use_postgreSQL:
-            id_parser = CsvParser.CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
+            id_parser = CsvParserFactory.makeCsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
                                             user_id=user_id)
         else:
             id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
                                             db_name=database)
-
+            # id_parser = xiSPEC_CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
+            #                                 db_name=database)
 
     else:
         raise Exception('Unknown identifications file format!')

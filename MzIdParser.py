@@ -9,6 +9,7 @@ from PeakListParser import PeakListParser
 import zipfile
 import gzip
 import os
+import NumpyEncoder
 
 
 class MzIdParseException(Exception):
@@ -898,18 +899,5 @@ class xiSPEC_MzIdParser(MzIdParser):
         self.db.fill_in_missing_scores(self.cur, self.con)
         self.logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
 
-
-class NumpyEncoder(json.JSONEncoder):
-    # def default(self, obj):
-    #     if isinstance(obj, np.ndarray):
-    #         return obj.tolist()
-    #     return json.JSONEncoder.default(self, obj)
-    def default(self, o):
-        try:
-            iterable = iter(o)
-        except TypeError:
-            pass
-        else:
-            return list(iterable)
-        # Let the base class default method raise the TypeError
-        return json.JSONEncoder.default(self, o)
+    def other_info(self):
+        pass
