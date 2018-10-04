@@ -100,20 +100,19 @@ class TestLoop:
                 print('skipping ' + ymp)
 
     def project(self, ymp):
-        pxd = ymp.split('/')[-1]
-        # todo: defend against not getting response from pride api
-        pride = TestLoop.get_pride_info(pxd)
+        # pxd = ymp.split('/')[-1]
+        # # todo: defend against not getting response from pride api
+        # pride = TestLoop.get_pride_info(pxd)
+        #
+        # if pride['submissionType'] == 'COMPLETE':
+        target_dir = self.base + '/' + ymp
+        files = self.get_ftp_file_list(target_dir)
+        print ('>> ' + ymp)
 
-        if pride['submissionType'] == 'COMPLETE':
-            target_dir = self.base + '/' + ymp
-            files = self.get_ftp_file_list(target_dir)
-            print ('>> ' + ymp)
-
-            for f in files:
-                if f.lower().endswith('mzid') or f.lower().endswith('mzid.gz'):
-                    print(f)
-                    self.file(ymp, f)
-                    break
+        for f in files:
+            if f.lower().endswith('mzid') or f.lower().endswith('mzid.gz'):
+                print(f)
+                self.file(ymp, f)
 
     def file(self, ymp, file_name):
         #  make temp dir
@@ -326,17 +325,17 @@ class TestLoop:
         files.reverse()
         return files
 
-    @staticmethod
-    def get_pride_info (pxd):
-        time.sleep(1)
-        try:
-            prideAPI = urllib.urlopen('https://www.ebi.ac.uk:443/pride/ws/archive/project/' + pxd).read()
-            pride = json.loads(prideAPI)
-            return pride
-        except Exception:
-            print ("failed to get " + pxd + "from pride api. Will try again in 5 secs.")
-            time.sleep(5)
-            return TestLoop.get_pride_info(pxd)
+    # @staticmethod
+    # def get_pride_info (pxd):
+    #     time.sleep(1)
+    #     try:
+    #         prideAPI = urllib.urlopen('https://www.ebi.ac.uk:443/pride/ws/archive/project/' + pxd).read()
+    #         pride = json.loads(prideAPI)
+    #         return pride
+    #     except Exception:
+    #         print ("failed to get " + pxd + "from pride api. Will try again in 5 secs.")
+    #         time.sleep(5)
+    #         return TestLoop.get_pride_info(pxd)
 
 
 test_loop = TestLoop()
