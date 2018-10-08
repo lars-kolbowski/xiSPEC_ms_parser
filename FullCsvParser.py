@@ -8,8 +8,6 @@ import json
 
 class FullCsvParser(AbstractCsvParser):
     required_cols = [
-        'scanid',
-        'charge',
         'pepseq1',
         'peppos1',
         'linkpos1',
@@ -19,6 +17,9 @@ class FullCsvParser(AbstractCsvParser):
         'linkpos2',
         'protein2',
         'peaklistfilename',
+        'scanid',
+        'charge',
+        'crosslinkermodmass',
         # 'expMZ'
     ]
 
@@ -30,7 +31,6 @@ class FullCsvParser(AbstractCsvParser):
         'rank',
         'fragmenttolerance',
         'iontypes',
-        'crosslinkermodmass',
         'passthreshold',
         'score',
         'decoy1',

@@ -130,8 +130,7 @@ class AbstractCsvParser:
     def check_required_columns(self):
         for required_col in self.required_cols:
             if required_col not in self.csv_reader.columns:
-                # raise CsvParseException("Required csv column %s missing" % required_col)
-                return False
+                raise CsvParseException("Required csv column %s missing" % required_col)
         return True
 
     def get_missing_required_columns(self):

@@ -63,8 +63,12 @@ try:
 
     # import local files
     import MzIdParser
-    import CsvParser
-    import CsvParserFactory
+    # import CsvParser
+    from AbstractCsvParser import CsvParseException
+    from xiSPEC_CsvParser import xiSPEC_CsvParser
+    from FullCsvParser import FullCsvParser
+    from NoPeakListsCsvParser import NoPeakListsCsvParser
+    from LinksOnlyCsvParser import LinksOnlyCsvParser
     import PeakListParser
 
     # logging
@@ -109,64 +113,7 @@ try:
 
     if dev:
         # development testfiles
-        baseDir = "/media/data/work/xiSPEC_test_files/"
-
-        # identifications_file = baseDir + 'OpenxQuest_example_added_annotations.mzid'
-        # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
-        # peakList_file = baseDir + "B170918_12_Lumos_LK_IN_90_HSA-DSSO-HCD_Rep1.mgf"
-
-        # identifications_file = "/media/data/work/xiSPEC_test_files/SL/02_wogroups.mzid"
-        # peakList_file = "/media/data/work/xiSPEC_test_files/SL/mscon_PF_20_100_0_B160803_02_new.mgf"
-
-        # # mzid has duplicate ids!!! - fixed now with non-flat index
-        # identifications_file = "/media/data/work/xiSPEC_test_files/PXD006767/MTases_Trypsin_ETD_search.mzid"
-        # peakList_file = "/media/data/work/xiSPEC_test_files/PXD006767/PXD006767.zip"
-        # peakList_file = "/media/data/work/xiSPEC_test_files/PXD006767/as.zip"
-
-        # # HSA-BS3 dataset
-        # identifications_file = baseDir + "/cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzid"
-        # peakList_file = baseDir + "/cross-link/xiFDR/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.0.23.48/E171207_15_Lumos_AB_DE_160_VI186_B1.mzML"
-
-        # small mzid dataset
-        # identifications_file = baseDir + "DSSO_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD_CID-only.mzid"
-        # peakList_file = baseDir + "centroid_B170808_08_Lumos_LK_IN_90_HSA-DSSO-Sample_Xlink-CID-EThcD.mzML"
-
-        # # large mzid dataset
-        # identifications_file = baseDir + "Tmuris_exo/Tmuris_exosomes1.mzid"
-        # peakList_file = baseDir + "Tmuris_exo/20171027_DDA_JC1.zip"
-
-        # SL
-        # identifications_file = baseDir + "/cross-link/xiFDR/pc_revision/B160803_02_26_57.mzid"
-        # peakList_file = baseDir + "/cross-link/xiFDR/pc_revision/B160803_02_Lumos_LK_IN_190_PC_BS3_HCD_DT_1.mzML"
-
-        # PXD006574
-        # identifications_file = baseDir + "PXD006574/monomerResults.mzid.gz"
-        # peakList_file = baseDir + "PXD006574/monomerResults-specId.pride.mgf.gz"
-        # identifications_file = baseDir + "PXD006574/dimerResultsToPRIDE.mzid.gz"
-        # peakList_file = baseDir + "PXD006574/dimerResultsToPRIDE-specId.pride.mgf.gz"
-
-        # # PXD001677 - ms2 peak list file
-        # identifications_file = baseDir + "cross-link/PXD001677/result_DynamicDBReduction_Plus_Report_Ions-specId.pride.mgf.gz"
-        # peakList_file = baseDir + "cross-link/PXD001677/result_DynamicDBReduction-specId.ms2"
-
-        # PXD007836 - mzid 1.1.0
-        # identifications_file = baseDir + "PXD007836/data.mzid"
-        # peakList_file = baseDir + "PXD007836/c.zip"
-
-        # csv file
-        #identifications_file = "/home/col/mzIdentML/examples/1_2examples/crosslinking/OpenxQuest_example.mzid"
-        # identifications_file = "/home/col/tests/uniprot/PolII_XiVersion1.6.742_PSM_xiFDR1.1.27.csv"
-
-        # identifications_file = "/home/col/mzid_tests/alts_E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.1.27.59.mzid"
-        # identifications_file = "/home/col/mzid_tests/E171207_15_Lumos_AB_DE_160_VI186_B1_xiFDR_1.1.27.59.mzid"
-
-        # identifications_file = "/home/col/mzid_tests/OpenxQuest_example.mzid"
-        # identifications_file = "/home/col/mzid_tests/OpenxQuest_example_added_annotations.mzid"
         identifications_file = "/home/col/Downloads/TEST/PolII_XiVersion1.6.742_PSM_xiFDR1.1.27.csv"
-        # identifications_file = "/home/col/mzid_tests/test2.mzid"
-        # identifications_file = "/home/col/mzid_tests/xiFDR-CrossLinkExample.mzid"
-        # identifications_file = "/home/col/mzid_tests/xiFDR-CrossLinkExample_single_run.mzid"
-
         #peakList_file = "/home/col/test2/Rappsilber_CLMS_PolII_mgfs.zip"
 
         database = 'test.db'
@@ -290,13 +237,26 @@ try:
         logger.info('parsing csv start')
         identifications_fileType = 'csv'
         if use_postgreSQL:
-            id_parser = CsvParserFactory.makeCsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
+            if peakList_file:
+                id_parser = FullCsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
                                             user_id=user_id)
+            else:
+                # try:
+                id_parser = NoPeakListsCsvParser(identifications_file, upload_folder, peak_list_folder, db,
+                                                 logger,
+                                                 user_id=user_id)
+                # except CsvParseException as e:
+                #     id_parser = LinksOnlyCsvParser(identifications_file, upload_folder, peak_list_folder, db,
+                #                                  logger,
+                #                                  user_id=user_id)
+
+
         else:
-            id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
-                                            db_name=database)
-            # id_parser = xiSPEC_CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
+            # the old code is still there in CsvParser
+            # id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
             #                                 db_name=database)
+            id_parser = xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
+                                            db_name=database)
 
     else:
         raise Exception('Unknown identifications file format!')

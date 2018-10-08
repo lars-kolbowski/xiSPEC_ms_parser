@@ -1,7 +1,7 @@
 from FullCsvParser import FullCsvParser
 # from AbstractCsvParser import CsvParseException
 
-class MimimalCsvParser(FullCsvParser):
+class NoPeakListsCsvParser(FullCsvParser):
     required_cols = [
         'pepseq1',
         'peppos1',
@@ -11,7 +11,6 @@ class MimimalCsvParser(FullCsvParser):
         'peppos2',
         'linkpos2',
         'protein2',
-        # 'expMZ'
     ]
 
     optional_cols = [
@@ -26,6 +25,6 @@ class MimimalCsvParser(FullCsvParser):
         'score',
         'decoy1',
         'decoy2',
-        'expmz',  # ToDo: required in mzid - also make required col?
+        'expmz',
         'calcmz'
     ]
