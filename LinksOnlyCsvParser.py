@@ -6,7 +6,7 @@ import re
 import json
 
 
-class LinksonlyCsvParser(AbstractCsvParser):
+class LinksOnlyCsvParser(AbstractCsvParser):
     required_cols = [
         'abspos1',
         'protein1',

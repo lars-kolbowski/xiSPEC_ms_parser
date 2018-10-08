@@ -9,7 +9,7 @@ from PeakListParser import PeakListParser
 import zipfile
 import gzip
 import os
-import NumpyEncoder
+from NumpyEncoder import NumpyEncoder
 
 
 class MzIdParseException(Exception):
