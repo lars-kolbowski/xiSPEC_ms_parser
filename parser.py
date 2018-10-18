@@ -114,8 +114,8 @@ try:
     if dev:
         # development testfiles
         #identifications_file = "/home/col/Downloads/TEST/PolII_XiVersion1.6.742_PSM_xiFDR1.1.27.csv"
-        identifications_file = "/home/col/mzid_tests/SIM-XL_example.mzid"
-
+        #identifications_file = "/home/col/mzid_tests/SIM-XL_example.mzid"
+        identifications_file = "/home/col/www/xiUI_public/CLMS-model/csv_data/NPCTEST.csv"
         #peakList_file = "/home/col/test2/Rappsilber_CLMS_PolII_mgfs.zip"
 
         database = 'test.db'
@@ -243,15 +243,17 @@ try:
                 id_parser = FullCsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
                                             user_id=user_id)
             else:
-                # try:
                 id_parser = NoPeakListsCsvParser(identifications_file, upload_folder, peak_list_folder, db,
                                                  logger,
                                                  user_id=user_id)
-                # except CsvParseException as e:
-                #     id_parser = LinksOnlyCsvParser(identifications_file, upload_folder, peak_list_folder, db,
-                #                                  logger,
-                #                                  user_id=user_id)
+                try:
+                    id_parser.check_required_columns()
 
+                except CsvParseException as e:
+                    id_parser = LinksOnlyCsvParser(identifications_file, upload_folder, peak_list_folder, db,
+                                                  logger,
+                                                  user_id=user_id)
+                    id_parser.check_required_columns()
 
         else:
             # the old code is still there in CsvParser
