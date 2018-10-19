@@ -115,7 +115,7 @@ try:
         # development testfiles
         #identifications_file = "/home/col/Downloads/TEST/PolII_XiVersion1.6.742_PSM_xiFDR1.1.27.csv"
         #identifications_file = "/home/col/mzid_tests/SIM-XL_example.mzid"
-        identifications_file = "/home/col/www/xiUI_public/CLMS-model/csv_data/NPCTEST.csv"
+        identifications_file = "/var/www/html/xiUI_public/CLMS-model/csv_data/NPC.csv"
         #peakList_file = "/home/col/test2/Rappsilber_CLMS_PolII_mgfs.zip"
 
         database = 'test.db'

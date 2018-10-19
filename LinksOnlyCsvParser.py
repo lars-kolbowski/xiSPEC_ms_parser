@@ -262,7 +262,7 @@ class LinksOnlyCsvParser(AbstractCsvParser):
             except Exception as ke:
                 sp_regex = re.compile('(.*)\|(.*)\|(.*)')
                 matches = sp_regex.search(prot)
-                if matches.group():
+                if matches is not None:
                     data = [matches.group(), matches.group(2), matches.group(3), "", None, self.upload_id]
                 else :
                     data = [prot, prot, prot, "", None, self.upload_id]
