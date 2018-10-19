@@ -263,7 +263,7 @@ class LinksOnlyCsvParser(AbstractCsvParser):
                 sp_regex = re.compile('(.*)\|(.*)\|(.*)')
                 matches = sp_regex.search(prot)
                 if matches is not None:
-                    data = [matches.group(), matches.group(2), matches.group(3), "", None, self.upload_id]
+                    data = [matches.group(2), matches.group(2), matches.group(3), "", None, self.upload_id]
                 else :
                     data = [prot, prot, prot, "", None, self.upload_id]
 
