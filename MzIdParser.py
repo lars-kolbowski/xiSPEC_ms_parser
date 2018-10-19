@@ -9,6 +9,7 @@ from PeakListParser import PeakListParser
 import zipfile
 import gzip
 import os
+from NumpyEncoder import NumpyEncoder
 
 
 class MzIdParseException(Exception):
@@ -647,19 +648,21 @@ class MzIdParser:
                 peak_list_reader = self.peak_list_readers[sid_result['spectraData_ref']]
 
                 scan_id = peak_list_reader.parse_scan_id(sid_result["spectrumID"])
-                peak_list = peak_list_reader.get_peak_list(scan_id)
+                scan = peak_list_reader.get_scan(scan_id)
 
                 protocol = self.spectra_data_protocol_map[sid_result['spectraData_ref']]
 
                 spectra.append([
                     spec_id,
-                    peak_list,
+                    scan['peaks'],
                     ntpath.basename(peak_list_reader.peak_list_path),
                     str(scan_id),
                     protocol['fragmentTolerance'],
                     self.upload_id,
-                    sid_result['id']]
-                )
+                    sid_result['id'],
+                    scan['precursor']['mz'],
+                    scan['precursor']['charge']
+                ])
 
             spectrum_ident_dict = dict()
             linear_index = -1  # negative index values for linear peptides
@@ -896,18 +899,5 @@ class xiSPEC_MzIdParser(MzIdParser):
         self.db.fill_in_missing_scores(self.cur, self.con)
         self.logger.info('fill in missing scores - done. Time: ' + str(round(time() - score_fill_start_time, 2)) + " sec")
 
-
-class NumpyEncoder(json.JSONEncoder):
-    # def default(self, obj):
-    #     if isinstance(obj, np.ndarray):
-    #         return obj.tolist()
-    #     return json.JSONEncoder.default(self, obj)
-    def default(self, o):
-        try:
-            iterable = iter(o)
-        except TypeError:
-            pass
-        else:
-            return list(iterable)
-        # Let the base class default method raise the TypeError
-        return json.JSONEncoder.default(self, o)
+    def other_info(self):
+        pass
