@@ -49,6 +49,9 @@ class MzIdParser:
         self.logger = logger
         self.origin = origin
 
+        # look up table populated by parse_peptides function
+        # self.peptide_id_lookup = {}
+
         self.spectra_data_protocol_map = {}
         # ToDo: Might change to pyteomics unimod obo module
         self.unimod_path = 'obo/unimod.obo'
@@ -372,18 +375,15 @@ class MzIdParser:
             else:
                 data.append(None)
 
-            #searchDatabase_ref
+            # searchDatabase_ref
 
-            # sequence
-            if "Seq" in db_sequence and isinstance(db_sequence["Seq"], basestring):  # Seq is optional child elem of DBSequence
+            # Seq is optional child elem of DBSequence
+            if "Seq" in db_sequence and isinstance(db_sequence["Seq"], basestring):
                 seq = db_sequence["Seq"]
                 data.append(seq)
             else:
                 # todo: get sequence
                 data.append("no sequence")
-
-            # is_decoy - not there
-            #data.append("false")
 
             data.append(self.upload_id)
 
@@ -396,8 +396,6 @@ class MzIdParser:
     def parse_peptides(self):
         start_time = time()
         self.logger.info('parse peptides, modifications - start')
-
-        self.peptide_id_lookup = {}
 
         # ToDo: might be stuff in pyteomics lib for this?
         unimod_masses = self.get_unimod_masses(self.unimod_path)
@@ -455,7 +453,7 @@ class MzIdParser:
                     if 'residues' not in mod:
                         mod['residues'] = peptide['PeptideSequence'][mod_location]
 
-                    #TODO - issues here to do with using names rather than cv param accessions (cross-link acceptor / cross-link reciever)
+                    # TODO - issues here with using names rather than cv param accession (cross-link acceptor/ receiver)
                     if 'name' in mod.keys():
                         # fix mod names
                         if isinstance(mod['name'], list):  # todo: have a look at this  - cc
@@ -464,7 +462,7 @@ class MzIdParser:
                         mod['name'] = mod['name'].replace(" ", "_")
                         if mod['name'] in mod_aliases.keys():
                             mod['name'] = mod_aliases[mod['name']]
-                        if 'cross-link donor' not in mod.keys() and 'cross-link acceptor' not in mod.keys() and 'cross-link reciever' not in mod.keys():
+                        if 'cross-link donor' not in mod.keys() and 'cross-link acceptor' not in mod.keys() and 'cross-link receiver' not in mod.keys():
                             cur_mod = pep_seq_dict[mod_location]
                             # join modifications into one for multiple modifications on the same aa
                             if not cur_mod['Modification'] == '':
@@ -483,7 +481,8 @@ class MzIdParser:
 
                     # add CL locations
 
-                    if 'cross-link donor' in mod.keys() or 'cross-link acceptor' in mod.keys() or 'cross-link receiver' in mod.keys():
+                    if 'cross-link donor' in mod.keys() or 'cross-link acceptor' in mod.keys()\
+                            or 'cross-link receiver' in mod.keys():
                         # use mod['location'] for link-site (1-based in database in line with mzIdentML specifications)
                         link_site = mod['location']
                         crosslinker_modmass = mod['monoisotopicMassDelta']
@@ -498,7 +497,6 @@ class MzIdParser:
             # we should consider swapping these over because modX format has modification before AA
             peptide_seq_with_mods = ''.join([''.join([x['aminoAcid'], x['Modification']]) for x in pep_seq_dict])
 
-            # data.append(peptide["PeptideSequence"])  # PeptideSequence, required child elem
             data = [
                 # peptide_index,      # debug use mzid peptide['id'],
                 peptide['id'],
@@ -510,11 +508,24 @@ class MzIdParser:
             ]
 
             peptide_inj_list.append(data)
-            self.peptide_id_lookup[peptide['id']] = peptide_index
+            #  self.peptide_id_lookup[peptide['id']] = peptide_index
+
+            if peptide_index % 1000 == 0:
+                self.logger.info('writing 1000 peptides to DB')
+                try:
+                    self.db.write_peptides(peptide_inj_list, self.cur, self.con)
+                    peptide_inj_list = []
+                    self.con.commit()
+                except Exception as e:
+                    raise e
+
             peptide_index += 1
 
-        self.db.write_peptides(peptide_inj_list, self.cur, self.con)
-
+        try:
+            self.db.write_peptides(peptide_inj_list, self.cur, self.con)
+            self.con.commit()
+        except Exception as e:
+            raise e
         #
         mod_index = 0
         modifications_inj_list = []
@@ -553,23 +564,6 @@ class MzIdParser:
         for pep_ev_id in self.mzid_reader._offset_index["PeptideEvidence"].keys():
             peptide_evidence = self.mzid_reader.get_by_id(pep_ev_id, tag_id='PeptideEvidence', detailed=True)
 
-            # data = []  # peptide_ref, dBSequence_ref, protein_accession, start, upload_id
-            # data.append(self.peptide_id_lookup[peptide_evidence["peptide_ref"]])  # peptide_ref att, required
-            # data.append(peptide_evidence["dBSequence_ref"])  # DBSequence_ref att, required
-            # data.append(db_seq_ref_prot_map[peptide_evidence["dBSequence_ref"]])
-            #
-            # if "start" in peptide_evidence:
-            #     data.append(peptide_evidence["start"])  # start att, optional
-            # else:
-            #     data.append(-1)
-            #
-            # if "isDecoy" in peptide_evidence:
-            #     data.append(peptide_evidence["isDecoy"])  # isDecoy att, optional
-            # else:
-            #     data.append(None)
-            #
-            # data.append(self.upload_id)
-
             pep_start = -1
             if "start" in peptide_evidence:
                 pep_start = peptide_evidence["start"]    # start att, optional
@@ -592,10 +586,20 @@ class MzIdParser:
 
             inj_list.append(data)
 
+            if len(inj_list) % 1000 == 0:
+                self.logger.info('writing 1000 peptide_evidences to DB')
+                try:
+                    self.db.write_peptide_evidences(inj_list, self.cur, self.con)
+                    inj_list = []
+                    self.con.commit()
+                except Exception as e:
+                    raise e
+
         try:
             self.db.write_peptide_evidences(inj_list, self.cur, self.con)
-        except AttributeError:
-            pass
+            self.con.commit()
+        except Exception as e:
+            raise e
 
         self.con.commit()
         self.mzid_reader.reset()
@@ -662,8 +666,8 @@ class MzIdParser:
                     cross_link_id = spec_id_item['cross-link spectrum identification item']
                 else:  # assuming linear
                     # misusing 'cross-link spectrum identification item' for linear peptides with negative index
-                    #specIdItem['cross-link spectrum identification item'] = linear_index
-                    #spec_id_set.add(get_cross_link_identifier(specIdItem))
+                    # specIdItem['cross-link spectrum identification item'] = linear_index
+                    # spec_id_set.add(get_cross_link_identifier(specIdItem))
 
                     cross_link_id = linear_index
                     linear_index -= 1
@@ -673,7 +677,7 @@ class MzIdParser:
                     # do crosslink specific stuff
                     ident_data = spectrum_ident_dict.get(cross_link_id)
                     # ident_data[4] = self.peptide_id_lookup[spec_id_item['peptide_ref']]
-                    ident_data[4] = spec_id_item['peptide_ref'] # debug
+                    ident_data[4] = spec_id_item['peptide_ref']  # debug
                 else:
                     # do stuff common to linears and crosslinks
                     charge_state = spec_id_item['chargeState']
@@ -723,7 +727,7 @@ class MzIdParser:
                         # spec_id_item['id'],
                         self.upload_id,
                         spec_id,
-                        # self.peptide_id_lookup[spec_id_item['peptide_ref']],    # debug use spec_id_item['peptide_ref'],
+                        # self.peptide_id_lookup[spec_id_item['peptide_ref']], # debug use spec_id_item['peptide_ref'],
                         spec_id_item['peptide_ref'],
                         '',  # pep2
                         charge_state,
@@ -756,8 +760,6 @@ class MzIdParser:
                     self.con.commit()
                 except Exception as e:
                     raise e
-                # commit changes
-                self.con.commit()
 
         # end main loop
         self.logger.info('main loop - done. Time: ' + str(round(time() - main_loop_start_time, 2)) + " sec")
@@ -773,7 +775,7 @@ class MzIdParser:
             raise e
 
         self.logger.info('write remaining entries to DB - start - done. Time: '
-                    + str(round(time() - db_wrap_up_start_time, 2)) + " sec")
+                            + str(round(time() - db_wrap_up_start_time, 2)) + " sec")
 
         self.ident_count = identification_id;
 
@@ -854,10 +856,10 @@ class MzIdParser:
         bibRefs = json.dumps(bibRefs)
         self.mzid_reader.reset()
 
-        self.upload_id = self.db.write_upload([self.user_id, os.path.basename(self.mzId_path), peak_list_file_names, spectra_formats,
-                          analysis_software, provider, audits, samples, analyses, protocols, bibRefs, self.origin, self.warnings],
-                         self.cur, self.con,
-                         )
+        self.upload_id = self.db.write_upload([self.user_id, os.path.basename(self.mzId_path), peak_list_file_names,
+                                               spectra_formats, analysis_software, provider, audits, samples, analyses,
+                                               protocols, bibRefs, self.origin, self.warnings],
+                                              self.cur, self.con)
 
         self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)
 
@@ -871,6 +873,7 @@ class MzIdParser:
         self.db.write_other_info(self.upload_id, self.contains_crosslinks, self.ident_count,
                                  self.ident_file_size, self.peaks_size,
                                  self.warnings, self.cur, self.con);
+
 
 class xiSPEC_MzIdParser(MzIdParser):
 
