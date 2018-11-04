@@ -3,7 +3,6 @@ import re
 import ntpath
 import json
 import sys
-import numpy as np
 from time import time
 from PeakListParser import PeakListParser
 import zipfile
@@ -16,18 +15,14 @@ class MzIdParseException(Exception):
     pass
 
 
-class MissingFileException(Exception):
-    pass
-
-
 class MzIdParser:
     """
 
     """
-    def __init__(self, mzId_path, temp_dir, peak_list_dir, db, logger, db_name='', user_id=0, origin='', peaks_size=''):
+    def __init__(self, mzid_path, temp_dir, peak_list_dir, db, logger, db_name='', user_id=0, origin='', peaks_size=''):
         """
 
-        :param mzId_path: path to mzidentML file
+        :param mzid_path: path to mzidentML file
         :param temp_dir: absolute path to temp dir for unzipping/storing files
         :param db: database python module to use (xiUI_pg or xiSPEC_sqlite)
         :param db_name: db name for SQLite
@@ -35,10 +30,10 @@ class MzIdParser:
         """
 
         self.upload_id = 0
-        if mzId_path.endswith('.gz') or mzId_path.endswith('.zip'):
-            self.mzId_path = MzIdParser.extract_mzid(mzId_path)
+        if mzid_path.endswith('.gz') or mzid_path.endswith('.zip'):
+            self.mzId_path = MzIdParser.extract_mzid(mzid_path)
         else:
-            self.mzId_path = mzId_path
+            self.mzId_path = mzid_path
         self.peak_list_readers = {}  # peak list readers indexed by spectraData_ref
         self.temp_dir = temp_dir
         if not self.temp_dir.endswith('/'):
@@ -65,7 +60,7 @@ class MzIdParser:
         self.unknown_mods = []
 
         # From mzidentML schema 1.2.0:
-        # First of all, the <SpectrumIdentificationProtocol> must contain the CV term 'cross-linking search' (MS:1002494)
+        # the <SpectrumIdentificationProtocol> must contain the CV term 'cross-linking search' (MS:1002494)
         self.contains_crosslinks = False
 
         self.warnings = []
@@ -81,7 +76,7 @@ class MzIdParser:
             sys.exit(1)
 
         self.ident_file_size = os.path.getsize(self.mzId_path)
-        self.peaks_size = peaks_size;
+        self.peaks_size = peaks_size
 
         self.logger.info('reading mzid - start ' + self.mzId_path)
         self.start_time = time()
@@ -93,8 +88,7 @@ class MzIdParser:
 
         self.logger.info('reading mzid - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
 
-
-    # ToDo: not used atm - can be used for checking if all files are present in temp dir
+    # used by TestLoop when downloading files from PRIDE
     def get_peak_list_file_names(self):
         """
         :return: list of all used peak list file names
@@ -112,9 +106,6 @@ class MzIdParser:
 
         return peak_list_file_names
 
-    def get_sequenceDB_file_names(self):
-        pass
-
     def init_peak_list_readers(self):
         """
         sets self.peak_list_readers by looping through SpectraData elements
@@ -127,7 +118,6 @@ class MzIdParser:
             sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
 
             # is there anything we'd like to complain about?
-            # todo -these aren't raising exceptions as expected, getting KeyError instead- cc
             if sp_datum['SpectrumIDFormat'] is None:
                 raise MzIdParseException('SpectraData is missing SpectrumIdFormat')
             if sp_datum['SpectrumIDFormat']['accession'] is None:
@@ -142,13 +132,11 @@ class MzIdParser:
             sd_id = sp_datum['id']
             peak_list_file_name = ntpath.basename(sp_datum['location'])
 
-            # skip if not supported file format - e.g. PD mzId files include all raw files in SpectraData
-            if not any([
-                peak_list_file_name.lower().endswith('.mgf'),
-                peak_list_file_name.lower().endswith('.mzml'),
-                peak_list_file_name.lower().endswith('.ms2')
-            ]):
-                continue
+            # throw error if not supported file format (mzId files may also include raw files in SpectraData)
+            ff_acc = sp_datum['FileFormat']['accession']
+            if not any([peak_list_file_name.lower().endswith('.raw'),
+                        ff_acc == 'MS:1001062', ff_acc == 'MS:1000584', ff_acc == 'MS:1001466']):
+                raise MzIdParseException('Unsupported peak list file format for: %s' % peak_list_file_name)
 
             peak_list_file_path = self.peak_list_dir + peak_list_file_name
 
@@ -167,7 +155,6 @@ class MzIdParser:
                         sp_datum['SpectrumIDFormat']['accession']
                     )
                 except IOError:
-                    # ToDo: output all missing files not just first encountered. Use get_peak_list_file_names()
                     raise MzIdParseException('Missing peak list file: %s' % peak_list_file_path)
 
             peak_list_readers[sd_id] = peak_list_reader
@@ -178,11 +165,11 @@ class MzIdParser:
 
         start_time = time()
 
-        # ToDo: more gracefully handle missing files
+        self.upload_info()  # overridden (empty function) in xiSPEC subclass
+
         if self.peak_list_dir:
             self.init_peak_list_readers()
 
-        self.upload_info()  # overridden (empty function) in xiSPEC subclass
         self.parse_db_sequences()  # overridden (empty function) in xiSPEC subclass
         self.parse_peptides()
         self.parse_peptide_evidences()
@@ -192,7 +179,7 @@ class MzIdParser:
         meta_data = [self.upload_id, -1, -1, -1]
         self.db.write_meta_data(meta_data, self.cur, self.con)
 
-        self.fill_in_missing_scores() # empty here, overridden in xiSPEC subclass to do stuff
+        self.fill_in_missing_scores()  # empty here, overridden in xiSPEC subclass to do stuff
 
         self.other_info()
 
@@ -278,7 +265,8 @@ class MzIdParser:
         analysis_collection = self.mzid_reader.iterfind('AnalysisCollection').next()
         for spectrumIdentification in analysis_collection['SpectrumIdentification']:
             sid_protocol_ref = spectrumIdentification['spectrumIdentificationProtocol_ref']
-            sid_protocol = self.mzid_reader.get_by_id(sid_protocol_ref, tag_id='SpectrumIdentificationProtocol', detailed=True)
+            sid_protocol = self.mzid_reader.get_by_id(sid_protocol_ref, tag_id='SpectrumIdentificationProtocol',
+                                                      detailed=True)
             sid_protocols.append(sid_protocol)
             try:
                 frag_tol = sid_protocol['FragmentTolerance']
@@ -487,7 +475,7 @@ class MzIdParser:
                             mod['name'] = self.add_to_modlist(mod)  # save to all mods list and get back new_name
                             cur_mod['Modification'] = mod['name']
 
-                    # error handling for mod without name - TODO - looks like this does nothing
+                    # error handling for mod without name
                     else:
                         # cross-link acceptor doesn't have a name
                         if 'cross-link acceptor' not in mod.keys() and 'cross-link receiver' not in mod.keys():

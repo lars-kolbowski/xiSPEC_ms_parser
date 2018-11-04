@@ -25,17 +25,17 @@ class CsvParser:
     """
     # ToDo: adjust to xiUI needs
     required_cols = [
+        'scanid',
+        'charge',
         'pepseq1',
         'protein1',
         'peppos1',
+        'peaklistfilename',
         # 'expMZ'
     ]
 
     optional_cols = [
         # 'spectrum_id' $ ToDo: get rid of this? select alternatives by scanid and peaklistfilename?
-        'scanid',
-        'charge',
-        'peaklistfilename',
         'rank',
         'fragmenttolerance',
         'iontypes',
@@ -412,10 +412,7 @@ class CsvParser:
             try:
                 charge = int(id_item['charge'])
             except ValueError:
-                #raise CsvParseException('Invalid charge state: %s for row: %s' % (id_item['charge'], row_number))
-                #self.warnings.append("Missing charge state.")
-                charge = None
-
+                raise CsvParseException('Invalid charge state: %s for row: %s' % (id_item['charge'], row_number))
 
             # passthreshold
             if isinstance(id_item['passthreshold'], bool):
@@ -535,8 +532,7 @@ class CsvParser:
             try:
                 scan_id = int(id_item['scanid'])
             except ValueError:
-                #raise CsvParseException('Invalid scanid: %s in row %s' % (id_item['scanid'], row_number))
-                scan_id = -1
+                raise CsvParseException('Invalid scanid: %s in row %s' % (id_item['scanid'], row_number))
 
             # peakListFilename
 
@@ -727,17 +723,23 @@ class CsvParser:
 
 
         # DBSEQUENCES
-        # if self.fasta:
-        db_sequences = []
-        for prot in proteins:
-            try:
-               #data = [prot] + self.fasta[prot] + [self.upload_id]
-               temp = self.fasta[prot]
-               data = [prot, temp[0], temp[1], temp[2], temp[3], self.upload_id] # surely there's a better way
-            except Exception as ke:
-               data = [prot, prot, prot, "", None, self.upload_id]
+        if self.fasta:
+            db_sequences = []
+            for prot in proteins:
+               try:
+                   #data = [prot] + self.fasta[prot] + [self.upload_id]
+                   temp = self.fasta[prot]
+                   data = [prot, temp[0], temp[1], temp[2], temp[3], self.upload_id] # surely there's a better way
+               except Exception as ke:
+                   seq = "NO SEQUENCE"
+                   data = [prot, prot, prot, "", "NO SEQUENCE", self.upload_id]
 
-            db_sequences.append(data)
+               # is_decoy - not there
+               # data.append("false")
+
+               # data.append(self.upload_id)
+
+               db_sequences.append(data)
 
 
         # end main loop
@@ -752,7 +754,8 @@ class CsvParser:
             self.db.write_peptides(peptides, self.cur, self.con)
             self.db.write_spectra(spectra, self.cur, self.con)
             self.db.write_spectrum_identifications(spectrum_identifications, self.cur, self.con)
-            self.db.write_db_sequences(db_sequences, self.cur, self.con)
+            if self.fasta:
+                self.db.write_db_sequences(db_sequences, self.cur, self.con)
             self.con.commit()
         except Exception as e:
             raise e
