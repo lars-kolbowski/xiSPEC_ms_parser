@@ -208,6 +208,9 @@ class FullCsvParser(AbstractCsvParser):
                             % (id_item['decoy1'], row_number)
                         )
 
+            if len(is_decoy_list1) != len(protein_list1):
+                is_decoy_list1 = [is_decoy_list1[0]] * len(protein_list1)
+
             # pepPos1 - if pepPos1 is not set fill list with default value (-1)
             # ToDo: might need changing for xiUI where pepPos is not optional
             if id_item['peppos1'] == -1:
@@ -245,6 +248,10 @@ class FullCsvParser(AbstractCsvParser):
                             'Invalid value in Decoy 2: %s in row %s. Allowed values: True, False.'
                             % (id_item['decoy2'], row_number)
                         )
+
+            if len(is_decoy_list2) != len(protein_list2):
+                is_decoy_list2 = [is_decoy_list2[0]] * len(protein_list2)
+
 
             # pepPos2 - if pepPos2 is not set fill list with default value (-1)
             # ToDo: might need changing for xiUI where pepPos is not optional
