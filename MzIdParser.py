@@ -123,10 +123,15 @@ class MzIdParser:
             # is there anything we'd like to complain about?
             if sp_datum['SpectrumIDFormat'] is None:
                 raise MzIdParseException('SpectraData is missing SpectrumIdFormat')
+            if isinstance(sp_datum['SpectrumIDFormat'], basestring):
+                raise MzIdParseException('SpectraData/SpectrumIdFormat is missing accession')
             if sp_datum['SpectrumIDFormat']['accession'] is None:
                 raise MzIdParseException('SpectraData/SpectrumIdFormat is missing accession')
+
             if sp_datum['FileFormat'] is None:
                 raise MzIdParseException('SpectraData is missing FileFormat')
+            if isinstance(sp_datum['FileFormatFormat'], basestring):
+                raise MzIdParseException('SpectraData/SpectrumIdFormat is missing accession')
             if sp_datum['FileFormat']['accession'] is None:
                 raise MzIdParseException('SpectraData/FileFormat is missing accession')
             if sp_datum['location'] is None:
@@ -143,22 +148,24 @@ class MzIdParser:
 
             peak_list_file_path = self.peak_list_dir + peak_list_file_name
 
-            try:
-                peak_list_reader = PeakListParser(
-                    peak_list_file_path,
-                    sp_datum['FileFormat']['accession'],
-                    sp_datum['SpectrumIDFormat']['accession']
-                )
-            except IOError:
-                # try gz version
+            # ignore raw files, prob neater way here
+            if not peak_list_file_name.lower().endswith('.raw'):
                 try:
                     peak_list_reader = PeakListParser(
-                        PeakListParser.extract_gz(peak_list_file_path + '.gz'),
+                        peak_list_file_path,
                         sp_datum['FileFormat']['accession'],
                         sp_datum['SpectrumIDFormat']['accession']
                     )
                 except IOError:
-                    raise MzIdParseException('Missing peak list file: %s' % peak_list_file_path)
+                    # try gz version
+                    try:
+                        peak_list_reader = PeakListParser(
+                            PeakListParser.extract_gz(peak_list_file_path + '.gz'),
+                            sp_datum['FileFormat']['accession'],
+                            sp_datum['SpectrumIDFormat']['accession']
+                        )
+                    except IOError:
+                        raise MzIdParseException('Missing peak list file: %s' % peak_list_file_path)
 
             peak_list_readers[sd_id] = peak_list_reader
 
