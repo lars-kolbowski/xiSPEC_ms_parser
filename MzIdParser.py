@@ -121,19 +121,21 @@ class MzIdParser:
             sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
 
             # is there anything we'd like to complain about?
+            # SpectrumIDFormat
             if sp_datum['SpectrumIDFormat'] is None:
                 raise MzIdParseException('SpectraData is missing SpectrumIdFormat')
             if isinstance(sp_datum['SpectrumIDFormat'], basestring):
                 raise MzIdParseException('SpectraData/SpectrumIdFormat is missing accession')
             if sp_datum['SpectrumIDFormat']['accession'] is None:
                 raise MzIdParseException('SpectraData/SpectrumIdFormat is missing accession')
-
+            # FileFormat
             if sp_datum['FileFormat'] is None:
                 raise MzIdParseException('SpectraData is missing FileFormat')
-            if isinstance(sp_datum['FileFormatFormat'], basestring):
+            if isinstance(sp_datum['FileFormat'], basestring):
                 raise MzIdParseException('SpectraData/SpectrumIdFormat is missing accession')
             if sp_datum['FileFormat']['accession'] is None:
                 raise MzIdParseException('SpectraData/FileFormat is missing accession')
+            # location
             if sp_datum['location'] is None:
                 raise MzIdParseException('SpectraData is missing location')
 
