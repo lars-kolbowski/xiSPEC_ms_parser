@@ -383,6 +383,10 @@ class FullCsvParser(AbstractCsvParser):
             # peptide evidence - 1
             for i in range(len(protein_list1)):
 
+                m = re.search("..\|(.*)\|(.*)\s?", protein_list1[i])
+                accession = protein_list1[i]
+                if m:
+                    accession = m.groups()[0]
                 pep_evidence1 = [
                     pep1_id,                # peptide_ref
                     protein_list1[i],       # dbsequence_ref - ToDo: might change to numerical id
@@ -401,6 +405,11 @@ class FullCsvParser(AbstractCsvParser):
                     raise StandardError('Fatal! peptide id error!')
 
                 for i in range(len(protein_list2)):
+
+                    m = re.search("..\|(.*)\|(.*)\s?", protein_list2[i])
+                    accession = protein_list2[i]
+                    if m:
+                        accession = m.groups()[0]
 
                     pep_evidence2 = [
                         pep2_id,                # peptide_ref

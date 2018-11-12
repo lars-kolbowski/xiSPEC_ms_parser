@@ -182,12 +182,16 @@ class LinksOnlyCsvParser(AbstractCsvParser):
                         pep2_id = seen_peptides.index(unique_pep_identifier2)
                 else:
                     pep2_id = None
-#
+
+                m = re.search("..\|(.*)\|(.*)\s?", protein_list1[i])
+                accession = protein_list1[i]
+                if m:
+                    accession = m.groups()[0]
 
                 pep_evidence1 = [
                     pep1_id,                # peptide_ref
                     protein_list1[i],       # dbsequence_ref - ToDo: might change to numerical id
-                    protein_list1[i],       # protein_accession
+                    accession,              # protein_accession
                     int(float(abs_pos_list1[i])),       # was pep start, now absolute position of link
                     is_decoy_list1[i],      # is_decoy
                     self.upload_id          # upload_id
@@ -203,10 +207,15 @@ class LinksOnlyCsvParser(AbstractCsvParser):
 
                 for i in range(len(protein_list2)):
 
+                    m = re.search("..\|(.*)\|(.*)\s?", protein_list2[i])
+                    accession = protein_list2[i]
+                    if m:
+                        accession = m.groups()[0]
+
                     pep_evidence2 = [
                         pep2_id,                # peptide_ref
                         protein_list2[i],       # dbsequence_ref - ToDo: might change to numerical id
-                        protein_list2[i],       # protein_accession
+                        accession,              # protein_accession
                         int(float(abs_pos_list2[i])),       # was pep_start, now absolute position of link
                         is_decoy_list2[i],      # is_decoy
                         self.upload_id          # upload_id
