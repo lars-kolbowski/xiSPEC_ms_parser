@@ -122,21 +122,23 @@ class MzIdParser:
 
             # is there anything we'd like to complain about?
             # SpectrumIDFormat
-            if sp_datum['SpectrumIDFormat'] is None:
+            if 'SpectrumIDFormat' not in sp_datum or sp_datum['SpectrumIDFormat'] is None:
                 raise MzIdParseException('SpectraData is missing SpectrumIdFormat')
             if isinstance(sp_datum['SpectrumIDFormat'], basestring):
                 raise MzIdParseException('SpectraData/SpectrumIdFormat is missing accession')
             if sp_datum['SpectrumIDFormat']['accession'] is None:
                 raise MzIdParseException('SpectraData/SpectrumIdFormat is missing accession')
+
             # FileFormat
-            if sp_datum['FileFormat'] is None:
+            if 'FileFormat' not in sp_datum or sp_datum['FileFormat'] is None:
                 raise MzIdParseException('SpectraData is missing FileFormat')
             if isinstance(sp_datum['FileFormat'], basestring):
                 raise MzIdParseException('SpectraData/SpectrumIdFormat is missing accession')
             if sp_datum['FileFormat']['accession'] is None:
                 raise MzIdParseException('SpectraData/FileFormat is missing accession')
+
             # location
-            if sp_datum['location'] is None:
+            if 'location' not in sp_datum or sp_datum['location'] is None:
                 raise MzIdParseException('SpectraData is missing location')
 
             sd_id = sp_datum['id']
@@ -366,7 +368,6 @@ class MzIdParser:
         start_time = time()
         # DBSEQUENCES
         inj_list = []
-        # for db_sequence in sequence_collection['DBSequence']:
         for db_id in self.mzid_reader._offset_index["DBSequence"].keys():
             db_sequence = self.mzid_reader.get_by_id(db_id, tag_id='DBSequence', detailed=True)
 
@@ -557,16 +558,27 @@ class MzIdParser:
         self.logger.info('parse peptides, modifications - done. Time: ' + str(round(time() - start_time, 2)) + " sec")
 
     def parse_peptide_evidences(self):
-
-        db_seq_ref_prot_map = {}
-
-        sequence_collection = self.mzid_reader.iterfind('SequenceCollection').next()
-        for sequence in sequence_collection['DBSequence']:
-            db_seq_ref_prot_map[sequence["id"]] = sequence["accession"]
-            self.mzid_reader.reset()
-
         start_time = time()
         self.logger.info('parse peptide evidences - start')
+
+        seq_id_to_acc_map = {}
+
+        # following doesn't work for big files...
+        # self.mzid_reader.reset()
+        # print "GETTING ITERATOR"
+        # sc_iterator = self.mzid_reader.iterfind('SequenceCollection')
+        # print "GOT ITERATOR"
+        # sequence_collection = sc_iterator.next() # runs out of memory here
+        # print "GOT NEXT"
+        # for sequence in sequence_collection['DBSequence']:
+        #     seq_id_to_acc_map [sequence["id"]] = sequence["accession"]
+        #     self.mzid_reader.reset()
+
+
+        for db_id in self.mzid_reader._offset_index["DBSequence"].keys():
+            db_sequence = self.mzid_reader.get_by_id(db_id, tag_id='DBSequence', detailed=True)
+            seq_id_to_acc_map[db_sequence["id"]] = db_sequence["accession"]
+
         #PEPTIDE EVIDENCES
         inj_list = []
         # for peptide_evidence in sequence_collection['PeptideEvidence']:
@@ -587,7 +599,7 @@ class MzIdParser:
             data = [
                 peptide_ref,       #' peptide_ref',
                 peptide_evidence["dBSequence_ref"],                             # 'dbsequence_ref',
-                db_seq_ref_prot_map[peptide_evidence["dBSequence_ref"]],        #'protein_accession',
+                "ACCESSION", #db_seq_ref_prot_map[peptide_evidence["dBSequence_ref"]],        #'protein_accession',
                 pep_start,                                                      # 'pep_start',
                 is_decoy,       # 'is_decoy',
                 self.upload_id  # 'upload_id'
@@ -653,7 +665,15 @@ class MzIdParser:
 
                 protocol = self.spectra_data_protocol_map[sid_result['spectraData_ref']]
 
-                spectra.append([
+                if scan['precursor'] is not None:
+                    precursor_mz = scan['precursor']['mz']
+                    precursor_charge = scan['precursor']['charge']
+                else:
+                    # give warning precursor info is missing
+                    precursor_mz = None
+                    precursor_charge = None
+
+            spectra.append([
                     spec_id,
                     scan['peaks'],
                     ntpath.basename(peak_list_reader.peak_list_path),
@@ -661,8 +681,8 @@ class MzIdParser:
                     protocol['fragmentTolerance'],
                     self.upload_id,
                     sid_result['id'],
-                    scan['precursor']['mz'],
-                    scan['precursor']['charge']
+                    precursor_mz,
+                    precursor_charge
                 ])
 
             spectrum_ident_dict = dict()

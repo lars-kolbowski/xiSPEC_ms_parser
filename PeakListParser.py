@@ -105,7 +105,9 @@ class PeakListParser:
 
         if self.is_mzML():
             peak_list = "\n".join(["%s %s" % (mz, i) for mz, i in scan.peaks if i > 0])
-            precursor = scan['precursors'][0]
+            precursor = None
+            if 'precursors' in scan:
+                precursor = scan['precursors'][0]
 
         elif self.is_mgf():
             peak_list = scan['peaks']
