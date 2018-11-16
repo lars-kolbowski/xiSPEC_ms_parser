@@ -89,7 +89,9 @@ class TestLoop:
             # MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger,
             #                       user_id=user_id)
             mzId_parser = MzIdParser(path, self.temp_dir,  self.temp_dir, db, self.logger, 0, origin=ymp)
+            peak_files = mzId_parser.get_peak_list_file_names()
         except Exception as mzId_error:
+            self.logger.exception(mzId_error)
             error = json.dumps(mzId_error.args, cls=NumpyEncoder)
 
             con = db.connect('')
@@ -112,7 +114,6 @@ class TestLoop:
 
 
         # fetch peak list files from pride
-        peak_files = mzId_parser.get_peak_list_file_names()
         for peak_file in peak_files:
             # don't download raw files, neater to download everything else even if not supported peak list format
             if not peak_file.endswith('raw'):
@@ -222,7 +223,7 @@ test_loop = TestLoop()
 # test_loop.year('2013')
 # test_loop.month('2012/12')
 
-test_loop.project("2018/10/PXD006183")
+test_loop.project("2017/11/PXD006079")
 
 
 

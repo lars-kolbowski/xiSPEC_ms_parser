@@ -171,7 +171,8 @@ class MzIdParser:
                     except IOError:
                         raise MzIdParseException('Missing peak list file: %s' % peak_list_file_path)
 
-            peak_list_readers[sd_id] = peak_list_reader
+                peak_list_readers[sd_id] = peak_list_reader
+
 
         self.peak_list_readers = peak_list_readers
 
