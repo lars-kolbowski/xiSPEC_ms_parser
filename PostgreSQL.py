@@ -65,13 +65,12 @@ def get_random_id(upload_id, cur, con):
     return rows[0][0]
 
 
-def write_other_info(upload_id, crosslinks, ident_count, ident_file_size, peaks_size, upload_warnings, cur, con):
+def write_other_info(upload_id, crosslinks, ident_count, ident_file_size, upload_warnings, cur, con):
     try:
         cur.execute("""UPDATE uploads SET contains_crosslinks = (%s), ident_count = (%s)
                 , ident_file_size = (%s)
-                , zipped_peak_list_file_size = (%s)
                 , upload_warnings = (%s)
-                 WHERE id = (%s);""", (crosslinks, ident_count, ident_file_size, peaks_size, json.dumps(upload_warnings), upload_id))
+                 WHERE id = (%s);""", (crosslinks, ident_count, ident_file_size, json.dumps(upload_warnings), upload_id))
 
         con.commit()
 
@@ -90,7 +89,7 @@ def write_error(upload_id, error_type, error, cur, con):
         cur.execute("DELETE FROM db_sequences WHERE upload_id = " + str(upload_id) + ";")
         con.commit()
 
-        cur.execute("DELETE FROM peptides WHERE id = '" + str(upload_id) + "';")
+        cur.execute("DELETE FROM peptides WHERE upload_id = '" + str(upload_id) + "';")
         con.commit()
 
         cur.execute("DELETE FROM peptide_evidences WHERE upload_id = " + str(upload_id) + ";")
