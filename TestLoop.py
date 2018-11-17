@@ -223,7 +223,7 @@ test_loop = TestLoop()
 # test_loop.year('2013')
 # test_loop.month('2012/12')
 
-test_loop.project("2017/11/PXD006079")
+test_loop.project("2013/10/PXD000393")
 
 
 

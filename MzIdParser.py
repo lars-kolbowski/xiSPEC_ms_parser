@@ -19,7 +19,7 @@ class MzIdParser:
     """
 
     """
-    def __init__(self, mzid_path, temp_dir, peak_list_dir, db, logger, db_name='', user_id=0, origin='', peaks_size=''):
+    def __init__(self, mzid_path, temp_dir, peak_list_dir, db, logger, db_name='', user_id=0, origin=''):
         """
 
         :param mzid_path: path to mzidentML file
@@ -79,7 +79,6 @@ class MzIdParser:
             sys.exit(1)
 
         self.ident_file_size = os.path.getsize(self.mzId_path)
-        self.peaks_size = peaks_size
 
         self.logger.info('reading mzid - start ' + self.mzId_path)
         self.start_time = time()
@@ -143,36 +142,26 @@ class MzIdParser:
 
             sd_id = sp_datum['id']
             peak_list_file_name = ntpath.basename(sp_datum['location'])
-
-            # throw error if not supported file format (mzId files may also include raw files in SpectraData)
-            ff_acc = sp_datum['FileFormat']['accession']
-            if not any([peak_list_file_name.lower().endswith('.raw'),
-                        ff_acc == 'MS:1001062', ff_acc == 'MS:1000584', ff_acc == 'MS:1001466']):
-                raise MzIdParseException('Unsupported peak list file format for: %s' % peak_list_file_name)
-
             peak_list_file_path = self.peak_list_dir + peak_list_file_name
 
-            # ignore raw files, prob neater way here
-            if not peak_list_file_name.lower().endswith('.raw'):
+            try:
+                peak_list_reader = PeakListParser(
+                    peak_list_file_path,
+                    sp_datum['FileFormat']['accession'],
+                    sp_datum['SpectrumIDFormat']['accession']
+                )
+            except IOError:
+                # try gz version
                 try:
                     peak_list_reader = PeakListParser(
-                        peak_list_file_path,
+                        PeakListParser.extract_gz(peak_list_file_path + '.gz'),
                         sp_datum['FileFormat']['accession'],
                         sp_datum['SpectrumIDFormat']['accession']
                     )
                 except IOError:
-                    # try gz version
-                    try:
-                        peak_list_reader = PeakListParser(
-                            PeakListParser.extract_gz(peak_list_file_path + '.gz'),
-                            sp_datum['FileFormat']['accession'],
-                            sp_datum['SpectrumIDFormat']['accession']
-                        )
-                    except IOError:
-                        raise MzIdParseException('Missing peak list file: %s' % peak_list_file_path)
+                    raise MzIdParseException('Missing peak list file: %s' % peak_list_file_path)
 
-                peak_list_readers[sd_id] = peak_list_reader
-
+            peak_list_readers[sd_id] = peak_list_reader
 
         self.peak_list_readers = peak_list_readers
 
@@ -901,8 +890,7 @@ class MzIdParser:
 
     def other_info(self):
         self.db.write_other_info(self.upload_id, self.contains_crosslinks, self.ident_count,
-                                 self.ident_file_size, self.peaks_size,
-                                 self.warnings, self.cur, self.con);
+                                 self.ident_file_size, self.warnings, self.cur, self.con);
 
 
 class xiSPEC_MzIdParser(MzIdParser):
