@@ -89,7 +89,7 @@ class TestLoop:
             # MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger,
             #                       user_id=user_id)
             mzId_parser = MzIdParser(path, self.temp_dir,  self.temp_dir, db, self.logger, 0, origin=ymp)
-            peak_files = mzId_parser.get_peak_list_file_names()
+            peak_files = mzId_parser.get_supported_peak_list_file_names()
         except Exception as mzId_error:
             self.logger.exception(mzId_error)
             error = json.dumps(mzId_error.args, cls=NumpyEncoder)
@@ -116,44 +116,44 @@ class TestLoop:
         # fetch peak list files from pride
         for peak_file in peak_files:
             # don't download raw files, neater to download everything else even if not supported peak list format
-            if not peak_file.endswith('raw'):
-                ftp = self.get_ftp_login()
+            # if not peak_file.endswith('raw'):
+            ftp = self.get_ftp_login()
+            try:
+                ftp.cwd(target_dir)
+                print('getting ' + peak_file)
+                ftp.retrbinary("RETR " + peak_file,
+                               open(self.temp_dir + peak_file, 'wb').write)
+            except ftplib.error_perm as e:
+                print('missing file: ' + peak_file + " (checking for .gz)")
+                #  check for gzipped
                 try:
-                    ftp.cwd(target_dir)
-                    print('getting ' + peak_file)
-                    ftp.retrbinary("RETR " + peak_file,
-                                   open(self.temp_dir + peak_file, 'wb').write)
+                    os.remove(self.temp_dir + peak_file)
+                    print('getting ' + peak_file + '.gz')
+                    # ftp.cwd(target_dir + '/generated/')
+                    ftp.retrbinary("RETR " + peak_file + '.gz',
+                                   open(self.temp_dir + '/' + peak_file + '.gz', 'wb').write)
                 except ftplib.error_perm as e:
-                    print('missing file: ' + peak_file + " (checking for .gz)")
-                    #  check for gzipped
-                    try:
-                        os.remove(self.temp_dir + peak_file)
-                        print('getting ' + peak_file + '.gz')
-                        # ftp.cwd(target_dir + '/generated/')
-                        ftp.retrbinary("RETR " + peak_file + '.gz',
-                                       open(self.temp_dir + '/' + peak_file + '.gz', 'wb').write)
-                    except ftplib.error_perm as e:
-                        ftp.close()
-                        print('missing file: ' + peak_file + '.gz')
-
-                        warnings = json.dumps(mzId_parser.warnings, cls=NumpyEncoder)
-
-                        con = db.connect('')
-                        cur = con.cursor()
-                        try:
-                            cur.execute("""
-                            UPDATE uploads SET
-                                error_type=%s,
-                                upload_error=%s,
-                                upload_warnings=%s
-                            WHERE id = %s""", ["Missing file?", peak_file, warnings, mzId_parser.upload_id])
-                            con.commit()
-                        except psycopg2.Error as e:
-                            raise db.DBException(e.message)
-                        con.close()
-                        return
                     ftp.close()
+                    print('missing file: ' + peak_file + '.gz')
+
+                    warnings = json.dumps(mzId_parser.warnings, cls=NumpyEncoder)
+
+                    con = db.connect('')
+                    cur = con.cursor()
+                    try:
+                        cur.execute("""
+                        UPDATE uploads SET
+                            error_type=%s,
+                            upload_error=%s,
+                            upload_warnings=%s
+                        WHERE id = %s""", ["Missing file?", peak_file, warnings, mzId_parser.upload_id])
+                        con.commit()
+                    except psycopg2.Error as e:
+                        raise db.DBException(e.message)
+                    con.close()
+                    return
                 ftp.close()
+            ftp.close()
 
         # actually parse
         try:
@@ -223,7 +223,7 @@ test_loop = TestLoop()
 # test_loop.year('2013')
 # test_loop.month('2012/12')
 
-test_loop.project("2013/10/PXD000393")
+test_loop.project("2018/10/PXD010121") # good one, raw file with MGF accession number
 
 
 

@@ -91,7 +91,7 @@ class MzIdParser:
         self.logger.info('reading mzid - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
 
     # used by TestLoop when downloading files from PRIDE
-    def get_peak_list_file_names(self):
+    def get_supported_peak_list_file_names(self):
         """
         :return: list of all used peak list file names
         """
@@ -99,12 +99,21 @@ class MzIdParser:
         for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
             # can crash here if
             # lxml.etree.XMLSyntaxError: Input is not proper UTF-8, indicate encoding !
-            try:
+
+            try: # not certain the try-except here is necessary
                 sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
             except Exception as e:
                 raise MzIdParseException(e)
-            peak_list_file_name = ntpath.basename(sp_datum['location'])
-            peak_list_file_names.append(peak_list_file_name)
+
+            self.check_spectra_validity(sp_datum)
+
+            ff_acc = sp_datum['FileFormat']['accession']
+
+            if any([ff_acc == 'MS:1001062', #MGF
+                    ff_acc == 'MS:1000584', #mzML
+                    ff_acc == 'MS:1001466' #ms2
+                    ]):
+                peak_list_file_names.append(ntpath.basename(sp_datum['location']))
 
         return peak_list_file_names
 
@@ -119,26 +128,7 @@ class MzIdParser:
         for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
             sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
 
-            # is there anything we'd like to complain about?
-            # SpectrumIDFormat
-            if 'SpectrumIDFormat' not in sp_datum or sp_datum['SpectrumIDFormat'] is None:
-                raise MzIdParseException('SpectraData is missing SpectrumIdFormat')
-            if isinstance(sp_datum['SpectrumIDFormat'], basestring):
-                raise MzIdParseException('SpectraData/SpectrumIdFormat is missing accession')
-            if sp_datum['SpectrumIDFormat']['accession'] is None:
-                raise MzIdParseException('SpectraData/SpectrumIdFormat is missing accession')
-
-            # FileFormat
-            if 'FileFormat' not in sp_datum or sp_datum['FileFormat'] is None:
-                raise MzIdParseException('SpectraData is missing FileFormat')
-            if isinstance(sp_datum['FileFormat'], basestring):
-                raise MzIdParseException('SpectraData/SpectrumIdFormat is missing accession')
-            if sp_datum['FileFormat']['accession'] is None:
-                raise MzIdParseException('SpectraData/FileFormat is missing accession')
-
-            # location
-            if 'location' not in sp_datum or sp_datum['location'] is None:
-                raise MzIdParseException('SpectraData is missing location')
+            self.check_spectra_validity(sp_datum)
 
             sd_id = sp_datum['id']
             peak_list_file_name = ntpath.basename(sp_datum['location'])
@@ -164,6 +154,28 @@ class MzIdParser:
             peak_list_readers[sd_id] = peak_list_reader
 
         self.peak_list_readers = peak_list_readers
+
+    def check_spectra_data_validity (self, sp_datum):
+        # is there anything we'd like to complain about?
+        # SpectrumIDFormat
+        if 'SpectrumIDFormat' not in sp_datum or sp_datum['SpectrumIDFormat'] is None:
+            raise MzIdParseException('SpectraData is missing SpectrumIdFormat')
+        if isinstance(sp_datum['SpectrumIDFormat'], basestring):
+            raise MzIdParseException('SpectraData/SpectrumIdFormat is missing accession')
+        if sp_datum['SpectrumIDFormat']['accession'] is None:
+            raise MzIdParseException('SpectraData/SpectrumIdFormat is missing accession')
+
+        # FileFormat
+        if 'FileFormat' not in sp_datum or sp_datum['FileFormat'] is None:
+            raise MzIdParseException('SpectraData is missing FileFormat')
+        if isinstance(sp_datum['FileFormat'], basestring):
+            raise MzIdParseException('SpectraData/SpectrumIdFormat is missing accession')
+        if sp_datum['FileFormat']['accession'] is None:
+            raise MzIdParseException('SpectraData/FileFormat is missing accession')
+
+        # location
+        if 'location' not in sp_datum or sp_datum['location'] is None:
+            raise MzIdParseException('SpectraData is missing location')
 
     def parse(self):
 
