@@ -105,7 +105,7 @@ class MzIdParser:
             except Exception as e:
                 raise MzIdParseException(e)
 
-            self.check_spectra_validity(sp_datum)
+            self.check_spectra_data_validity(sp_datum)
 
             ff_acc = sp_datum['FileFormat']['accession']
 
@@ -128,7 +128,7 @@ class MzIdParser:
         for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
             sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
 
-            self.check_spectra_validity(sp_datum)
+            self.check_spectra_data_validity(sp_datum)
 
             sd_id = sp_datum['id']
             peak_list_file_name = ntpath.basename(sp_datum['location'])
