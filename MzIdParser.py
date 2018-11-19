@@ -117,6 +117,25 @@ class MzIdParser:
 
         return peak_list_file_names
 
+    # used by TestLoop when downloading files from PRIDE
+    def get_all_peak_list_file_names(self):
+        """
+        :return: list of all used peak list file names
+        """
+        peak_list_file_names = []
+        for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
+            # can crash here if
+            # lxml.etree.XMLSyntaxError: Input is not proper UTF-8, indicate encoding !
+
+            try: # not certain the try-except here is necessary
+                sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
+            except Exception as e:
+                raise MzIdParseException(e)
+
+            peak_list_file_names.append(ntpath.basename(sp_datum['location']))
+
+        return peak_list_file_names
+
     def init_peak_list_readers(self):
         """
         sets self.peak_list_readers by looping through SpectraData elements
@@ -827,7 +846,7 @@ class MzIdParser:
         upload_info_start_time = time()
         self.logger.info('parse upload info - start')
 
-        peak_list_file_names = json.dumps(self.get_peak_list_file_names(), cls=NumpyEncoder)
+        peak_list_file_names = json.dumps(self.get_all_peak_list_file_names(), cls=NumpyEncoder)
 
         spectra_formats = []
         for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
