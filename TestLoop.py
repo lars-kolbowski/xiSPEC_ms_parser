@@ -84,34 +84,18 @@ class TestLoop:
             raise e
         ftp.quit()
 
+        mzid_parser = MzIdParser(path, self.temp_dir, self.temp_dir, db, self.logger, 0, origin=ymp)
+
         # init parser
         try:
-            # MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger,
-            #                       user_id=user_id)
-            mzId_parser = MzIdParser(path, self.temp_dir,  self.temp_dir, db, self.logger, 0, origin=ymp)
-            peak_files = mzId_parser.get_supported_peak_list_file_names()
+            mzid_parser.initialise_mzid_reader()
+            peak_files = mzid_parser.get_supported_peak_list_file_names()
         except Exception as mzId_error:
             self.logger.exception(mzId_error)
             error = json.dumps(mzId_error.args, cls=NumpyEncoder)
-
             con = db.connect('')
             cur = con.cursor()
-            try:
-                cur.execute("""
-                        INSERT INTO uploads (
-                            user_id,
-                            origin,
-                            filename,
-                            error_type,
-                            upload_error)
-                        VALUES (%s, %s, %s, %s, %s)""",
-                            [5, ymp, file_name, type(mzId_error).__name__, error])
-                con.commit()
-            except psycopg2.Error as e:
-                raise db.DBException(e.message)
-            con.close()
-            return
-
+            db.write_error(mzid_parser.upload_id, type(mzId_error).__name__, error, cur, con)
 
         # fetch peak list files from pride
         for peak_file in peak_files:
@@ -136,7 +120,7 @@ class TestLoop:
                     ftp.close()
                     print('missing file: ' + peak_file + '.gz')
 
-                    warnings = json.dumps(mzId_parser.warnings, cls=NumpyEncoder)
+                    warnings = json.dumps(mzid_parser.warnings, cls=NumpyEncoder)
 
                     con = db.connect('')
                     cur = con.cursor()
@@ -146,7 +130,7 @@ class TestLoop:
                             error_type=%s,
                             upload_error=%s,
                             upload_warnings=%s
-                        WHERE id = %s""", ["Missing file?", peak_file, warnings, mzId_parser.upload_id])
+                        WHERE id = %s""", ["Missing file?", peak_file, warnings, mzid_parser.upload_id])
                         con.commit()
                     except psycopg2.Error as e:
                         raise db.DBException(e.message)
@@ -157,22 +141,22 @@ class TestLoop:
 
         # actually parse
         try:
-            mzId_parser.parse()
-        except Exception as mzId_error:
-            self.logger.exception(mzId_error)
+            mzid_parser.parse()
+        except Exception as mzid_error:
+            self.logger.exception(mzid_error)
 
-            error = json.dumps(mzId_error.args, cls=NumpyEncoder)
+            error = json.dumps(mzid_error.args, cls=NumpyEncoder)
 
             con = db.connect('')
             cur = con.cursor()
-            db.write_error(mzId_parser.upload_id, type(mzId_error).__name__, error, cur, con)
+            db.write_error(mzid_parser.upload_id, type(mzid_error).__name__, error, cur, con)
 
         try:
             shutil.rmtree(self.temp_dir)
         except OSError:
             pass
         self.mzId_count = self.mzId_count + 1
-        mzId_parser = None
+        mzid_parser = None
         gc.collect()
 
     def get_ftp_login(self):

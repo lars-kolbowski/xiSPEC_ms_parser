@@ -31,9 +31,9 @@ class MzIdParser:
 
         self.upload_id = 0
         if mzid_path.endswith('.gz') or mzid_path.endswith('.zip'):
-            self.mzId_path = MzIdParser.extract_mzid(mzid_path)
+            self.mzid_path = MzIdParser.extract_mzid(mzid_path)
         else:
-            self.mzId_path = mzid_path
+            self.mzid_path = mzid_path
         self.peak_list_readers = {}  # peak list readers indexed by spectraData_ref
         self.temp_dir = temp_dir
         if not self.temp_dir.endswith('/'):
@@ -47,7 +47,6 @@ class MzIdParser:
 
         self.db = db
         self.logger = logger
-        self.origin = origin
 
         # look up table populated by parse_peptides function
         # self.peptide_id_lookup = {}
@@ -78,13 +77,19 @@ class MzIdParser:
             print(e)
             sys.exit(1)
 
-        self.ident_file_size = os.path.getsize(self.mzId_path)
+        ident_file_size = os.path.getsize(self.mzid_path)
 
-        self.logger.info('reading mzid - start ' + self.mzId_path)
-        self.start_time = time()
+        self.upload_id = self.db.new_upload([user_id, os.path.basename(self.mzid_path), origin, ident_file_size],
+                                             self.cur, self.con)
+
+        self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)
+
+    def initialise_mzid_reader(self):
+        self.logger.info('reading mzid - start ' + self.mzid_path)
+        start_time = time()
         # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
         try:
-            self.mzid_reader = py_mzid.MzIdentML(self.mzId_path)
+            self.mzid_reader = py_mzid.MzIdentML(self.mzid_path)
         except Exception as e:
             raise MzIdParseException(type(e).__name__, e.args)
 
@@ -92,7 +97,7 @@ class MzIdParser:
             sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
             self.check_spectra_data_validity(sp_datum)
 
-        self.logger.info('reading mzid - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
+        self.logger.info('reading mzid - done. Time: ' + str(round(time() - start_time, 2)) + " sec")
 
     # used by TestLoop when downloading files from PRIDE
     def get_supported_peak_list_file_names(self):
@@ -906,12 +911,16 @@ class MzIdParser:
         bibRefs = json.dumps(bibRefs)
         self.mzid_reader.reset()
 
-        self.upload_id = self.db.write_upload([self.user_id, os.path.basename(self.mzId_path), peak_list_file_names,
-                                               spectra_formats, analysis_software, provider, audits, samples, analyses,
-                                               protocols, bibRefs, self.origin, self.warnings],
-                                              self.cur, self.con)
-
-        self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)
+        self.db.write_mzid_info(peak_list_file_names,
+                                spectra_formats,
+                                analysis_software,
+                                provider,
+                                audits,
+                                samples,
+                                analyses,
+                                protocols,
+                                bibRefs,
+                                self.upload_id, self.cur, self.con);
 
         self.logger.info(
             'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
@@ -920,8 +929,8 @@ class MzIdParser:
         pass
 
     def other_info(self):
-        self.db.write_other_info(self.upload_id, self.contains_crosslinks, self.ident_count,
-                                 self.ident_file_size, self.warnings, self.cur, self.con);
+        self.db.write_other_info(self.upload_id, self.contains_crosslinks, self.ident_count, self.warnings,
+                                 self.cur, self.con);
 
 
 class xiSPEC_MzIdParser(MzIdParser):

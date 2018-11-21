@@ -26,26 +26,17 @@ def create_tables(cur, con):
     return True
 
 
-def write_upload(inj_list, cur, con):
+def new_upload(inj_list, cur, con):
     try:
         cur.execute("""
     INSERT INTO uploads (
         user_id,
         filename,
-        peak_list_file_names,
-        spectra_formats,
-        analysis_software,
-        provider,
-        audits,
-        samples,
-        analyses,
-        protocol,
-        bib,
-        upload_time,
-        origin,
-        upload_warnings
+        origin, 
+        ident_file_size,        
+        upload_time
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s, %s) RETURNING id AS upload_id""", inj_list)
+    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP) RETURNING id AS upload_id""", inj_list)
         con.commit()
 
     except psycopg2.Error as e:
@@ -65,12 +56,48 @@ def get_random_id(upload_id, cur, con):
     return rows[0][0]
 
 
-def write_other_info(upload_id, crosslinks, ident_count, ident_file_size, upload_warnings, cur, con):
+def write_mzid_info(peak_list_file_names,
+                    spectra_formats,
+                    analysis_software,
+                    provider,
+                    audits,
+                    samples,
+                    analyses,
+                    protocol,
+                    bib,
+                    upload_id, cur, con):
+    try:
+        cur.execute("""UPDATE uploads SET 
+                        peak_list_file_names = (%s),
+                        spectra_formats = (%s),
+                        analysis_software = (%s),
+                        provider = (%s),
+                        audits = (%s),
+                        samples = (%s),
+                        analyses = (%s),
+                        protocol = (%s),
+                        bib = (%s) 
+                        WHERE id = (%s);""",
+                    (peak_list_file_names,
+                    spectra_formats,
+                    analysis_software,
+                    provider,
+                    audits,
+                    samples,
+                    analyses,
+                    protocol,
+                    bib,
+                    upload_id))
+        con.commit()
+    except psycopg2.Error as e:
+        raise DBException(e.message)
+    return True
+
+def write_other_info(upload_id, crosslinks, ident_count, upload_warnings, cur, con):
     try:
         cur.execute("""UPDATE uploads SET contains_crosslinks = (%s), ident_count = (%s)
-                , ident_file_size = (%s)
                 , upload_warnings = (%s)
-                 WHERE id = (%s);""", (crosslinks, ident_count, ident_file_size, json.dumps(upload_warnings), upload_id))
+                 WHERE id = (%s);""", (crosslinks, ident_count, json.dumps(upload_warnings), upload_id))
 
         con.commit()
 
