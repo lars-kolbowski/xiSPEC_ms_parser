@@ -263,7 +263,7 @@ class CsvParser:
                         raise IOError('unsupported file type: %s' % file_name)
 
             if len(return_file_list) > 1:
-                raise StandardError("more than one mzid file found!")
+                raise StandardError("more than one csv file found!")
 
             return return_file_list[0]
 

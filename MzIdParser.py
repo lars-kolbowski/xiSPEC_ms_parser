@@ -88,27 +88,21 @@ class MzIdParser:
         except Exception as e:
             raise MzIdParseException(type(e).__name__, e.args)
 
+        for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
+            sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
+            self.check_spectra_data_validity(sp_datum)
+
         self.logger.info('reading mzid - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
 
     # used by TestLoop when downloading files from PRIDE
     def get_supported_peak_list_file_names(self):
         """
-        :return: list of all used peak list file names
+        :return: list of all supported peak list file names
         """
         peak_list_file_names = []
         for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
-            # can crash here if
-            # lxml.etree.XMLSyntaxError: Input is not proper UTF-8, indicate encoding !
-
-            try: # not certain the try-except here is necessary
-                sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
-            except Exception as e:
-                raise MzIdParseException(e)
-
-            self.check_spectra_data_validity(sp_datum)
-
+            sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
             ff_acc = sp_datum['FileFormat']['accession']
-
             if any([ff_acc == 'MS:1001062', #MGF
                     ff_acc == 'MS:1000584', #mzML
                     ff_acc == 'MS:1001466' #ms2
@@ -120,18 +114,11 @@ class MzIdParser:
     # used by TestLoop when downloading files from PRIDE
     def get_all_peak_list_file_names(self):
         """
-        :return: list of all used peak list file names
+        :return: list of all peak list file names
         """
         peak_list_file_names = []
         for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
-            # can crash here if
-            # lxml.etree.XMLSyntaxError: Input is not proper UTF-8, indicate encoding !
-
-            try: # not certain the try-except here is necessary
-                sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
-            except Exception as e:
-                raise MzIdParseException(e)
-
+            sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
             peak_list_file_names.append(ntpath.basename(sp_datum['location']))
 
         return peak_list_file_names
@@ -861,14 +848,17 @@ class MzIdParser:
             analysis_software = json.dumps(self.mzid_reader.iterfind('AnalysisSoftwareList').next()['AnalysisSoftware'])
         except StopIteration:
             analysis_software = '{}'
+        except Exception as e:
+            raise MzIdParseException(type(e).__name__, e.args)
         self.mzid_reader.reset()
 
         # Provider - optional element
-        provider = '{}'
         try:
             provider = json.dumps(self.mzid_reader.iterfind('Provider').next())
         except StopIteration:
-            pass
+            provider = '{}'
+        except Exception as e:
+            raise MzIdParseException(type(e).__name__, e.args)
         self.mzid_reader.reset()
 
         # AuditCollection - optional element
@@ -877,26 +867,36 @@ class MzIdParser:
             audits = json.dumps(self.mzid_reader.iterfind('AuditCollection').next())
         except StopIteration:
             audits = '{}'
+        except Exception as e:
+            raise MzIdParseException(type(e).__name__, e.args)
         self.mzid_reader.reset()
 
         # AnalysisSampleCollection - optional element
-        samples = '{}'
         try:
             samples = json.dumps(self.mzid_reader.iterfind('AnalysisSampleCollection').next()['Sample'])
         except StopIteration:
             samples = '{}'
+        except Exception as e:
+            raise MzIdParseException(type(e).__name__, e.args)
         self.mzid_reader.reset()
 
-        # AnalysisCollection - required element
-        analyses = '{}'
-        analyses = json.dumps(self.mzid_reader.iterfind('AnalysisCollection').next()['SpectrumIdentification'])
+        # AnalysisCollection - required element, StopIteration exception shouldn't happen
+        try:
+            analyses = json.dumps(self.mzid_reader.iterfind('AnalysisCollection').next()['SpectrumIdentification'])
+        except StopIteration:
+            analyses = '{}' # could legitimately throw error here instead, its required
+        except Exception as e:
+            raise MzIdParseException(type(e).__name__, e.args)
         self.mzid_reader.reset()
 
         # AnalysisProtocolCollection - required element
-        protocols = '{}'
-        protocol_collection = self.mzid_reader.iterfind('AnalysisProtocolCollection').next()
-        protocols = protocol_collection['SpectrumIdentificationProtocol']
-        protocols = json.dumps(protocols, cls=NumpyEncoder)
+        try:
+            protocol_collection = self.mzid_reader.iterfind('AnalysisProtocolCollection').next()
+            protocols = json.dumps(protocol_collection['SpectrumIdentificationProtocol'], cls=NumpyEncoder)
+        except StopIteration:
+            protocols = '{}' # could legitimately throw error here instead, its required
+        except Exception as e:
+            raise MzIdParseException(type(e).__name__, e.args)
         self.mzid_reader.reset()
 
         # BibliographicReference - optional element

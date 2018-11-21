@@ -223,13 +223,15 @@ test_loop = TestLoop()
 # test_loop.year('2013')
 # test_loop.month('2012/12')
 
-test_loop.project("2018/10/PXD010121") # good one, raw file with MGF accession number
+test_loop.project("2018/10/PXD007226")
+
+# test_loop.project("2018/10/PXD010121") # good one, raw file with MGF accession number
 
 
 
 
 # mzML
-# test_loop.project("2017/11/PXD007748")
+test_loop.project("2017/11/PXD007748")
 # test_loop.project("2016/11/PXD004785")
 # test_loop.project("2016/05/PXD002967")
 # test_loop.project("2016/09/PXD004499")
