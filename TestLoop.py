@@ -89,6 +89,8 @@ class TestLoop:
         # init parser
         try:
             mzid_parser.initialise_mzid_reader()
+            mzid_parser.upload_info()
+            mzid_parser.check_all_spectra_data_validity()
             peak_files = mzid_parser.get_supported_peak_list_file_names()
         except Exception as mzId_error:
             self.logger.exception(mzId_error)
@@ -117,7 +119,7 @@ class TestLoop:
                     ftp.retrbinary("RETR " + peak_file + '.gz',
                                    open(self.temp_dir + '/' + peak_file + '.gz', 'wb').write)
                 except ftplib.error_perm as e:
-                    ftp.close()
+                    ftp.quit()
                     print('missing file: ' + peak_file + '.gz')
 
                     warnings = json.dumps(mzid_parser.warnings, cls=NumpyEncoder)
@@ -136,17 +138,15 @@ class TestLoop:
                         raise db.DBException(e.message)
                     con.close()
                     return
-                ftp.close()
-            ftp.close()
+                ftp.quit()
+            ftp.quit()
 
         # actually parse
         try:
             mzid_parser.parse()
         except Exception as mzid_error:
             self.logger.exception(mzid_error)
-
             error = json.dumps(mzid_error.args, cls=NumpyEncoder)
-
             con = db.connect('')
             cur = con.cursor()
             db.write_error(mzid_parser.upload_id, type(mzid_error).__name__, error, cur, con)

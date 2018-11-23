@@ -93,10 +93,6 @@ class MzIdParser:
         except Exception as e:
             raise MzIdParseException(type(e).__name__, e.args)
 
-        for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
-            sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
-            self.check_spectra_data_validity(sp_datum)
-
         self.logger.info('reading mzid - done. Time: ' + str(round(time() - start_time, 2)) + " sec")
 
     # used by TestLoop when downloading files from PRIDE
@@ -166,6 +162,11 @@ class MzIdParser:
 
         self.peak_list_readers = peak_list_readers
 
+    def check_all_spectra_data_validity(self):
+        for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
+            sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
+            self.check_spectra_data_validity(sp_datum)
+
     def check_spectra_data_validity (self, sp_datum):
         # is there anything we'd like to complain about?
         # SpectrumIDFormat
@@ -192,7 +193,7 @@ class MzIdParser:
 
         start_time = time()
 
-        self.upload_info()  # overridden (empty function) in xiSPEC subclass
+        #self.upload_info()  # overridden (empty function) in xiSPEC subclass
 
         if self.peak_list_dir:
             self.init_peak_list_readers()
