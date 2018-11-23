@@ -98,6 +98,7 @@ class TestLoop:
             con = db.connect('')
             cur = con.cursor()
             db.write_error(mzid_parser.upload_id, type(mzId_error).__name__, error, cur, con)
+            return
 
         # fetch peak list files from pride
         for peak_file in peak_files:
@@ -207,7 +208,7 @@ test_loop = TestLoop()
 # test_loop.year('2013')
 # test_loop.month('2012/12')
 
-test_loop.project("2018/10/PXD007226")
+test_loop.project("2018/11/PXD009966")
 
 # test_loop.project("2018/10/PXD010121") # good one, raw file with MGF accession number
 
