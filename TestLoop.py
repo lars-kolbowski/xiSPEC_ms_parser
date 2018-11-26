@@ -98,6 +98,7 @@ class TestLoop:
             con = db.connect('')
             cur = con.cursor()
             db.write_error(mzid_parser.upload_id, type(mzId_error).__name__, error, cur, con)
+            con.close()
             return
 
         # fetch peak list files from pride
@@ -120,7 +121,6 @@ class TestLoop:
                     ftp.retrbinary("RETR " + peak_file + '.gz',
                                    open(self.temp_dir + '/' + peak_file + '.gz', 'wb').write)
                 except ftplib.error_perm as e:
-                    ftp.quit()
                     print('missing file: ' + peak_file + '.gz')
 
                     warnings = json.dumps(mzid_parser.warnings, cls=NumpyEncoder)
@@ -139,8 +139,8 @@ class TestLoop:
                         raise db.DBException(e.message)
                     con.close()
                     return
-                ftp.quit()
-            ftp.quit()
+
+            ftp.close()
 
         # actually parse
         try:
@@ -151,6 +151,7 @@ class TestLoop:
             con = db.connect('')
             cur = con.cursor()
             db.write_error(mzid_parser.upload_id, type(mzid_error).__name__, error, cur, con)
+            con.close()
 
         try:
             shutil.rmtree(self.temp_dir)
@@ -161,6 +162,7 @@ class TestLoop:
         gc.collect()
 
     def get_ftp_login(self):
+        time.sleep(10)
         while True:
             try:
                 ftp = ftplib.FTP(self.ip)
@@ -191,7 +193,7 @@ class TestLoop:
                 error_msg = "%s: %s" % (dir, ftplib.error_perm.args[0])
                 print error_msg
 
-        ftp.quit()
+        ftp.close()
         files.reverse()
         return files
 
@@ -208,7 +210,10 @@ test_loop = TestLoop()
 # test_loop.year('2013')
 # test_loop.month('2012/12')
 
-test_loop.project("2018/11/PXD009966")
+
+test_loop.project("2018/06/PXD010000")
+
+# test_loop.project("2018/11/PXD009966")
 
 # test_loop.project("2018/10/PXD010121") # good one, raw file with MGF accession number
 
@@ -216,7 +221,7 @@ test_loop.project("2018/11/PXD009966")
 
 
 # mzML
-test_loop.project("2017/11/PXD007748")
+# test_loop.project("2017/11/PXD007748")
 # test_loop.project("2016/11/PXD004785")
 # test_loop.project("2016/05/PXD002967")
 # test_loop.project("2016/09/PXD004499")

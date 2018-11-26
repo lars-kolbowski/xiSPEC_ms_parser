@@ -141,13 +141,15 @@ class MzIdParser:
             peak_list_file_name = ntpath.basename(sp_datum['location'])
             peak_list_file_path = self.peak_list_dir + peak_list_file_name
 
+            #if :
+
             try:
                 peak_list_reader = PeakListParser(
                     peak_list_file_path,
                     sp_datum['FileFormat']['accession'],
                     sp_datum['SpectrumIDFormat']['accession']
                 )
-            except IOError:
+            except Exception:
                 # try gz version
                 try:
                     peak_list_reader = PeakListParser(
@@ -212,6 +214,8 @@ class MzIdParser:
         self.other_info()
 
         self.logger.info('all done! Total time: ' + str(round(time() - start_time, 2)) + " sec")
+
+        self.con.close()
 
     def get_ion_types_mzid(self, sid_item):
         try:
