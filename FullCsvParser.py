@@ -464,7 +464,7 @@ class FullCsvParser(AbstractCsvParser):
             # ToDo: check against unimod?
 
             try:
-                modifications = re.search('([^A-Z]+)', ''.join([pepseq1, pepseq2])).groups()
+                modifications = re.findall('[^A-Z]+', ''.join([pepseq1, pepseq2]))
             except AttributeError:
                 modifications = []
 
