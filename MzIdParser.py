@@ -195,7 +195,7 @@ class MzIdParser:
 
         start_time = time()
 
-        #self.upload_info()  # overridden (empty function) in xiSPEC subclass
+        self.upload_info()  # overridden (empty function) in xiSPEC subclass
 
         if self.peak_list_dir:
             self.init_peak_list_readers()

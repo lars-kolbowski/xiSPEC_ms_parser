@@ -246,10 +246,10 @@ class AbstractCsvParser:
         self.logger.info('reading fasta - done. Time: ' + str(round(time() - self.start_time, 2)) + " sec")
 
     def upload_info(self):
-       self.logger.info('write upload info')
+       self.logger.info('new csv upload')
+       ident_file_size = os.path.getsize(self.csv_path)
        # peak_list_file_names = json.dumps(self.get_peak_list_file_names(), cls=NumpyEncoder)
-       self.upload_id = self.db.write_upload([self.user_id, os.path.basename(self.csv_path), "{}", "{}",
-                        "{}", "{}", "{}", "{}", "{}", "{}", "{}", "{}", self.warnings],
+       self.upload_id = self.db.new_upload([self.user_id, os.path.basename(self.csv_path), "", ident_file_size],
                        self.cur, self.con,
                        )
        self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)
