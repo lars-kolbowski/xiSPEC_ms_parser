@@ -202,19 +202,22 @@ class TestLoop:
 test_loop = TestLoop()
 
 
-# test_loop.year('2018')
-# test_loop.year('2017')
-# test_loop.year('2016')
-# test_loop.year('2015')
-# test_loop.year('2014')
-# test_loop.year('2013')
-# test_loop.month('2012/12')
+test_loop.year('2018')
+test_loop.year('2017')
+test_loop.year('2016')
+test_loop.year('2015')
+test_loop.year('2014')
+test_loop.year('2013')
+test_loop.month('2012/12')
+
+# test_loop.project("2018/05/PXD005015") # no attribute 'tag', problems is with attributes containing single quote mark
+# test_loop.project("2018/07/PXD007714") # no attribute 'tag', also 2018/09/PXD009640
+# test_loop.project("2018/06/PXD009747") # odd missing file # compare 2018/07/PXD009603
 
 
-test_loop.project("2018/06/PXD010000")
-
+# test_loop.project("2018/04/PXD008493") # massive 2.9Gb mzML, very slow, takes days
+# test_loop.project("2018/06/PXD010000")
 # test_loop.project("2018/11/PXD009966")
-
 # test_loop.project("2018/10/PXD010121") # good one, raw file with MGF accession number
 
 
@@ -269,7 +272,7 @@ test_loop.project("2018/06/PXD010000")
 # test_loop.project("2013/09/PXD000443")
 
 #prob
-# test_loop.project("2014/04/PXD000579")
+#test_loop.project("2014/04/PXD000579") # missing file name
 
 print("mzId count:" + str(test_loop.mzId_count))
 
