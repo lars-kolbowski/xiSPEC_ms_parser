@@ -96,7 +96,7 @@ def write_other_info(upload_id, crosslinks, ident_count, ident_file_size, upload
     try:
         cur.execute("""UPDATE uploads SET contains_crosslinks = (%s), ident_count = (%s), ident_file_size = (%s)
                 , upload_warnings = (%s)
-                 WHERE id = (%s);""", (crosslinks, ident_count, json.dumps(upload_warnings), upload_id))
+                 WHERE id = (%s);""", (crosslinks, ident_count, ident_file_size, json.dumps(upload_warnings), upload_id))
 
         con.commit()
 
