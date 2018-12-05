@@ -116,7 +116,7 @@ class Reader(object):
         seeker = open(self.info['filename'], 'rb')
 
         self.info['offsets'] = None
-        seeker.seek(0, 2) #  todo: what's this for? - cc
+        seeker.seek(0, 2)  # what's this for? - cc
 
         self._build_index_from_scratch(seeker)
 

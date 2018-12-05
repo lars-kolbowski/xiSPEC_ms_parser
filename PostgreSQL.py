@@ -26,26 +26,16 @@ def create_tables(cur, con):
     return True
 
 
-def write_upload(inj_list, cur, con):
+def new_upload(inj_list, cur, con):
     try:
         cur.execute("""
     INSERT INTO uploads (
         user_id,
         filename,
-        peak_list_file_names,
-        spectra_formats,
-        analysis_software,
-        provider,
-        audits,
-        samples,
-        analyses,
-        protocol,
-        bib,
-        upload_time,
-        origin,
-        upload_warnings
+        origin,       
+        upload_time
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s, %s) RETURNING id AS upload_id""", inj_list)
+    VALUES (%s, %s, %s, CURRENT_TIMESTAMP) RETURNING id AS upload_id""", inj_list)
         con.commit()
 
     except psycopg2.Error as e:
@@ -63,6 +53,86 @@ def get_random_id(upload_id, cur, con):
         raise DBException(e.message)
     rows = cur.fetchall()
     return rows[0][0]
+
+
+def write_mzid_info(peak_list_file_names,
+                    spectra_formats,
+                    analysis_software,
+                    provider,
+                    audits,
+                    samples,
+                    analyses,
+                    protocol,
+                    bib,
+                    upload_id, cur, con):
+    try:
+        cur.execute("""UPDATE uploads SET 
+                        peak_list_file_names = (%s),
+                        spectra_formats = (%s),
+                        analysis_software = (%s),
+                        provider = (%s),
+                        audits = (%s),
+                        samples = (%s),
+                        analyses = (%s),
+                        protocol = (%s),
+                        bib = (%s) 
+                        WHERE id = (%s);""",
+                    (peak_list_file_names,
+                    spectra_formats,
+                    analysis_software,
+                    provider,
+                    audits,
+                    samples,
+                    analyses,
+                    protocol,
+                    bib,
+                    upload_id))
+        con.commit()
+    except psycopg2.Error as e:
+        raise DBException(e.message)
+    return True
+
+def write_other_info(upload_id, crosslinks, ident_count, ident_file_size, upload_warnings, cur, con):
+    try:
+        cur.execute("""UPDATE uploads SET contains_crosslinks = (%s), ident_count = (%s), ident_file_size = (%s)
+                , upload_warnings = (%s)
+                 WHERE id = (%s);""", (crosslinks, ident_count, ident_file_size, json.dumps(upload_warnings), upload_id))
+
+        con.commit()
+
+    except psycopg2.Error as e:
+        raise DBException(e.message)
+    return True
+
+
+def write_error(upload_id, error_type, error, cur, con):
+    try:
+        cur.execute("""UPDATE uploads SET error_type = %s
+                    , upload_error = %s
+                    WHERE id = %s;""", (error_type, error, upload_id))
+        con.commit()
+
+        cur.execute("DELETE FROM db_sequences WHERE upload_id = " + str(upload_id) + ";")
+        con.commit()
+
+        cur.execute("DELETE FROM peptides WHERE upload_id = '" + str(upload_id) + "';")
+        con.commit()
+
+        cur.execute("DELETE FROM peptide_evidences WHERE upload_id = " + str(upload_id) + ";")
+        con.commit()
+
+        cur.execute("DELETE FROM modifications WHERE upload_id = " + str(upload_id) + ";")
+        con.commit()
+
+        cur.execute("DELETE FROM spectra WHERE upload_id = " + str(upload_id) + ";")
+        con.commit()
+
+        cur.execute("DELETE FROM spectrum_identifications WHERE upload_id = " + str(upload_id) + ";")
+        con.commit()
+
+    except psycopg2.Error as e:
+        raise DBException(e.message)
+    return True
 
 
 # def write_protocols(inj_list, cur, con):
@@ -95,8 +165,7 @@ def write_meta_data(values, cur, con):
     #         'upload_id',
     #         'sid_meta1_name',
     #         'sid_meta2_name',
-    #         'sid_meta3_name',
-    #         'contains_crosslink'
+    #         'sid_meta3_name'
     #       )
     #       VALUES (?, ?, ?, ?, ?)""",  values)
     #     con.commit()
