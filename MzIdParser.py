@@ -82,6 +82,8 @@ class MzIdParser:
 
         self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)
 
+        self.upload_info_read = False
+
     def initialise_mzid_reader(self):
         if self.mzid_path.endswith('.gz') or self.mzid_path.endswith('.zip'):
             self.mzid_path = MzIdParser.extract_mzid(self.mzid_path)
@@ -105,9 +107,9 @@ class MzIdParser:
         for spectra_data_id in self.mzid_reader._offset_index["SpectraData"].keys():
             sp_datum = self.mzid_reader.get_by_id(spectra_data_id, tag_id='SpectraData', detailed=True)
             ff_acc = sp_datum['FileFormat']['accession']
-            if any([ff_acc == 'MS:1001062', #MGF
-                    ff_acc == 'MS:1000584', #mzML
-                    ff_acc == 'MS:1001466' #ms2
+            if any([ff_acc == 'MS:1001062',  # MGF
+                    ff_acc == 'MS:1000584',  # mzML
+                    ff_acc == 'MS:1001466',  # ms2
                     ]):
                 peak_list_file_names.append(ntpath.basename(sp_datum['location']))
 
@@ -830,7 +832,7 @@ class MzIdParser:
         self.logger.info('write remaining entries to DB - start - done. Time: '
                             + str(round(time() - db_wrap_up_start_time, 2)) + " sec")
 
-        self.ident_count = identification_id;
+        self.ident_count = identification_id
 
         # warnings
         if len(fragment_parsing_error_scans) > 0:
@@ -846,7 +848,7 @@ class MzIdParser:
             })
 
     def upload_info(self):
-        self.upload_info_read = True;
+        self.upload_info_read = True
         upload_info_start_time = time()
         self.logger.info('parse upload info - start')
 
@@ -932,7 +934,7 @@ class MzIdParser:
                                 analyses,
                                 protocols,
                                 bibRefs,
-                                self.upload_id, self.cur, self.con);
+                                self.upload_id, self.cur, self.con)
 
         self.logger.info(
             'getting upload info - done. Time: ' + str(round(time() - upload_info_start_time, 2)) + " sec")
@@ -943,7 +945,7 @@ class MzIdParser:
     def other_info(self):
         ident_file_size = os.path.getsize(self.mzid_path)
         self.db.write_other_info(self.upload_id, self.contains_crosslinks, self.ident_count, ident_file_size,
-                                 self.warnings, self.cur, self.con);
+                                 self.warnings, self.cur, self.con)
 
 
 class xiSPEC_MzIdParser(MzIdParser):

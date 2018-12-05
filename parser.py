@@ -228,39 +228,38 @@ try:
     if re.match(".*\.mzid(\.gz)?$", identifications_fileName):
         logger.info('parsing mzid start')
         identifications_fileType = 'mzid'
+
         if use_postgreSQL:
             id_parser = MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger,
                                               user_id=user_id, peaks_size=peaks_size)
         else:
-            id_parser = MzIdParser.xiSPEC_MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger,
-                                              db_name=database)
-
+            id_parser = MzIdParser.xiSPEC_MzIdParser(identifications_file, upload_folder,
+                                                     peak_list_folder, db, logger, db_name=database)
+        id_parser.initialise_mzid_reader()
     elif identifications_fileName.endswith('.csv'):
         logger.info('parsing csv start')
         identifications_fileType = 'csv'
         if use_postgreSQL:
             if peakList_file:
-                id_parser = FullCsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
-                                            user_id=user_id)
+                id_parser = FullCsvParser(identifications_file, upload_folder, peak_list_folder, db,
+                                          logger, user_id=user_id)
             else:
-                id_parser = NoPeakListsCsvParser(identifications_file, upload_folder, peak_list_folder, db,
-                                                 logger,
-                                                 user_id=user_id)
+                id_parser = NoPeakListsCsvParser(identifications_file, upload_folder,
+                                                 peak_list_folder, db, logger, user_id=user_id)
                 try:
                     id_parser.check_required_columns()
 
                 except CsvParseException as e:
-                    id_parser = LinksOnlyCsvParser(identifications_file, upload_folder, peak_list_folder, db,
-                                                  logger,
-                                                  user_id=user_id)
+                    id_parser = LinksOnlyCsvParser(identifications_file, upload_folder,
+                                                   peak_list_folder, db, logger, user_id=user_id)
                     id_parser.check_required_columns()
 
         else:
             # the old code is still there in CsvParser
             # id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
             #                                 db_name=database)
-            id_parser = xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
-                                            db_name=database)
+            id_parser = xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db,
+                                         logger, db_name=database)
 
     else:
         raise Exception('Unknown identifications file format!')
@@ -278,7 +277,7 @@ try:
 
     returnJSON['identifier'] = str(id_parser.upload_id) + "-" + str(id_parser.random_id)
     returnJSON['modifications'] = id_parser.unknown_mods
-    returnJSON["warnings"] = id_parser.warnings
+    returnJSON['warnings'] = id_parser.warnings
 
     # delete uploaded files after they have been parsed
     if not dev:

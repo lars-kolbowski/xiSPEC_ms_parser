@@ -131,6 +131,14 @@ def create_tables(cur, con):
     return True
 
 
+def new_upload(inj_list, cur, con):
+    return True
+
+
+def get_random_id(upload_id, cur, con):
+    return 0
+
+
 # def write_upload(inj_list, cur, con):
 #     try:
 #         cur.executemany("""
