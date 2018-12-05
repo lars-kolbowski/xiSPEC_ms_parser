@@ -32,11 +32,10 @@ def new_upload(inj_list, cur, con):
     INSERT INTO uploads (
         user_id,
         filename,
-        origin, 
-        ident_file_size,        
+        origin,       
         upload_time
     )
-    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP) RETURNING id AS upload_id""", inj_list)
+    VALUES (%s, %s, %s, CURRENT_TIMESTAMP) RETURNING id AS upload_id""", inj_list)
         con.commit()
 
     except psycopg2.Error as e:
@@ -93,9 +92,9 @@ def write_mzid_info(peak_list_file_names,
         raise DBException(e.message)
     return True
 
-def write_other_info(upload_id, crosslinks, ident_count, upload_warnings, cur, con):
+def write_other_info(upload_id, crosslinks, ident_count, ident_file_size, upload_warnings, cur, con):
     try:
-        cur.execute("""UPDATE uploads SET contains_crosslinks = (%s), ident_count = (%s)
+        cur.execute("""UPDATE uploads SET contains_crosslinks = (%s), ident_count = (%s), ident_file_size = (%s)
                 , upload_warnings = (%s)
                  WHERE id = (%s);""", (crosslinks, ident_count, json.dumps(upload_warnings), upload_id))
 

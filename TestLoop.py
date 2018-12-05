@@ -202,9 +202,19 @@ class TestLoop:
 test_loop = TestLoop()
 
 
-test_loop.year('2018')
-test_loop.year('2017')
-test_loop.year('2016')
+# test_loop.year('2018')
+# test_loop.year('2017')
+# test_loop.year('2016')
+
+test_loop.month('2016/08')
+test_loop.month('2016/07')
+test_loop.month('2016/06')
+test_loop.month('2016/05')
+test_loop.month('2016/04')
+test_loop.month('2016/03')
+test_loop.month('2016/02')
+test_loop.month('2016/01')
+
 test_loop.year('2015')
 test_loop.year('2014')
 test_loop.year('2013')
@@ -214,8 +224,11 @@ test_loop.month('2012/12')
 # test_loop.project("2018/07/PXD007714") # no attribute 'tag', also 2018/09/PXD009640
 # test_loop.project("2018/06/PXD009747") # odd missing file # compare 2018/07/PXD009603
 
+# test_loop.project("2016/08/PXD004741") # zip archive error
 
 # test_loop.project("2018/04/PXD008493") # massive 2.9Gb mzML, very slow, takes days
+
+
 # test_loop.project("2018/06/PXD010000")
 # test_loop.project("2018/11/PXD009966")
 # test_loop.project("2018/10/PXD010121") # good one, raw file with MGF accession number

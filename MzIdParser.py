@@ -30,10 +30,8 @@ class MzIdParser:
         """
 
         self.upload_id = 0
-        if mzid_path.endswith('.gz') or mzid_path.endswith('.zip'):
-            self.mzid_path = MzIdParser.extract_mzid(mzid_path)
-        else:
-            self.mzid_path = mzid_path
+        self.mzid_path = mzid_path
+
         self.peak_list_readers = {}  # peak list readers indexed by spectraData_ref
         self.temp_dir = temp_dir
         if not self.temp_dir.endswith('/'):
@@ -79,12 +77,15 @@ class MzIdParser:
 
         ident_file_size = os.path.getsize(self.mzid_path)
 
-        self.upload_id = self.db.new_upload([user_id, os.path.basename(self.mzid_path), origin, ident_file_size],
+        self.upload_id = self.db.new_upload([user_id, os.path.basename(self.mzid_path), origin],
                                              self.cur, self.con)
 
         self.random_id = self.db.get_random_id(self.upload_id, self.cur, self.con)
 
     def initialise_mzid_reader(self):
+        if self.mzid_path.endswith('.gz') or self.mzid_path.endswith('.zip'):
+            self.mzid_path = MzIdParser.extract_mzid(self.mzid_path)
+
         self.logger.info('reading mzid - start ' + self.mzid_path)
         start_time = time()
         # schema: https://raw.githubusercontent.com/HUPO-PSI/mzIdentML/master/schema/mzIdentML1.2.0.xsd
@@ -195,7 +196,8 @@ class MzIdParser:
 
         start_time = time()
 
-        self.upload_info()  # overridden (empty function) in xiSPEC subclass
+        if not self.upload_info_read:
+            self.upload_info()  # overridden (empty function) in xiSPEC subclass
 
         if self.peak_list_dir:
             self.init_peak_list_readers()
@@ -266,7 +268,11 @@ class MzIdParser:
             in_f = gzip.open(archive, 'rb')
             archive = archive.replace(".gz", "")
             out_f = open(archive, 'wb')
-            out_f.write(in_f.read())
+            try:
+                out_f.write(in_f.read())
+            except IOError:
+                raise StandardError('Zip archive error: %s' % archive)
+
             in_f.close()
             out_f.close()
 
@@ -840,6 +846,7 @@ class MzIdParser:
             })
 
     def upload_info(self):
+        self.upload_info_read = True;
         upload_info_start_time = time()
         self.logger.info('parse upload info - start')
 
@@ -934,8 +941,9 @@ class MzIdParser:
         pass
 
     def other_info(self):
-        self.db.write_other_info(self.upload_id, self.contains_crosslinks, self.ident_count, self.warnings,
-                                 self.cur, self.con);
+        ident_file_size = os.path.getsize(self.mzid_path)
+        self.db.write_other_info(self.upload_id, self.contains_crosslinks, self.ident_count, ident_file_size,
+                                 self.warnings, self.cur, self.con);
 
 
 class xiSPEC_MzIdParser(MzIdParser):
