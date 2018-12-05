@@ -210,8 +210,8 @@ class MzIdParser:
         self.map_spectra_data_to_protocol()
         self.main_loop()
 
-        meta_data = [self.upload_id, -1, -1, -1]
-        self.db.write_meta_data(meta_data, self.cur, self.con)
+        # meta_data = [self.upload_id, -1, -1, -1, -1]
+        # self.db.write_meta_data(meta_data, self.cur, self.con)
 
         self.fill_in_missing_scores()  # empty here, overridden in xiSPEC subclass to do stuff
 
