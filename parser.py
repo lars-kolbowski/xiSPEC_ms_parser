@@ -17,7 +17,8 @@ identifications_file, peakList_file, identifier = False, False, False
 try:
     opts, args = getopt.getopt(sys.argv[1:], "fi:p:s:u:", ["ftp", "postgresql"])
 except getopt.GetoptError:
-    print('parser.py (-f) -i <identifications file> -p <peak list file> -s <session identifier> (-u <user_id>)')
+    print('parser.py (-f) -i <identifications file> -p <peak list file> -s <session identifier>'
+          ' (-u <user_id>)')
     sys.exit(2)
 
 for o, a in opts:
@@ -87,9 +88,7 @@ try:
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s %(levelname)s %(name)s %(message)s')
 
-
     logger = logging.getLogger(__name__)
-
 
 
 except Exception as e:
@@ -112,11 +111,11 @@ try:
     unimodPath = 'obo/unimod.obo'
 
     if dev:
-        # development testfiles
-        #identifications_file = "/home/col/Downloads/TEST/PolII_XiVersion1.6.742_PSM_xiFDR1.1.27.csv"
-        #identifications_file = "/home/col/mzid_tests/SIM-XL_example.mzid"
-        identifications_file = "/var/www/html/xiUI_public/CLMS-model/csv_data/NPC.csv"
-        #peakList_file = "/home/col/test2/Rappsilber_CLMS_PolII_mgfs.zip"
+        # development test files
+        identifications_file = "/home/col/Downloads/TEST/PolII_XiVersion1.6.742_PSM_xiFDR1.1.27.csv"
+        # identifications_file = "/home/col/mzid_tests/SIM-XL_example.mzid"
+        # identifications_file = "/var/www/html/xiUI_public/CLMS-model/csv_data/NPC.csv"
+        peakList_file = "/home/col/test2/Rappsilber_CLMS_PolII_mgfs.zip"
 
         database = 'test.db'
         upload_folder = "/".join(identifications_file.split("/")[:-1]) + "/"
@@ -204,9 +203,9 @@ try:
             try:
                 unzipStartTime = time()
                 logger.info('unzipping start')
-                # peakList_fileList = peakListParser.PeakListParser.unzip_peak_lists(peakList_file)
                 peak_list_folder = PeakListParser.PeakListParser.unzip_peak_lists(peakList_file)
-                logger.info('unzipping done. Time: ' + str(round(time() - unzipStartTime, 2)) + " sec")
+                logger.info('unzipping done. Time: {} sec'.format(
+                    round(time() - unzipStartTime, 2)))
             except IOError as e:
                 logger.error(e.args[0])
                 returnJSON['errors'].append({
@@ -231,7 +230,7 @@ try:
 
         if use_postgreSQL:
             id_parser = MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder,
-                                              db, logger, user_id=user_id, peaks_size=peaks_size)
+                                              db, logger, user_id=user_id)
         else:
             id_parser = MzIdParser.xiSPEC_MzIdParser(identifications_file, upload_folder,
                                                      peak_list_folder, db, logger, db_name=database)
@@ -255,9 +254,6 @@ try:
                     id_parser.check_required_columns()
 
         else:
-            # the old code is still there in CsvParser
-            # id_parser = CsvParser.xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db, logger,
-            #                                 db_name=database)
             id_parser = xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db,
                                          logger, db_name=database)
 
@@ -291,7 +287,8 @@ except Exception as e:
 
 
 if len(returnJSON["errors"]) > 0 or len(returnJSON["warnings"]) > 0:
-    returnJSON['response'] = "%i warning(s) and %i error(s) occurred!" % (len(returnJSON['warnings']), len(returnJSON['errors']))
+    returnJSON['response'] = "{} warning(s) and {} error(s) occurred!".format(
+        len(returnJSON['warnings']), len(returnJSON['errors']))
     for warn in returnJSON['warnings']:
         logger.error(warn)
     for err in returnJSON['errors']:
