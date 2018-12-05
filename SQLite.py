@@ -131,58 +131,15 @@ def create_tables(cur, con):
     return True
 
 
-def new_upload(inj_list, cur, con):
+def new_upload(*args):
     return True
 
 
-def get_random_id(upload_id, cur, con):
+def get_random_id(*args):
     return 0
 
 
-# def write_upload(inj_list, cur, con):
-#     try:
-#         cur.executemany("""
-#     INSERT INTO uploads (
-#         'user_id',
-#         'filename',
-#         'peak_list_file_names',
-#         'analysis_software',
-#         'provider',
-#         'audits',
-#         'samples',
-#         'analyses',
-#         'protocol',
-#         'bib',
-#         'upload_time',
-#         'upload_loc'
-#     )
-#     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)""", inj_list)
-#         con.commit()
-#
-#     except sqlite3.Error as e:
-#         raise DBException(e.message)
-#
-#     return True
-
-
-# def write_protocols(inj_list, cur, con):
-#
-#     try:
-#         cur.executemany("""
-#     INSERT INTO protocols (
-#         'id',
-#         'upload_id',
-#         'protocol'
-#     )
-#     VALUES (?, ?, ?)""", inj_list)
-#         con.commit()
-#
-#     except sqlite3.Error as e:
-#         raise DBException(e.message)
-#
-#     return True
-
-def write_db_sequences(inj_list, cur, con):
+def write_db_sequences(*args):
 
     # try:
     #     cur.executemany("""

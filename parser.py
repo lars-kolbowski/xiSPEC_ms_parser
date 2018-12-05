@@ -230,8 +230,8 @@ try:
         identifications_fileType = 'mzid'
 
         if use_postgreSQL:
-            id_parser = MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder, db, logger,
-                                              user_id=user_id, peaks_size=peaks_size)
+            id_parser = MzIdParser.MzIdParser(identifications_file, upload_folder, peak_list_folder,
+                                              db, logger, user_id=user_id, peaks_size=peaks_size)
         else:
             id_parser = MzIdParser.xiSPEC_MzIdParser(identifications_file, upload_folder,
                                                      peak_list_folder, db, logger, db_name=database)

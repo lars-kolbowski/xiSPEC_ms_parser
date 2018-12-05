@@ -600,7 +600,6 @@ class MzIdParser:
         #     seq_id_to_acc_map [sequence["id"]] = sequence["accession"]
         #     self.mzid_reader.reset()
 
-
         for db_id in self.mzid_reader._offset_index["DBSequence"].keys():
             db_sequence = self.mzid_reader.get_by_id(db_id, tag_id='DBSequence', detailed=True)
             seq_id_to_acc_map[db_sequence["id"]] = db_sequence["accession"]
@@ -623,10 +622,10 @@ class MzIdParser:
             peptide_ref = peptide_evidence["peptide_ref"]     # debug use mzid peptide['id'],
 
             data = [
-                peptide_ref,       #' peptide_ref',
-                peptide_evidence["dBSequence_ref"],                             # 'dbsequence_ref',
-                "ACCESSION", #db_seq_ref_prot_map[peptide_evidence["dBSequence_ref"]],        #'protein_accession',
-                pep_start,                                                      # 'pep_start',
+                peptide_ref,                                                 # ' peptide_ref',
+                peptide_evidence["dBSequence_ref"],                          # 'dbsequence_ref',
+                seq_id_to_acc_map[peptide_evidence["dBSequence_ref"]],       # 'protein_accession',
+                pep_start,                                                   # 'pep_start',
                 is_decoy,       # 'is_decoy',
                 self.upload_id  # 'upload_id'
             ]
