@@ -1,5 +1,6 @@
-from FullCsvParser import FullCsvParser
+from csv_parser.FullCsvParser import FullCsvParser
 # from AbstractCsvParser import CsvParseException
+
 
 class xiSPEC_CsvParser(FullCsvParser):
     required_cols = [

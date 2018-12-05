@@ -1,5 +1,3 @@
-import re
-import json
 import sys
 import numpy as np
 from time import time
@@ -8,6 +6,7 @@ from PeakListParser import PeakListParser
 import os
 #import pyteomics.fasta as py_fasta
 import SimpleFASTA
+
 
 class CsvParseException(Exception):
     pass

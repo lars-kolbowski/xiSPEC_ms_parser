@@ -64,11 +64,11 @@ try:
     # import local files
     import MzIdParser
     # import CsvParser
-    from AbstractCsvParser import CsvParseException
-    from xiSPEC_CsvParser import xiSPEC_CsvParser
-    from FullCsvParser import FullCsvParser
-    from NoPeakListsCsvParser import NoPeakListsCsvParser
-    from LinksOnlyCsvParser import LinksOnlyCsvParser
+    from csv_parser.AbstractCsvParser import CsvParseException
+    from csv_parser.xiSPEC_CsvParser import xiSPEC_CsvParser
+    from csv_parser.FullCsvParser import FullCsvParser
+    from csv_parser.NoPeakListsCsvParser import NoPeakListsCsvParser
+    from csv_parser.LinksOnlyCsvParser import LinksOnlyCsvParser
     import PeakListParser
 
     # logging
