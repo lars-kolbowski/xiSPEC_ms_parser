@@ -256,6 +256,7 @@ try:
         else:
             id_parser = xiSPEC_CsvParser(identifications_file, upload_folder, peak_list_folder, db,
                                          logger, db_name=database)
+            id_parser.check_required_columns()
 
     else:
         raise Exception('Unknown identifications file format!')
