@@ -1,5 +1,8 @@
 # xiSPEC_ms_parser
 
+
+<b>This is no longer updated! Development is now happening on https://github.com/Rappsilber-Laboratory/xiSPEC_ms_parser</b>
+
 Back-end parser for xiSPEC mass spectrometry visualization tool.
 
 
