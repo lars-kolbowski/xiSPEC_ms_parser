@@ -7,7 +7,7 @@ idna==2.6
 ipython-genutils==0.2.0
 jsonschema==2.6.0
 jupyter-core==4.4.0
-lxml==4.6.5
+lxml==4.9.1
 nbformat==4.4.0
 numpy==1.21.0
 pandas==0.21.0
